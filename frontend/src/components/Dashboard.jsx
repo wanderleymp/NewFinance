@@ -15,6 +15,7 @@ import {
   Button,
   Divider,
   Avatar,
+  ListItemButton,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -31,8 +32,10 @@ import {
   Add as AddIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import Logo from './Logo';
+import { useSnackbar } from 'notistack';
 
 const drawerWidth = 280;
 
@@ -41,9 +44,16 @@ const Dashboard = ({ darkMode, setDarkMode }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { enqueueSnackbar } = useSnackbar();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    enqueueSnackbar('Logout realizado com sucesso!', { variant: 'success' });
+    navigate('/login');
   };
 
   const menuItems = [
@@ -59,72 +69,79 @@ const Dashboard = ({ darkMode, setDarkMode }) => {
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
-        <Logo size="medium" />
-      </Box>
-      <Divider sx={{ mx: 2 }} />
-      <List sx={{ flex: 1, px: 2 }}>
+      <Toolbar sx={{ px: 3 }}>
+        <Logo />
+      </Toolbar>
+      <Divider />
+      <List sx={{ flex: 1 }}>
         {menuItems.map((item) => (
-          <ListItem
-            component="div"
-            onClick={() => navigate(item.path)}
-            sx={{
-              borderRadius: 2,
-              mb: 1,
-              bgcolor: location.pathname === item.path ? 
-                alpha(theme.palette.primary.main, 0.08) : 
-                'transparent',
-              color: location.pathname === item.path ?
-                theme.palette.primary.main :
-                theme.palette.text.primary,
-              '&:hover': {
-                bgcolor: location.pathname === item.path ?
-                  alpha(theme.palette.primary.main, 0.12) :
-                  alpha(theme.palette.primary.main, 0.04),
-                color: theme.palette.primary.main,
-                '& .MuiListItemIcon-root': {
-                  color: theme.palette.primary.main,
-                },
-              },
-              transition: 'all 0.2s ease-in-out',
-              cursor: 'pointer',
+          <ListItem 
+            key={item.text} 
+            disablePadding 
+            onClick={() => {
+              navigate(item.path);
+              setMobileOpen(false);
             }}
-            key={item.text}
           >
-            <ListItemIcon
+            <ListItemButton
+              selected={location.pathname === item.path}
               sx={{
-                minWidth: 40,
-                color: location.pathname === item.path ?
-                  theme.palette.primary.main :
-                  'inherit',
-                transition: 'color 0.2s ease-in-out',
+                py: 1.5,
+                mx: 1,
+                borderRadius: 2,
+                '&.Mui-selected': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.15),
+                  },
+                },
               }}
             >
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText
-              primary={item.text}
-              primaryTypographyProps={{
-                fontWeight: location.pathname === item.path ? 600 : 400,
-              }}
-            />
+              <ListItemIcon sx={{ minWidth: 45 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
           </ListItem>
         ))}
       </List>
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{
-            width: '100%',
-            py: 1,
-            mb: 2,
-            fontWeight: 600,
-          }}
-        >
-          Nova Transação
-        </Button>
-      </Box>
+      <Divider />
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => setDarkMode(!darkMode)}
+            sx={{
+              py: 1.5,
+              mx: 1,
+              borderRadius: 2,
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 45 }}>
+              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            </ListItemIcon>
+            <ListItemText primary={darkMode ? 'Modo Claro' : 'Modo Escuro'} />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              py: 1.5,
+              mx: 1,
+              borderRadius: 2,
+              color: theme.palette.error.main,
+              '&:hover': {
+                bgcolor: alpha(theme.palette.error.main, 0.1),
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 45, color: 'inherit' }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Sair" />
+          </ListItemButton>
+        </ListItem>
+      </List>
     </Box>
   );
 
@@ -162,14 +179,6 @@ const Dashboard = ({ darkMode, setDarkMode }) => {
                 Bem-vindo de volta
               </Typography>
             </Box>
-
-            <IconButton
-              onClick={() => setDarkMode(!darkMode)}
-              color="inherit"
-              sx={{ ml: 1 }}
-            >
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
 
             <Avatar
               sx={{

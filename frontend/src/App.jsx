@@ -3,7 +3,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
 import { SnackbarProvider } from 'notistack'
 import { lightTheme, darkTheme } from './theme/theme'
-import Router from './routes'
+import AppRoutes from './routes'
 import '@fontsource/inter/300.css'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
@@ -25,7 +25,7 @@ function App() {
           }}
           autoHideDuration={5000}
         >
-          <Router darkMode={darkMode} setDarkMode={setDarkMode} />
+          <AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />
         </SnackbarProvider>
       </ThemeProvider>
     </BrowserRouter>

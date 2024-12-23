@@ -3,6 +3,7 @@ import Dashboard from './components/Dashboard';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Movements from './pages/Movements';
+import NewMovement from './pages/NewMovement';
 import Receivables from './pages/Receivables';
 
 const PrivateRoute = ({ children }) => {
@@ -22,6 +23,7 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Home />} />
         <Route path="movements" element={<Movements />} />
+        <Route path="movements/new" element={<NewMovement />} />
         <Route path="receivables" element={<Receivables />} />
       </Route>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

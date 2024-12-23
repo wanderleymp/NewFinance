@@ -1,53 +1,131 @@
 import axios from 'axios';
 import { format } from 'date-fns';
+import { jwtDecode } from "jwt-decode";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
 
-// Interceptor para adicionar o token em todas as requisições
-api.interceptors.request.use((config) => {
+// Função para verificar se o token está próximo de expirar (menos de 5 minutos)
+const isTokenExpiringSoon = (token) => {
+  if (!token) return true;
+  
+  try {
+    const decoded = jwtDecode(token);
+    const expirationTime = decoded.exp * 1000; // Converter para milissegundos
+    const currentTime = Date.now();
+    const timeUntilExpiration = expirationTime - currentTime;
+    
+    return timeUntilExpiration < 5 * 60 * 1000; // 5 minutos em milissegundos
+  } catch (error) {
+    return true;
+  }
+};
+
+// Variável para controlar renovação em andamento
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Interceptor para adicionar o token e verificar expiração
+api.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('accessToken');
+  
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    // Verificar se o token está próximo de expirar
+    if (isTokenExpiringSoon(token) && !config.url.includes('/auth/refresh-token')) {
+      try {
+        const newToken = await refreshTokenIfNeeded();
+        config.headers.Authorization = `Bearer ${newToken}`;
+      } catch (error) {
+        // Se falhar em renovar o token, redirecionar para login
+        handleAuthError();
+        return Promise.reject(error);
+      }
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
 
-// Interceptor para tratar erros
+// Função para renovar o token
+const refreshTokenIfNeeded = async () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+  
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+  
+  isRefreshing = true;
+  
+  try {
+    const response = await api.post('/auth/refresh-token', { refreshToken });
+    const { accessToken, newRefreshToken } = response.data;
+    
+    localStorage.setItem('accessToken', accessToken);
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    }
+    
+    isRefreshing = false;
+    processQueue(null, accessToken);
+    return accessToken;
+  } catch (error) {
+    isRefreshing = false;
+    processQueue(error, null);
+    throw error;
+  }
+};
+
+// Função para lidar com erros de autenticação
+const handleAuthError = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  
+  // Usar replace state para evitar voltar ao estado anterior após o login
+  window.history.replaceState(null, '', '/login');
+  window.location.reload();
+};
+
+// Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    let errorMessage = 'Ocorreu um erro inesperado';
-
-    if (!error.response) {
-      errorMessage = 'Erro de conexão com o servidor. Verifique sua conexão ou tente novamente mais tarde.';
-    } else {
-      switch (error.response.status) {
-        case 400:
-          errorMessage = error.response.data.message || 'Dados inválidos';
-          break;
-        case 401:
-          errorMessage = 'Sessão expirada. Por favor, faça login novamente';
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-          break;
-        case 403:
-          errorMessage = 'Acesso negado';
-          break;
-        case 404:
-          errorMessage = 'Recurso não encontrado';
-          break;
-        case 500:
-          errorMessage = 'Erro interno do servidor';
-          break;
-        default:
-          errorMessage = error.response.data.message || 'Ocorreu um erro inesperado';
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const newToken = await refreshTokenIfNeeded();
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        handleAuthError();
+        return Promise.reject(refreshError);
       }
     }
-
-    return Promise.reject({ message: errorMessage, originalError: error });
+    
+    return Promise.reject(error);
   }
 );
 
@@ -56,6 +134,7 @@ export const authService = {
     try {
       const response = await api.post('/auth/login', { username, password });
       localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       return response.data;
     } catch (error) {
@@ -65,6 +144,7 @@ export const authService = {
 
   async logout() {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
   },
 };
@@ -168,6 +248,65 @@ export const installmentsService = {
       throw error;
     }
   },
+};
+
+export const personsService = {
+  async search(query = '') {
+    try {
+      const response = await api.get('/persons', {
+        params: {
+          search: query,
+          limit: 10,
+          page: 1
+        }
+      });
+      return {
+        items: response.data.data,
+        pagination: response.data.pagination
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+export const itemsService = {
+  async search(query = '') {
+    try {
+      console.log('Buscando itens com query:', query);
+      const response = await api.get('/items', {
+        params: {
+          ...(query ? { search: query } : {}),
+          limit: 10,
+          page: 1
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      console.log('Resposta da API de itens:', response.data);
+      const items = (response.data.data || []).map(item => ({
+        ...item,
+        id: item.item_id,
+        price: parseFloat(item.price)
+      }));
+      console.log('Items processados:', items);
+      return {
+        items,
+        pagination: response.data.pagination
+      };
+    } catch (error) {
+      console.error('Erro ao buscar itens:', error.response || error);
+      // Se o erro for 500, retornar lista vazia em vez de propagar o erro
+      if (error.response?.status === 500) {
+        return { items: [], pagination: { total: 0, page: 1, limit: 10 } };
+      }
+      throw {
+        message: error.response?.data?.message || 'Erro ao buscar itens',
+        originalError: error
+      };
+    }
+  }
 };
 
 export default api;

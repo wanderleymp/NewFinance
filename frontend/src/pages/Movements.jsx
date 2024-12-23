@@ -59,6 +59,7 @@ import { ptBR } from 'date-fns/locale';
 import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
 import MovementForm from '../components/MovementForm';
+import { useNavigate } from 'react-router-dom';
 
 const MovementCard = ({ movement }) => {
   const [notificationAnchor, setNotificationAnchor] = useState(null);
@@ -596,6 +597,7 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
 };
 
 const Movements = () => {
+  const navigate = useNavigate();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -738,7 +740,7 @@ const Movements = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => setFormOpen(true)}
+          onClick={() => navigate('/movements/new')}
           sx={{
             fontWeight: 600,
             '&:hover': {
