@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { format } from 'date-fns';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -69,27 +70,32 @@ export const authService = {
 };
 
 export const movementsService = {
-  async list(page = 1, limit = 10) {
+  async list(params = {}) {
     try {
-      const response = await api.get('/movements', {
-        params: { page, limit },
+      // Remover parâmetros vazios
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
+      );
+
+      // Log dos parâmetros enviados
+      console.log('Sending params to API:', cleanParams);
+
+      const response = await api.get('/movements', { 
+        params: cleanParams,
+        // Aumentar o timeout para requests com includes
+        timeout: cleanParams.include ? 10000 : 5000
       });
       
-      // Log para debug
+      // Log da resposta completa
       console.log('Raw API response:', response);
       
-      // Garantir que temos uma estrutura consistente
-      const data = {
-        items: response.data.data || response.data.items || response.data || [],
-        total: response.data.total || response.data.pagination?.total || response.data.length || 0,
-        page: page,
-        limit: limit
+      return {
+        items: response.data.data || [],
+        total: response.data.pagination?.total || 0,
+        page: response.data.pagination?.currentPage || 1,
+        limit: response.data.pagination?.limit || 10,
+        totalPages: response.data.pagination?.totalPages || 1
       };
-      
-      // Log dos dados processados
-      console.log('Processed data:', data);
-      
-      return data;
     } catch (error) {
       console.error('API Error:', error);
       throw error;
@@ -119,6 +125,46 @@ export const movementsService = {
       const response = await api.delete(`/movements/${id}`);
       return response.data;
     } catch (error) {
+      throw error;
+    }
+  },
+};
+
+export const installmentsService = {
+  async list(params = {}) {
+    try {
+      // Formatar as datas se necessário
+      if (params.startDate) {
+        params.start_date = format(new Date(params.startDate), 'yyyy-MM-dd');
+        delete params.startDate;
+      }
+      if (params.endDate) {
+        params.end_date = format(new Date(params.endDate), 'yyyy-MM-dd');
+        delete params.endDate;
+      }
+
+      // Remover parâmetros vazios
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
+      );
+
+      // Log dos parâmetros enviados
+      console.log('Sending params to API:', cleanParams);
+
+      const response = await api.get('/installments', { params: cleanParams });
+      
+      // Log da resposta completa
+      console.log('Raw API response:', response);
+      
+      return {
+        items: response.data.data || [],
+        total: response.data.pagination?.total || 0,
+        page: response.data.pagination?.currentPage || 1,
+        limit: response.data.pagination?.limit || 10,
+        totalPages: response.data.pagination?.totalPages || 1
+      };
+    } catch (error) {
+      console.error('API Error:', error);
       throw error;
     }
   },

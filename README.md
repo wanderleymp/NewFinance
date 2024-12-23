@@ -79,6 +79,54 @@ frontend/
   └── package.json
 ```
 
+### Solução de Problemas e Boas Práticas
+
+#### Problemas Comuns e Soluções
+
+1. **Componentes Material-UI não definidos**
+   - Sempre declare explicitamente todos os imports necessários
+   - Evite depender de imports indiretos
+   - Mantenha os imports organizados por categoria (UI components, icons, etc)
+
+2. **Problemas com Cache e Hot Reload**
+   - Se a página começar a se comportar de forma estranha:
+     - Faça um hard refresh (Ctrl+F5)
+     - Limpe o cache do navegador
+     - Reinicie o servidor de desenvolvimento
+
+3. **Inconsistências no Hot Module Replacement (HMR)**
+   - O HMR do Vite pode causar estados inconsistentes
+   - Se notar comportamentos estranhos após alterações:
+     - Pare o servidor (Ctrl+C)
+     - Delete a pasta node_modules/.vite
+     - Reinicie o servidor (npm run dev)
+
+#### Boas Práticas de Desenvolvimento
+
+1. **Imports e Dependências**
+   - Declare todos os imports explicitamente no início do arquivo
+   - Agrupe imports por categoria (React, Material-UI, utils, etc)
+   - Evite imports dinâmicos desnecessários
+   - Mantenha as dependências atualizadas regularmente
+
+2. **Componentes React**
+   - Use componentes funcionais com hooks
+   - Mantenha os componentes pequenos e focados
+   - Extraia lógica complexa para hooks customizados
+   - Documente props e comportamentos importantes
+
+3. **Material-UI**
+   - Use o sistema de tema para customizações
+   - Prefira componentes nativos do Material-UI
+   - Mantenha consistência no uso de variantes e props
+   - Use o sx prop para estilos específicos de componente
+
+4. **Performance**
+   - Use React.memo() para componentes que recebem props estáveis
+   - Evite re-renders desnecessários
+   - Otimize imagens e assets
+   - Implemente lazy loading quando apropriado
+
 ### Versionamento
 
 Utilizamos [Semantic Versioning](https://semver.org/) para o versionamento.

@@ -20,7 +20,9 @@ import { alpha } from '@mui/material/styles';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
-  AccountBalance as AccountBalanceIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+  AttachMoney as AttachMoneyIcon,
+  People as PeopleIcon,
   CreditCard as CreditCardIcon,
   Receipt as ReceiptIcon,
   TrendingUp as TrendingUpIcon,
@@ -47,7 +49,8 @@ const Dashboard = ({ darkMode, setDarkMode }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Movimentos', icon: <ReceiptIcon />, path: '/movements' },
-    { text: 'Contas', icon: <AccountBalanceIcon />, path: '/accounts' },
+    { text: 'Contas a Receber', icon: <AttachMoneyIcon />, path: '/receivables' },
+    { text: 'Contas', icon: <AccountBalanceWalletIcon />, path: '/accounts' },
     { text: 'Cartões', icon: <CreditCardIcon />, path: '/cards' },
     { text: 'Investimentos', icon: <TrendingUpIcon />, path: '/investments' },
     { text: 'Relatórios', icon: <PieChartIcon />, path: '/reports' },
