@@ -58,6 +58,7 @@ import { endOfDay, format, parseISO, startOfDay, subDays, addDays, isValid } fro
 import { ptBR } from 'date-fns/locale';
 import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
+import MovementForm from '../components/MovementForm';
 
 const MovementCard = ({ movement }) => {
   const [notificationAnchor, setNotificationAnchor] = useState(null);
@@ -249,7 +250,8 @@ const MovementRow = ({ movement }) => {
     payment.installments?.forEach((inst) => {
       if (inst.boletos?.length > 0) {
         acc.total += inst.boletos.length;
-        if (!acc.firstBoleto && inst.boletos[0].boleto_number) {
+        // Pegar o primeiro boleto que tenha URL
+        if (!acc.firstBoleto && inst.boletos[0].url) {
           acc.firstBoleto = inst.boletos[0];
         }
       }
@@ -268,9 +270,8 @@ const MovementRow = ({ movement }) => {
 
   const handleBoletoClick = (event) => {
     event.stopPropagation();
-    if (boletosInfo.firstBoleto) {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      window.open(`${apiUrl}/boletos/${boletosInfo.firstBoleto.boleto_id}/pdf`, '_blank');
+    if (boletosInfo.firstBoleto?.url) {
+      window.open(boletosInfo.firstBoleto.url, '_blank');
     }
   };
 
@@ -386,12 +387,12 @@ const MovementRow = ({ movement }) => {
                                     <span>
                                       <IconButton
                                         size="small"
-                                        disabled={!boleto.boleto_number}
-                                        onClick={() => window.open(`/api/boletos/${boleto.boleto_id}/pdf`, '_blank')}
+                                        disabled={!boleto.url}
+                                        onClick={() => boleto.url && window.open(boleto.url, '_blank')}
                                       >
                                         <ReceiptIcon 
                                           fontSize="small"
-                                          color={boleto.boleto_number ? 'primary' : 'disabled'} 
+                                          color={boleto.url ? 'primary' : 'disabled'} 
                                         />
                                       </IconButton>
                                     </span>
@@ -601,6 +602,7 @@ const Movements = () => {
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const { enqueueSnackbar } = useSnackbar();
+  const [formOpen, setFormOpen] = useState(false);
   
   // Estados para filtros
   const [viewMode, setViewMode] = useState('grid');
@@ -718,6 +720,14 @@ const Movements = () => {
     setDateRange([start, end]);
   };
 
+  const handleNewMovement = (formData) => {
+    console.log('Nova movimentação:', formData);
+    // TODO: Implementar a criação da movimentação
+    setFormOpen(false);
+    // Após criar, recarregar a lista
+    fetchMovements();
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Header com título e botão de nova movimentação */}
@@ -728,6 +738,7 @@ const Movements = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
+          onClick={() => setFormOpen(true)}
           sx={{
             fontWeight: 600,
             '&:hover': {
@@ -739,6 +750,12 @@ const Movements = () => {
           Nova Movimentação
         </Button>
       </Box>
+
+      <MovementForm 
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSubmit={handleNewMovement}
+      />
 
       {/* Barra de filtros */}
       <Box sx={{ mb: 3 }}>
