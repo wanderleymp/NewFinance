@@ -89,6 +89,26 @@ Utilizamos [Semantic Versioning](https://semver.org/) para o versionamento.
   - Z: Patch version (correções de bugs)
   - W: Build version (builds específicos)
 
+### Roadmap
+
+#### Segurança e DevOps
+- [ ] **Aprimoramentos de Segurança GitHub**
+  - [ ] Configurar proteção da branch main
+  - [ ] Implementar revisão obrigatória de PRs
+  - [ ] Configurar status checks obrigatórios
+  - [ ] Adicionar CODEOWNERS
+  - [ ] Configurar Dependabot
+  - [ ] Implementar análise de segurança com CodeQL
+
+- [ ] **CI/CD Enhancements**
+  - [ ] Configurar deploy automático
+  - [ ] Adicionar testes automatizados
+  - [ ] Implementar staging environment
+  - [ ] Configurar monitoramento de performance
+  - [ ] Adicionar relatórios de cobertura de código
+
+#### Funcionalidades Futuras
+
 ### Contribuição
 
 1. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)

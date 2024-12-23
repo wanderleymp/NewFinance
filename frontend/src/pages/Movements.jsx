@@ -40,6 +40,9 @@ import {
   DateRange as DateRangeIcon,
   NavigateBefore as BeforeIcon,
   NavigateNext as NextIcon,
+  NotificationsActive as NotificationsIcon,
+  WhatsApp as WhatsAppIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
@@ -61,14 +64,43 @@ import {
 import { ptBR } from 'date-fns/locale';
 
 const MovementCard = ({ movement }) => {
+  const [notificationAnchor, setNotificationAnchor] = useState(null);
   const status = movement.status || movement.status_name || 'draft';
+  const statusId = movement.movement_status_id || movement.status_id || 1;
   const description = movement.description || 'Sem descrição';
   const amount = movement.amount || movement.total_amount || 0;
   const date = movement.date || movement.movement_date || new Date();
   const customer = movement.customer || movement.person_name || 'Cliente não especificado';
   const type = movement.type || movement.type_name || 'Não especificado';
   
-  const isConfirmed = status.toLowerCase().includes('confirm');
+  const isConfirmed = statusId === 2;
+  const canNotify = isConfirmed; // Agora só mostra o botão se estiver confirmado
+
+  const handleNotificationClick = (event) => {
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+  };
+
+  const handleEmailNotification = () => {
+    // TODO: Implementar envio por email
+    console.log('Enviando notificação por email...');
+    handleNotificationClose();
+  };
+
+  const handleWhatsAppNotification = () => {
+    // TODO: Implementar envio por WhatsApp
+    console.log('Enviando notificação por WhatsApp...');
+    handleNotificationClose();
+  };
+
+  const handleAllNotifications = () => {
+    // TODO: Implementar envio por todos os canais
+    console.log('Enviando notificação por todos os canais...');
+    handleNotificationClose();
+  };
   
   return (
     <Card
@@ -97,7 +129,7 @@ const MovementCard = ({ movement }) => {
               variant="outlined"
             />
             <Chip
-              label={isConfirmed ? 'Confirmado' : 'Rascunho'}
+              label={isConfirmed ? 'Confirmado' : status}
               color={isConfirmed ? 'success' : 'default'}
               size="small"
             />
@@ -136,82 +168,182 @@ const MovementCard = ({ movement }) => {
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        {canNotify && (
+          <>
+            <Tooltip title="Enviar Notificação">
+              <IconButton 
+                size="small" 
+                color="primary"
+                onClick={handleNotificationClick}
+              >
+                <NotificationsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={notificationAnchor}
+              open={Boolean(notificationAnchor)}
+              onClose={handleNotificationClose}
+            >
+              <MenuItem onClick={handleAllNotifications}>
+                <NotificationsIcon sx={{ mr: 1 }} /> Enviar por Todos
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleEmailNotification}>
+                <EmailIcon sx={{ mr: 1 }} /> Enviar por Email
+              </MenuItem>
+              <MenuItem onClick={handleWhatsAppNotification}>
+                <WhatsAppIcon sx={{ mr: 1 }} /> Enviar por WhatsApp
+              </MenuItem>
+            </Menu>
+          </>
+        )}
       </Box>
     </Card>
   );
 };
 
-const MovementTable = ({ movements }) => (
-  <TableContainer component={Paper} sx={{ mt: 2 }}>
-    <Table>
-      <TableHead>
-        <TableRow>
-          <TableCell>Data</TableCell>
-          <TableCell>Descrição</TableCell>
-          <TableCell>Cliente</TableCell>
-          <TableCell>Tipo</TableCell>
-          <TableCell>Status</TableCell>
-          <TableCell align="right">Valor</TableCell>
-          <TableCell align="right">Ações</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {movements.map((movement) => {
-          const status = movement.status || movement.status_name || 'draft';
-          const isConfirmed = status.toLowerCase().includes('confirm');
-          
-          return (
-            <TableRow key={movement.id}>
-              <TableCell>
-                {format(new Date(movement.date || movement.movement_date), 'dd/MM/yyyy')}
-              </TableCell>
-              <TableCell>{movement.description}</TableCell>
-              <TableCell>{movement.customer || movement.person_name}</TableCell>
-              <TableCell>
-                <Chip
-                  label={movement.type || movement.type_name}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={isConfirmed ? 'Confirmado' : 'Rascunho'}
-                  color={isConfirmed ? 'success' : 'default'}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell align="right">
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL'
-                }).format(parseFloat(movement.amount || movement.total_amount))}
-              </TableCell>
-              <TableCell align="right">
-                <Tooltip title="Visualizar">
-                  <IconButton size="small">
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Editar">
-                  <IconButton size="small">
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Excluir">
-                  <IconButton size="small" color="error">
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
+const MovementTable = ({ movements }) => {
+  const [notificationAnchor, setNotificationAnchor] = useState(null);
+  const [selectedMovement, setSelectedMovement] = useState(null);
+
+  const handleNotificationClick = (event, movement) => {
+    setSelectedMovement(movement);
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+    setSelectedMovement(null);
+  };
+
+  const handleEmailNotification = () => {
+    // TODO: Implementar envio por email
+    console.log('Enviando notificação por email...', selectedMovement);
+    handleNotificationClose();
+  };
+
+  const handleWhatsAppNotification = () => {
+    // TODO: Implementar envio por WhatsApp
+    console.log('Enviando notificação por WhatsApp...', selectedMovement);
+    handleNotificationClose();
+  };
+
+  const handleAllNotifications = () => {
+    // TODO: Implementar envio por todos os canais
+    console.log('Enviando notificação por todos os canais...', selectedMovement);
+    handleNotificationClose();
+  };
+
+  return (
+    <>
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Data</TableCell>
+              <TableCell>Descrição</TableCell>
+              <TableCell>Cliente</TableCell>
+              <TableCell>Tipo</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Valor</TableCell>
+              <TableCell align="right">Ações</TableCell>
             </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  </TableContainer>
-);
+          </TableHead>
+          <TableBody>
+            {movements.map((movement) => {
+              const status = movement.status || movement.status_name || 'draft';
+              const statusId = movement.movement_status_id || movement.status_id || 1;
+              const description = movement.description || 'Sem descrição';
+              const amount = movement.amount || movement.total_amount || 0;
+              const date = movement.date || movement.movement_date || new Date();
+              const customer = movement.customer || movement.person_name || 'Cliente não especificado';
+              const type = movement.type || movement.type_name || 'Não especificado';
+              const isConfirmed = statusId === 2;
+
+              return (
+                <TableRow key={movement.id}>
+                  <TableCell>
+                    {format(new Date(date), 'dd/MM/yyyy')}
+                  </TableCell>
+                  <TableCell>{description}</TableCell>
+                  <TableCell>{customer}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={type}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={isConfirmed ? 'Confirmado' : status}
+                      color={isConfirmed ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    }).format(parseFloat(amount))}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                      <Tooltip title="Visualizar">
+                        <IconButton size="small">
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar">
+                        <IconButton size="small">
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {isConfirmed && (
+                        <Tooltip title="Enviar Notificação">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={(e) => handleNotificationClick(e, movement)}
+                          >
+                            <NotificationsIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error">
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Menu
+        anchorEl={notificationAnchor}
+        open={Boolean(notificationAnchor)}
+        onClose={handleNotificationClose}
+      >
+        <MenuItem onClick={handleAllNotifications}>
+          <NotificationsIcon sx={{ mr: 1 }} /> Enviar por Todos
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleEmailNotification}>
+          <EmailIcon sx={{ mr: 1 }} /> Enviar por Email
+        </MenuItem>
+        <MenuItem onClick={handleWhatsAppNotification}>
+          <WhatsAppIcon sx={{ mr: 1 }} /> Enviar por WhatsApp
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
 
 const DateRangeSelector = ({ period, onPeriodChange, dateRange, onDateRangeChange }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -333,8 +465,8 @@ const Movements = () => {
   
   // Novos estados
   const [viewMode, setViewMode] = useState('grid');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('2'); // Definindo Confirmado como padrão
+  const [typeFilter, setTypeFilter] = useState('2');
   const [period, setPeriod] = useState('today');
   const [dateRange, setDateRange] = useState([startOfToday(), endOfToday()]);
 
@@ -436,32 +568,31 @@ const Movements = () => {
           </Grid>
 
           <Grid item>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
                 label="Status"
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="confirmed">Confirmados</MenuItem>
-                <MenuItem value="draft">Rascunhos</MenuItem>
+                <MenuItem value="1">Rascunho</MenuItem>
+                <MenuItem value="2">Confirmado</MenuItem>
+                <MenuItem value="99">Cancelado</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
           <Grid item>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Tipo</InputLabel>
               <Select
                 value={typeFilter}
                 label="Tipo"
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="income">Receitas</MenuItem>
-                <MenuItem value="expense">Despesas</MenuItem>
-                <MenuItem value="transfer">Transferências</MenuItem>
+                <MenuItem value="1">Compra</MenuItem>
+                <MenuItem value="2">Venda</MenuItem>
+                <MenuItem value="3">Contrato Venda</MenuItem>
               </Select>
             </FormControl>
           </Grid>
