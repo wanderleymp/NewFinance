@@ -7,6 +7,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   IconButton,
   Collapse,
   Typography,
@@ -29,7 +30,8 @@ import {
   Pagination,
   InputAdornment,
   TextField,
-  OutlinedInput
+  OutlinedInput,
+  TablePagination
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -239,12 +241,37 @@ const InstallmentRow = ({ installment }) => {
 
 const MovementRow = ({ movement }) => {
   const [open, setOpen] = useState(false);
+  const [notificationAnchor, setNotificationAnchor] = useState(null);
   const hasPayments = movement.payments?.length > 0;
 
-  const handleBoletoClick = (boletoId) => {
-    // Construir a URL completa do backend
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.open(`${apiUrl}/boletos/${boletoId}/pdf`, '_blank');
+  // Calcular total de boletos do movimento e pegar o primeiro boleto disponível
+  const boletosInfo = movement.payments?.reduce((acc, payment) => {
+    payment.installments?.forEach((inst) => {
+      if (inst.boletos?.length > 0) {
+        acc.total += inst.boletos.length;
+        if (!acc.firstBoleto && inst.boletos[0].boleto_number) {
+          acc.firstBoleto = inst.boletos[0];
+        }
+      }
+    });
+    return acc;
+  }, { total: 0, firstBoleto: null }) || { total: 0, firstBoleto: null };
+
+  const handleNotificationClick = (event) => {
+    event.stopPropagation();
+    setNotificationAnchor(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchor(null);
+  };
+
+  const handleBoletoClick = (event) => {
+    event.stopPropagation();
+    if (boletosInfo.firstBoleto) {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      window.open(`${apiUrl}/boletos/${boletosInfo.firstBoleto.boleto_id}/pdf`, '_blank');
+    }
   };
 
   return (
@@ -261,7 +288,30 @@ const MovementRow = ({ movement }) => {
         </TableCell>
         <TableCell>{movement.movement_id}</TableCell>
         <TableCell>{format(new Date(movement.movement_date), 'dd/MM/yyyy')}</TableCell>
-        <TableCell>{movement.description || '-'}</TableCell>
+        <TableCell>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography>{movement.description || '-'}</Typography>
+              {boletosInfo.total > 0 && (
+                <>
+                  <Tooltip title={`${boletosInfo.total} boleto(s)`}>
+                    <IconButton size="small" onClick={handleBoletoClick}>
+                      <ReceiptIcon fontSize="small" color="action" />
+                      <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                        {boletosInfo.total}
+                      </Typography>
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Notificações">
+                    <IconButton size="small" onClick={handleNotificationClick}>
+                      <NotificationsIcon fontSize="small" color="action" />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </Box>
+          </Box>
+        </TableCell>
         <TableCell>{formatCurrency(movement.total_amount)}</TableCell>
         <TableCell>
           <Chip 
@@ -276,6 +326,26 @@ const MovementRow = ({ movement }) => {
           />
         </TableCell>
       </TableRow>
+      <Menu
+        anchorEl={notificationAnchor}
+        open={Boolean(notificationAnchor)}
+        onClose={handleNotificationClose}
+      >
+        <MenuItem onClick={() => {
+          // TODO: Implementar envio por email
+          handleNotificationClose();
+        }}>
+          <EmailIcon fontSize="small" sx={{ mr: 1 }} />
+          Enviar por Email
+        </MenuItem>
+        <MenuItem onClick={() => {
+          // TODO: Implementar envio por WhatsApp
+          handleNotificationClose();
+        }}>
+          <WhatsAppIcon fontSize="small" sx={{ mr: 1 }} />
+          Enviar por WhatsApp
+        </MenuItem>
+      </Menu>
       <TableRow>
         <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
           <Collapse in={open} timeout="auto" unmountOnExit>
@@ -317,7 +387,7 @@ const MovementRow = ({ movement }) => {
                                       <IconButton
                                         size="small"
                                         disabled={!boleto.boleto_number}
-                                        onClick={() => handleBoletoClick(boleto.boleto_id)}
+                                        onClick={() => window.open(`/api/boletos/${boleto.boleto_id}/pdf`, '_blank')}
                                       >
                                         <ReceiptIcon 
                                           fontSize="small"
@@ -376,39 +446,42 @@ const MovementTable = ({ movements, onSort, orderBy, orderDirection }) => {
     handleNotificationClose();
   };
 
-  const renderSortLabel = (field, label) => (
-    <TableSortLabel
-      active={orderBy === field}
-      direction={orderBy === field ? orderDirection.toLowerCase() : 'asc'}
-      onClick={() => onSort(field)}
-    >
-      {label}
-    </TableSortLabel>
-  );
+  const renderSortLabel = (column) => {
+    return (
+      <TableSortLabel
+        active={orderBy === column}
+        direction={orderBy === column ? orderDirection : 'asc'}
+        onClick={() => onSort(column)}
+      >
+        {column === 'date' ? 'Data' :
+         column === 'description' ? 'Descrição' :
+         column === 'value' ? 'Valor' :
+         column === 'type' ? 'Tipo' : 'Status'}
+      </TableSortLabel>
+    );
+  };
 
   return (
-    <>
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell />
-              <TableCell>{renderSortLabel('movement_id', 'ID')}</TableCell>
-              <TableCell>{renderSortLabel('movement_date', 'Data')}</TableCell>
-              <TableCell>{renderSortLabel('description', 'Descrição')}</TableCell>
-              <TableCell align="right">{renderSortLabel('total_amount', 'Valor')}</TableCell>
-              <TableCell>{renderSortLabel('type_name', 'Tipo')}</TableCell>
-              <TableCell>{renderSortLabel('status_name', 'Status')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {movements.map((movement) => (
-              <MovementRow key={movement.movement_id} movement={movement} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </>
+    <TableContainer component={Paper} sx={{ mt: 2 }}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell />
+            <TableCell>{renderSortLabel('id')}</TableCell>
+            <TableCell>{renderSortLabel('date')}</TableCell>
+            <TableCell>{renderSortLabel('description')}</TableCell>
+            <TableCell>{renderSortLabel('value')}</TableCell>
+            <TableCell>{renderSortLabel('type')}</TableCell>
+            <TableCell>{renderSortLabel('status')}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {movements.map((movement) => (
+            <MovementRow key={movement.movement_id} movement={movement} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 };
 
