@@ -89,6 +89,7 @@ const refreshTokenIfNeeded = async () => {
   const refreshToken = localStorage.getItem('refreshToken');
   
   if (!refreshToken) {
+    handleAuthError();
     throw new Error('No refresh token available');
   }
   
@@ -101,20 +102,24 @@ const refreshTokenIfNeeded = async () => {
   isRefreshing = true;
   
   try {
-    const response = await api.post('/auth/refresh-token', { refreshToken });
-    const { accessToken, newRefreshToken } = response.data;
+    const response = await api.post('/auth/refresh-token', { 
+      refresh_token: refreshToken // Corrigindo o nome do campo para refresh_token
+    });
     
-    localStorage.setItem('accessToken', accessToken);
-    if (newRefreshToken) {
-      localStorage.setItem('refreshToken', newRefreshToken);
+    const { access_token, refresh_token } = response.data; // Corrigindo os nomes dos campos
+    
+    localStorage.setItem('accessToken', access_token);
+    if (refresh_token) {
+      localStorage.setItem('refreshToken', refresh_token);
     }
     
     isRefreshing = false;
-    processQueue(null, accessToken);
-    return accessToken;
+    processQueue(null, access_token);
+    return access_token;
   } catch (error) {
     isRefreshing = false;
     processQueue(error, null);
+    handleAuthError(); // Adicionando chamada ao handleAuthError em caso de erro
     throw error;
   }
 };
@@ -133,7 +138,10 @@ const handleAuthError = () => {
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => {
-    console.log(`[${response.config.method.toUpperCase()}] ${response.config.url}:`, response.data);
+    // Se a resposta contém dados, retorna apenas os dados
+    if (response.data) {
+      return response.data;
+    }
     return response;
   },
   async (error) => {
@@ -147,7 +155,10 @@ api.interceptors.response.use(
     
     const originalRequest = error.config;
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Se o erro for 401 e não for uma tentativa de refresh token
+    if (error.response?.status === 401 && 
+        !originalRequest._retry && 
+        !originalRequest.url.includes('/auth/refresh-token')) {
       originalRequest._retry = true;
       
       try {
@@ -160,6 +171,12 @@ api.interceptors.response.use(
       }
     }
     
+    // Se for erro 401 em uma tentativa de refresh token, faz logout
+    if (error.response?.status === 401 && 
+        originalRequest.url.includes('/auth/refresh-token')) {
+      handleAuthError();
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -168,11 +185,14 @@ export const authService = {
   async login(username, password) {
     try {
       const response = await api.post('/auth/login', { username, password });
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      const { access_token, refresh_token } = response.data; // Corrigindo os nomes dos campos
+      
+      localStorage.setItem('accessToken', access_token);
+      localStorage.setItem('refreshToken', refresh_token);
+      
       return response.data;
     } catch (error) {
+      console.error('[POST] /auth/login:', error);
       throw error;
     }
   },

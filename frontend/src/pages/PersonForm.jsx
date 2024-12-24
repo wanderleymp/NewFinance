@@ -221,7 +221,7 @@ const PersonForm = () => {
       }
 
       // Recarrega a lista de contatos
-      const contactsData = await personsService.listContacts(id);
+      const contactsData = await personsService.listContacts({ person_id: id });
       setContacts(contactsData.items || []);
 
       // Limpa o formulário
@@ -667,16 +667,16 @@ const PersonForm = () => {
                     <Table>
                       <TableBody>
                         {contacts.map((contact) => (
-                          <TableRow key={contact.id}>
+                          <TableRow key={contact.contact_id || contact.id}>
                             <TableCell>
                               <Typography variant="body1">
-                                {contact.value}
+                                {contact.contact_value || contact.value || contact.contact}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {contact.name || 'Sem nome'}
+                                {contact.contact_name || contact.name || contact.description || 'Sem nome'}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {contact.type.toUpperCase()}
+                                {(contact.contact_type || contact.type || '').toUpperCase()}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">

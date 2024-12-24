@@ -17,6 +17,9 @@ import {
   Menu,
   MenuItem,
   Collapse,
+  Badge,
+  Tooltip,
+  Avatar
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -33,9 +36,15 @@ import {
   Contacts as ContactsIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
+  AccountCircle,
+  ExitToApp,
+  Notifications as NotificationsIcon,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService } from '../services/api';
+import Logo from './Logo';
 
 const drawerWidth = 240;
 
@@ -65,15 +74,18 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-export default function Dashboard() {
+export default function Dashboard({ darkMode, setDarkMode }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-
   const [openDrawer, setOpenDrawer] = useState(true);
   const [openSubMenus, setOpenSubMenus] = useState({});
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const handleDrawerToggle = () => {
     setOpenDrawer(!openDrawer);
@@ -103,6 +115,32 @@ export default function Dashboard() {
       enqueueSnackbar('Erro ao limpar o cache', { variant: 'error' });
     }
     handleSystemMenuClose();
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleNotificationsOpen = (event) => {
+    setNotificationsAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    localStorage.setItem('darkMode', !darkMode);
   };
 
   const menuItems = [
@@ -262,16 +300,77 @@ export default function Dashboard() {
             aria-label="open drawer"
             onClick={handleDrawerToggle}
             edge="start"
-            sx={{
-              marginRight: 5,
-              ...(openDrawer && { display: 'none' }),
-            }}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            App Finance
-          </Typography>
+          
+          {/* Logo */}
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+            <Logo size="small" />
+          </Box>
+          
+          {/* Botão Dark Mode */}
+          <Tooltip title={darkMode ? "Modo claro" : "Modo escuro"}>
+            <IconButton color="inherit" onClick={toggleDarkMode}>
+              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Tooltip>
+
+          {/* Notificações */}
+          <Tooltip title="Notificações">
+            <IconButton
+              color="inherit"
+              onClick={handleNotificationsOpen}
+            >
+              <Badge badgeContent={notifications.length} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={notificationsAnchorEl}
+            open={Boolean(notificationsAnchorEl)}
+            onClose={handleNotificationsClose}
+          >
+            {notifications.length > 0 ? (
+              notifications.map((notification, index) => (
+                <MenuItem key={index} onClick={handleNotificationsClose}>
+                  {notification.message}
+                </MenuItem>
+              ))
+            ) : (
+              <MenuItem onClick={handleNotificationsClose}>
+                Nenhuma notificação
+              </MenuItem>
+            )}
+          </Menu>
+
+          {/* Menu do Usuário */}
+          {user && (
+            <div>
+              <IconButton
+                size="large"
+                onClick={handleMenu}
+                color="inherit"
+              >
+                <AccountCircle />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+              >
+                <MenuItem disabled>
+                  {user.username}
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <ExitToApp sx={{ mr: 1 }} />
+                  Sair
+                </MenuItem>
+              </Menu>
+            </div>
+          )}
         </Toolbar>
       </AppBar>
       <Drawer

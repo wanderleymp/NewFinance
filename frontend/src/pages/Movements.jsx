@@ -636,16 +636,15 @@ const Movements = () => {
       const response = await movementsService.list(params);
       console.log('Raw API response:', response);
 
-      const { items, meta } = response?.data || {};
-
-      if (!items || !Array.isArray(items)) {
-        console.error('Formato de resposta inválido:', response?.data);
+      // A resposta já vem diretamente, não precisa acessar .data
+      if (!response || !Array.isArray(response.items)) {
+        console.error('Formato de resposta inválido:', response);
         enqueueSnackbar('Erro ao carregar movimentações: formato de resposta inválido', { variant: 'error' });
         return;
       }
 
-      setMovements(items);
-      setTotalCount(meta?.totalItems || items.length);
+      setMovements(response.items);
+      setTotalCount(response.total || response.items.length);
       
     } catch (error) {
       console.error('Error fetching movements:', error);

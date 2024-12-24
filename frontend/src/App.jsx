@@ -11,11 +11,20 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const savedMode = localStorage.getItem('darkMode');
+    return savedMode ? JSON.parse(savedMode) : false;
+  });
 
   const theme = createTheme({
     palette: {
       mode: darkMode ? 'dark' : 'light',
+      primary: {
+        main: '#2C74B3',
+      },
+      secondary: {
+        main: '#144272',
+      },
     },
   });
 
