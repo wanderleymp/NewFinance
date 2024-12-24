@@ -67,6 +67,8 @@ const MovementCard = ({ movement }) => {
 
   const status = movement.status || movement.status_name || 'draft';
   const statusId = movement.movement_status_id || movement.status_id || 1;
+  const isConfirmed = statusId === 2;
+
   const description = movement.description || 'Sem descrição';
   const amount = movement.amount || movement.total_amount || 0;
   const date = movement.date || movement.movement_date || new Date();
@@ -250,8 +252,8 @@ const InstallmentRow = ({ installment }) => {
 const MovementRow = ({ movement }) => {
   const [open, setOpen] = useState(false);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
-  const status = movement.status || movement.status_name || 'draft';
-  const statusId = movement.movement_status_id || movement.status_id || 1;
+  const status = movement.status_name || 'Rascunho';
+  const statusId = movement.movement_status_id || 1;
   const isConfirmed = statusId === 2;
 
   const handleNotificationClick = (event) => {
@@ -291,16 +293,18 @@ const MovementRow = ({ movement }) => {
           </IconButton>
         </TableCell>
         <TableCell>
-          {format(new Date(movement.date || movement.created_at), 'dd/MM/yyyy')}
+          {format(new Date(movement.movement_date || movement.created_at), 'dd/MM/yyyy')}
         </TableCell>
         <TableCell>
           <Typography>{movement.description || '-'}</Typography>
         </TableCell>
+        <TableCell>{movement.person_id}</TableCell>
         <TableCell>
-          {movement.person_name || movement.person?.name || '-'}
+          {movement.person_name || '-'}
         </TableCell>
+        <TableCell>{movement.type_name}</TableCell>
         <TableCell align="right">
-          {formatCurrency(movement.amount || movement.total_amount || 0)}
+          {formatCurrency(movement.total_amount)}
         </TableCell>
         <TableCell>
           <Chip
@@ -459,7 +463,7 @@ const MovementTable = ({ movements, onSort, orderBy, orderDirection, page, rowsP
           </TableHead>
           <TableBody>
             {movements.map((movement) => (
-              <MovementRow key={movement.id} movement={movement} />
+              <MovementRow key={movement.movement_id} movement={movement} />
             ))}
           </TableBody>
         </Table>
@@ -624,7 +628,7 @@ const Movements = () => {
     try {
       setLoading(true);
       const params = {
-        page: page + 1,
+        page: page + 1, // API usa página 1-based
         limit: rowsPerPage,
         orderBy,
         orderDirection,
@@ -636,15 +640,16 @@ const Movements = () => {
       const response = await movementsService.list(params);
       console.log('Raw API response:', response);
 
-      // A resposta já vem diretamente, não precisa acessar .data
-      if (!response || !Array.isArray(response.items)) {
+      // Verifica se a resposta tem a estrutura esperada
+      if (!response || !response.items) {
         console.error('Formato de resposta inválido:', response);
         enqueueSnackbar('Erro ao carregar movimentações: formato de resposta inválido', { variant: 'error' });
         return;
       }
 
       setMovements(response.items);
-      setTotalCount(response.total || response.items.length);
+      setTotalCount(response.total);
+      setPage(response.page - 1); // MUI usa página 0-based
       
     } catch (error) {
       console.error('Error fetching movements:', error);
@@ -782,7 +787,7 @@ const Movements = () => {
         <>
           <Grid container spacing={3}>
             {movements.map((movement) => (
-              <Grid item xs={12} sm={6} md={4} key={movement.id}>
+              <Grid item xs={12} sm={6} md={4} key={movement.movement_id}>
                 <MovementCard movement={movement} />
               </Grid>
             ))}

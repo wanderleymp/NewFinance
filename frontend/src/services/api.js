@@ -207,32 +207,20 @@ export const authService = {
 export const movementsService = {
   async list(params = {}) {
     try {
-      // Remover parâmetros vazios
-      const cleanParams = Object.fromEntries(
-        Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
-      );
-
-      // Log dos parâmetros enviados
-      console.log('Sending params to API:', cleanParams);
-
-      const response = await api.get('/movements', { 
-        params: cleanParams,
-        // Aumentar o timeout para requests com includes
-        timeout: cleanParams.include ? 10000 : 5000
-      });
-      
-      // Log da resposta completa
+      console.log('[GET] /movements: Params:', params);
+      const response = await api.get('/movements', { params });
       console.log('Raw API response:', response);
       
+      // Transformando a resposta para o formato esperado pelo frontend
       return {
-        items: response.data.data || [],
-        total: response.data.pagination?.total || 0,
-        page: response.data.pagination?.currentPage || 1,
-        limit: response.data.pagination?.limit || 10,
-        totalPages: response.data.pagination?.totalPages || 1
+        items: response.data,
+        total: response.pagination?.total || 0,
+        page: response.pagination?.currentPage || 1,
+        limit: response.pagination?.limit || 10,
+        totalPages: response.pagination?.totalPages || 1
       };
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('[GET] /movements:', error);
       throw error;
     }
   },
