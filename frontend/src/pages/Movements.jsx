@@ -86,7 +86,7 @@ const MovementCard = ({ movement }) => {
   const date = movement.date || movement.movement_date || new Date();
   const customer = movement.customer || movement.person_name || 'Cliente não especificado';
   const personId = movement.person_id || 'N/A';
-  const type = movement.type || movement.type_name || 'Não especificado';
+  const typeId = movement.movement_type_id || movement.type_id || 1;
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
@@ -102,6 +102,34 @@ const MovementCard = ({ movement }) => {
       case 'draft':
       case 'rascunho':
         return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const getTypeLabel = (typeId) => {
+    switch (typeId.toString()) {
+      case '1':
+        return 'Venda';
+      case '2':
+        return 'Compra';
+      case '3':
+        return 'Contrato Venda';
+      case '4':
+        return 'Contrato Compra';
+      default:
+        return 'Não especificado';
+    }
+  };
+
+  const getTypeColor = (typeId) => {
+    switch (typeId.toString()) {
+      case '1':
+      case '3':
+        return 'success';
+      case '2':
+      case '4':
+        return 'info';
       default:
         return 'default';
     }
@@ -148,12 +176,18 @@ const MovementCard = ({ movement }) => {
               {description}
             </Typography>
           </Box>
-          <Chip
-            label={status}
-            size="small"
-            color={getStatusColor(status)}
-            sx={{ ml: 1 }}
-          />
+          <Stack direction="row" spacing={1}>
+            <Chip
+              label={getTypeLabel(typeId)}
+              size="small"
+              color={getTypeColor(typeId)}
+            />
+            <Chip
+              label={status}
+              size="small"
+              color={getStatusColor(status)}
+            />
+          </Stack>
         </Box>
 
         <Stack spacing={2}>
@@ -179,9 +213,9 @@ const MovementCard = ({ movement }) => {
               Tipo
             </Typography>
             <Chip 
-              label={type}
+              label={getTypeLabel(typeId)}
               size="small"
-              color="primary"
+              color={getTypeColor(typeId)}
               variant="outlined"
               sx={{ mt: 0.5 }}
             />
@@ -973,51 +1007,52 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
 };
 
 const Movements = () => {
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [orderBy, setOrderBy] = useState('date');
-  const [orderDirection, setOrderDirection] = useState('desc');
-  const [dateRange, setDateRange] = useState([
-    subDays(new Date(), 30),
-    new Date()
-  ]);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [viewMode, setViewMode] = useState('table');
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const [loading, setLoading] = useState(false);
+  const [movements, setMovements] = useState([]);
+  const [view, setView] = useState('grid');
+  const [orderBy, setOrderBy] = useState('date');
+  const [orderDirection, setOrderDirection] = useState('desc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(12); 
+  const [totalCount, setTotalCount] = useState(0);
+  const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const fetchMovements = async () => {
     try {
       setLoading(true);
       const params = {
-        page: page + 1, // API usa página 1-based
+        page: page + 1,
         limit: rowsPerPage,
         orderBy,
         orderDirection,
-        ...(dateRange[0] && { startDate: format(dateRange[0], 'yyyy-MM-dd') }),
-        ...(dateRange[1] && { endDate: format(dateRange[1], 'yyyy-MM-dd') }),
+        startDate: format(dateRange[0], 'yyyy-MM-dd'),
+        endDate: format(dateRange[1], 'yyyy-MM-dd'),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(typeFilter !== 'all' && { type: typeFilter }),
       };
 
-      console.log('Fetching movements with params:', params);
       const response = await movementsService.list(params);
-      console.log('Raw API response:', response);
-
-      // Verifica se a resposta tem a estrutura esperada
-      if (!response || !response.items || !response.items.data) {
-        console.error('Formato de resposta inválido:', response);
-        enqueueSnackbar('Erro ao carregar movimentações: formato de resposta inválido', { variant: 'error' });
-        return;
-      }
-
-      setMovements(response.items.data); // Usando o array de dados correto
-      setTotalCount(response.total);
-      setPage(response.page - 1); // MUI usa página 0-based
       
+      // Verificar e formatar os dados corretamente
+      if (response && response.items && response.items.data) {
+        setMovements(response.items.data);
+        setTotalCount(response.items.total || 0);
+      } else if (Array.isArray(response.items)) {
+        setMovements(response.items);
+        setTotalCount(response.meta?.total || 0);
+      } else {
+        setMovements([]);
+        setTotalCount(0);
+        console.error('Formato de resposta inesperado:', response);
+      }
     } catch (error) {
-      console.error('Error fetching movements:', error);
-      enqueueSnackbar(`Erro ao carregar movimentações: ${error.message}`, { variant: 'error' });
+      console.error('Erro ao carregar movimentações:', error);
+      enqueueSnackbar('Erro ao carregar movimentações', { variant: 'error' });
+      setMovements([]);
     } finally {
       setLoading(false);
     }
@@ -1025,7 +1060,7 @@ const Movements = () => {
 
   useEffect(() => {
     fetchMovements();
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange]);
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, statusFilter, typeFilter]);
 
   const handleSort = (property) => {
     const isAsc = orderBy === property && orderDirection === 'asc';
@@ -1043,37 +1078,54 @@ const Movements = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="h5" component="h1" gutterBottom>
-            Movimentações
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Gerencie todas as movimentações financeiras
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/movements/new')}
-          sx={{ 
-            borderRadius: 2,
-            textTransform: 'none',
-            px: 3
-          }}
-        >
-          Nova Movimentação
-        </Button>
-      </Box>
-
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={9}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    <Box sx={{ width: '100%', p: 3 }}>
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
+                label="Status"
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="1">Rascunho</MenuItem>
+                <MenuItem value="2">Confirmado</MenuItem>
+                <MenuItem value="3">Cancelado</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Tipo</InputLabel>
+              <Select
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
+                  setPage(0);
+                }}
+                label="Tipo"
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="1">Venda</MenuItem>
+                <MenuItem value="2">Compra</MenuItem>
+                <MenuItem value="3">Contrato Venda</MenuItem>
+                <MenuItem value="4">Contrato Compra</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <ToggleButtonGroup
-              value={viewMode}
+              value={view}
               exclusive
-              onChange={(e, newValue) => newValue && setViewMode(newValue)}
+              onChange={(e, newView) => newView && setView(newView)}
               size="small"
               aria-label="Modo de visualização"
               sx={{ 
@@ -1091,67 +1143,38 @@ const Movements = () => {
                 },
               }}
             >
-              <ToggleButton value="table" aria-label="Visualização em tabela">
-                <Tooltip title="Visualização em Tabela">
-                  <ListViewIcon />
-                </Tooltip>
-              </ToggleButton>
               <ToggleButton value="grid" aria-label="Visualização em grade">
                 <Tooltip title="Visualização em Cards">
                   <GridViewIcon />
                 </Tooltip>
               </ToggleButton>
+              <ToggleButton value="table" aria-label="Visualização em tabela">
+                <Tooltip title="Visualização em Tabela">
+                  <ListViewIcon />
+                </Tooltip>
+              </ToggleButton>
             </ToggleButtonGroup>
 
-            <DateRangeSelector
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-            />
-          </Box>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/movements/new')}
+            >
+              Nova Movimentação
+            </Button>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={3}>
-          <Card 
-            elevation={0}
-            sx={{ 
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'divider',
-              height: '100%'
-            }}
-          >
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total de Registros
-              </Typography>
-              <Typography variant="h4">
-                {totalCount}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      </Box>
 
       {loading ? (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
-      ) : viewMode === 'table' ? (
-        <MovementTable
-          movements={movements}
-          onSort={handleSort}
-          orderBy={orderBy}
-          orderDirection={orderDirection}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          totalCount={totalCount}
-        />
-      ) : (
+      ) : view === 'grid' ? (
         <>
           <Grid container spacing={3}>
-            {movements.map((movement) => (
-              <Grid item xs={12} sm={6} md={4} key={movement.movement_id}>
+            {Array.isArray(movements) && movements.map((movement) => (
+              <Grid item xs={12} sm={6} md={4} key={movement.id}>
                 <MovementCard movement={movement} />
               </Grid>
             ))}
@@ -1179,6 +1202,18 @@ const Movements = () => {
             />
           </Box>
         </>
+      ) : (
+        <MovementTable
+          movements={movements}
+          onSort={handleSort}
+          orderBy={orderBy}
+          orderDirection={orderDirection}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          totalCount={totalCount}
+        />
       )}
     </Box>
   );
