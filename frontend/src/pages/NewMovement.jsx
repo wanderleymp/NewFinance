@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { debounce } from 'lodash';
 import {
   Box,
@@ -25,7 +25,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { personsService, itemsService } from '../services/api';
+import { personsService, itemsService, movementsService } from '../services/api';
 
 const NewMovement = () => {
   const navigate = useNavigate();
@@ -52,6 +52,25 @@ const NewMovement = () => {
     { id: 2, name: 'Cartão de Crédito' },
     { id: 3, name: 'Boleto' },
   ];
+
+  // Carregar item padrão
+  useEffect(() => {
+    const loadDefaultItem = async () => {
+      try {
+        const defaultItem = await itemsService.getById(3);
+        setFormData(prev => ({
+          ...prev,
+          item: defaultItem,
+          amount: defaultItem.price.toString()
+        }));
+        setItemOptions([defaultItem]);
+      } catch (error) {
+        console.error('Erro ao carregar item padrão:', error);
+      }
+    };
+
+    loadDefaultItem();
+  }, []);
 
   // Função para buscar pessoas
   const searchPersons = useCallback(
@@ -89,11 +108,23 @@ const NewMovement = () => {
     []
   );
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Nova movimentação:', formData);
-    // TODO: Implementar a criação da movimentação
-    navigate('/movements');
+    try {
+      const movementData = {
+        description: formData.description,
+        person_id: formData.person?.id,
+        payment_method_id: formData.paymentMethod?.id,
+        amount: formData.amount,
+        item_id: formData.item?.item_id || 3, // Usa o item selecionado ou o padrão (3)
+      };
+
+      await movementsService.create(movementData);
+      navigate('/movements');
+    } catch (error) {
+      console.error('Erro ao criar movimentação:', error);
+      // TODO: Adicionar feedback visual do erro
+    }
   };
 
   const handleChange = (field) => (event, newValue) => {
@@ -155,6 +186,7 @@ const NewMovement = () => {
                 </>
               ),
             }}
+            fullWidth
           />
         )}
         renderOption={(props, option) => {

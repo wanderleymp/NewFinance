@@ -59,6 +59,7 @@ const Dashboard = ({ darkMode, setDarkMode }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Movimentos', icon: <ReceiptIcon />, path: '/movements' },
+    { text: 'Pessoas', icon: <PeopleIcon />, path: '/persons' },
     { text: 'Contas a Receber', icon: <AttachMoneyIcon />, path: '/receivables' },
     { text: 'Contas', icon: <AccountBalanceWalletIcon />, path: '/accounts' },
     { text: 'Cartões', icon: <CreditCardIcon />, path: '/cards' },

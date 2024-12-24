@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
+  timeout: 10000,
 });
 
 // Função para verificar se o token está próximo de expirar (menos de 5 minutos)
@@ -57,6 +58,17 @@ api.interceptors.request.use(async (config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
+
+  // Remove undefined e null dos parâmetros
+  if (config.params) {
+    Object.keys(config.params).forEach(key => {
+      if (config.params[key] === undefined || config.params[key] === null) {
+        delete config.params[key];
+      }
+    });
+  }
+
+  console.log('Sending params to API:', config.params);
   return config;
 });
 
@@ -108,7 +120,10 @@ const handleAuthError = () => {
 
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('Raw API response:', response.data);
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     
@@ -182,13 +197,28 @@ export const movementsService = {
     }
   },
 
-  async create(data) {
-    try {
-      const response = await api.post('/movements', data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+  create(data) {
+    return api.post('/movements', {
+      movement_type_id: 1,
+      description: data.description,
+      person_id: data.person_id,
+      license_id: 1,
+      payment_method_id: data.payment_method_id,
+      items: [
+        {
+          item_id: 3, // Item default como solicitado
+          quantity: 1,
+          unit_price: parseFloat(data.amount)
+        }
+      ],
+      seller_id: null,
+      technician_id: null,
+      discount: 0.00,
+      addition: 0.00,
+      nfse: false,
+      boleto: false,
+      notificar: false
+    });
   },
 
   async update(id, data) {
@@ -306,6 +336,10 @@ export const itemsService = {
         originalError: error
       };
     }
+  },
+
+  getById(id) {
+    return api.get(`/items/${id}`).then(response => response.data);
   }
 };
 

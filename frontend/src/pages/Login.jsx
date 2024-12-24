@@ -182,13 +182,19 @@ const Login = () => {
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     bgcolor: 'rgba(0, 0, 0, 0.02)',
+                    '& input': {
+                      color: '#144272',
+                    },
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)',
                     },
                     '&.Mui-focused': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)',
                     }
-                  }
+                  },
+                  '& .MuiInputLabel-root': {
+                    marginTop: '-0.5rem',
+                  },
                 }}
               />
               
@@ -223,13 +229,19 @@ const Login = () => {
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     bgcolor: 'rgba(0, 0, 0, 0.02)',
+                    '& input': {
+                      color: '#144272',
+                    },
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)',
                     },
                     '&.Mui-focused': {
                       bgcolor: 'rgba(0, 0, 0, 0.04)',
                     }
-                  }
+                  },
+                  '& .MuiInputLabel-root': {
+                    marginTop: '-0.5rem',
+                  },
                 }}
               />
 

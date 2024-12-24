@@ -42,7 +42,7 @@ import {
   WhatsApp as WhatsAppIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
-  Receipt as ReceiptIcon,
+  PostAdd as PostAddIcon,
   Add as AddIcon,
   GridView as GridViewIcon,
   List as ListViewIcon,
@@ -98,6 +98,11 @@ const MovementCard = ({ movement }) => {
     // TODO: Implementar envio por todos os canais
     console.log('Enviando notificação por todos os canais...');
     handleNotificationClose();
+  };
+
+  const handleGenerateInvoice = () => {
+    // TODO: Implementar geração de nota fiscal
+    console.log('Gerando nota fiscal...');
   };
   
   return (
@@ -166,8 +171,17 @@ const MovementCard = ({ movement }) => {
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        {canNotify && (
+        {isConfirmed && (
           <>
+            <Tooltip title="Gerar Nota Fiscal">
+              <IconButton 
+                size="small" 
+                color="primary"
+                onClick={handleGenerateInvoice}
+              >
+                <PostAddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Enviar Notificação">
               <IconButton 
                 size="small" 
@@ -244,21 +258,9 @@ const InstallmentRow = ({ installment }) => {
 const MovementRow = ({ movement }) => {
   const [open, setOpen] = useState(false);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
-  const hasPayments = movement.payments?.length > 0;
-
-  // Calcular total de boletos do movimento e pegar o primeiro boleto disponível
-  const boletosInfo = movement.payments?.reduce((acc, payment) => {
-    payment.installments?.forEach((inst) => {
-      if (inst.boletos?.length > 0) {
-        acc.total += inst.boletos.length;
-        // Pegar o primeiro boleto que tenha URL
-        if (!acc.firstBoleto && inst.boletos[0].url) {
-          acc.firstBoleto = inst.boletos[0];
-        }
-      }
-    });
-    return acc;
-  }, { total: 0, firstBoleto: null }) || { total: 0, firstBoleto: null };
+  const status = movement.status || movement.status_name || 'draft';
+  const statusId = movement.movement_status_id || movement.status_id || 1;
+  const isConfirmed = statusId === 2;
 
   const handleNotificationClick = (event) => {
     event.stopPropagation();
@@ -269,148 +271,108 @@ const MovementRow = ({ movement }) => {
     setNotificationAnchor(null);
   };
 
-  const handleBoletoClick = (event) => {
+  const handleGenerateInvoice = (event) => {
     event.stopPropagation();
-    if (boletosInfo.firstBoleto?.url) {
-      window.open(boletosInfo.firstBoleto.url, '_blank');
-    }
+    // TODO: Implementar geração de nota fiscal
+    console.log('Gerando nota fiscal...');
   };
 
   return (
     <>
-      <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
-        <TableCell>
+      <TableRow
+        hover
+        onClick={() => setOpen(!open)}
+        sx={{ 
+          cursor: 'pointer',
+          '& > *': { borderBottom: 'unset' },
+        }}
+      >
+        <TableCell padding="checkbox">
           <IconButton
             size="small"
-            onClick={() => setOpen(!open)}
-            disabled={!hasPayments}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(!open);
+            }}
           >
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>{movement.movement_id}</TableCell>
-        <TableCell>{format(new Date(movement.movement_date), 'dd/MM/yyyy')}</TableCell>
         <TableCell>
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography>{movement.description || '-'}</Typography>
-              {boletosInfo.total > 0 && (
-                <>
-                  <Tooltip title={`${boletosInfo.total} boleto(s)`}>
-                    <IconButton size="small" onClick={handleBoletoClick}>
-                      <ReceiptIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                        {boletosInfo.total}
-                      </Typography>
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Notificações">
-                    <IconButton size="small" onClick={handleNotificationClick}>
-                      <NotificationsIcon fontSize="small" color="action" />
-                    </IconButton>
-                  </Tooltip>
-                </>
-              )}
-            </Box>
+          {format(new Date(movement.date || movement.created_at), 'dd/MM/yyyy')}
+        </TableCell>
+        <TableCell>
+          <Typography>{movement.description || '-'}</Typography>
+        </TableCell>
+        <TableCell>
+          {movement.person_name || movement.person?.name || '-'}
+        </TableCell>
+        <TableCell align="right">
+          {formatCurrency(movement.amount || movement.total_amount || 0)}
+        </TableCell>
+        <TableCell>
+          <Chip
+            label={status}
+            color={isConfirmed ? 'success' : 'default'}
+            size="small"
+          />
+        </TableCell>
+        <TableCell align="right">
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            {isConfirmed && (
+              <>
+                <Tooltip title="Gerar Nota Fiscal">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={handleGenerateInvoice}
+                  >
+                    <PostAddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Enviar Notificação">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={handleNotificationClick}
+                  >
+                    <NotificationsIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
           </Box>
-        </TableCell>
-        <TableCell>{formatCurrency(movement.total_amount)}</TableCell>
-        <TableCell>
-          <Chip 
-            label={movement.type_name}
-            color={movement.movement_type_id === 1 ? 'primary' : 'secondary'}
-          />
-        </TableCell>
-        <TableCell>
-          <Chip 
-            label={movement.status_name || 'Sem Status'}
-            color={movement.movement_status_id === 2 ? 'success' : 'warning'}
-          />
+          <Menu
+            anchorEl={notificationAnchor}
+            open={Boolean(notificationAnchor)}
+            onClose={handleNotificationClose}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MenuItem onClick={() => {
+              // TODO: Implementar envio por email
+              handleNotificationClose();
+            }}>
+              <EmailIcon fontSize="small" sx={{ mr: 1 }} />
+              Enviar por Email
+            </MenuItem>
+            <MenuItem onClick={() => {
+              // TODO: Implementar envio por WhatsApp
+              handleNotificationClose();
+            }}>
+              <WhatsAppIcon fontSize="small" sx={{ mr: 1 }} />
+              Enviar por WhatsApp
+            </MenuItem>
+          </Menu>
         </TableCell>
       </TableRow>
-      <Menu
-        anchorEl={notificationAnchor}
-        open={Boolean(notificationAnchor)}
-        onClose={handleNotificationClose}
-      >
-        <MenuItem onClick={() => {
-          // TODO: Implementar envio por email
-          handleNotificationClose();
-        }}>
-          <EmailIcon fontSize="small" sx={{ mr: 1 }} />
-          Enviar por Email
-        </MenuItem>
-        <MenuItem onClick={() => {
-          // TODO: Implementar envio por WhatsApp
-          handleNotificationClose();
-        }}>
-          <WhatsAppIcon fontSize="small" sx={{ mr: 1 }} />
-          Enviar por WhatsApp
-        </MenuItem>
-      </Menu>
       <TableRow>
         <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
-              {movement.payments?.map((payment) => (
-                <Box key={payment.payment_id} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom component="div">
-                    Pagamento #{payment.payment_id} - {formatCurrency(payment.total_amount)}
-                  </Typography>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Parcela</TableCell>
-                        <TableCell>Vencimento</TableCell>
-                        <TableCell>Valor</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Boletos</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {payment.installments?.map((installment) => (
-                        <TableRow key={installment.installment_id}>
-                          <TableCell>{installment.installment_number}</TableCell>
-                          <TableCell>{format(new Date(installment.due_date), 'dd/MM/yyyy')}</TableCell>
-                          <TableCell>{formatCurrency(installment.amount)}</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={installment.status}
-                              color={installment.status === 'Pendente' ? 'warning' : 'success'}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {installment.boletos?.map((boleto) => (
-                                <Box key={boleto.boleto_id} sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Tooltip title={boleto.boleto_number ? `Visualizar boleto ${boleto.boleto_number}` : 'Boleto não disponível'}>
-                                    <span>
-                                      <IconButton
-                                        size="small"
-                                        disabled={!boleto.url}
-                                        onClick={() => boleto.url && window.open(boleto.url, '_blank')}
-                                      >
-                                        <ReceiptIcon 
-                                          fontSize="small"
-                                          color={boleto.url ? 'primary' : 'disabled'} 
-                                        />
-                                      </IconButton>
-                                    </span>
-                                  </Tooltip>
-                                  <Typography variant="caption" sx={{ ml: 1 }}>
-                                    {boleto.status} - {format(new Date(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
-                                  </Typography>
-                                </Box>
-                              ))}
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-              ))}
+              <Typography variant="h6" gutterBottom component="div">
+                Detalhes da Movimentação
+              </Typography>
+              {/* Aqui você pode adicionar mais detalhes da movimentação */}
             </Box>
           </Collapse>
         </TableCell>
@@ -468,18 +430,58 @@ const MovementTable = ({ movements, onSort, orderBy, orderDirection }) => {
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell />
-            <TableCell>{renderSortLabel('id')}</TableCell>
-            <TableCell>{renderSortLabel('date')}</TableCell>
-            <TableCell>{renderSortLabel('description')}</TableCell>
-            <TableCell>{renderSortLabel('value')}</TableCell>
-            <TableCell>{renderSortLabel('type')}</TableCell>
-            <TableCell>{renderSortLabel('status')}</TableCell>
+            <TableCell padding="checkbox" /> {/* Coluna para o botão de expandir */}
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === 'date'}
+                direction={orderBy === 'date' ? orderDirection : 'asc'}
+                onClick={() => onSort('date')}
+              >
+                Data
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === 'description'}
+                direction={orderBy === 'description' ? orderDirection : 'asc'}
+                onClick={() => onSort('description')}
+              >
+                Descrição
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === 'person'}
+                direction={orderBy === 'person' ? orderDirection : 'asc'}
+                onClick={() => onSort('person')}
+              >
+                Cliente
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">
+              <TableSortLabel
+                active={orderBy === 'amount'}
+                direction={orderBy === 'amount' ? orderDirection : 'asc'}
+                onClick={() => onSort('amount')}
+              >
+                Valor
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === 'status'}
+                direction={orderBy === 'status' ? orderDirection : 'asc'}
+                onClick={() => onSort('status')}
+              >
+                Status
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">Ações</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {movements.map((movement) => (
-            <MovementRow key={movement.movement_id} movement={movement} />
+            <MovementRow key={movement.movement_id || movement.id} movement={movement} />
           ))}
         </TableBody>
       </Table>
