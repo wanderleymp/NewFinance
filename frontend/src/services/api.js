@@ -138,45 +138,21 @@ const handleAuthError = () => {
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => {
-    // Se a resposta contém dados, retorna apenas os dados
-    if (response.data) {
-      return response.data;
-    }
+    // Se a resposta contém dados, retorna a resposta completa
     return response;
   },
   async (error) => {
-    console.error('API Error:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
-    
     const originalRequest = error.config;
-    
-    // Se o erro for 401 e não for uma tentativa de refresh token
-    if (error.response?.status === 401 && 
-        !originalRequest._retry && 
-        !originalRequest.url.includes('/auth/refresh-token')) {
-      originalRequest._retry = true;
-      
-      try {
-        const newToken = await refreshTokenIfNeeded();
-        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        handleAuthError();
-        return Promise.reject(refreshError);
+
+    // Se o erro for de autenticação (401) e não estamos tentando renovar o token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (originalRequest.url === '/auth/login') {
+        return Promise.reject(error);
       }
+      
+      return handleAuthError(error, originalRequest);
     }
-    
-    // Se for erro 401 em uma tentativa de refresh token, faz logout
-    if (error.response?.status === 401 && 
-        originalRequest.url.includes('/auth/refresh-token')) {
-      handleAuthError();
-    }
-    
+
     return Promise.reject(error);
   }
 );
@@ -184,15 +160,43 @@ api.interceptors.response.use(
 export const authService = {
   async login(username, password) {
     try {
+      console.log('Tentando login com:', { username });
       const response = await api.post('/auth/login', { username, password });
-      const { access_token, refresh_token } = response.data; // Corrigindo os nomes dos campos
       
-      localStorage.setItem('accessToken', access_token);
-      localStorage.setItem('refreshToken', refresh_token);
+      console.log('Resposta completa:', response);
+      console.log('Dados da resposta:', response.data);
+      
+      if (!response.data) {
+        console.error('Resposta sem dados:', response);
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      // Verifica se os tokens estão na resposta
+      const accessToken = response.data.access_token || response.data.accessToken;
+      const refreshToken = response.data.refresh_token || response.data.refreshToken;
+
+      console.log('Tokens encontrados:', { 
+        accessToken: accessToken ? 'presente' : 'ausente',
+        refreshToken: refreshToken ? 'presente' : 'ausente'
+      });
+
+      if (!accessToken) {
+        console.error('Estrutura da resposta:', response.data);
+        throw new Error('Token de acesso não encontrado na resposta');
+      }
+
+      localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
       
       return response.data;
     } catch (error) {
-      console.error('[POST] /auth/login:', error);
+      console.error('[POST] /auth/login - Erro detalhado:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       throw error;
     }
   },
@@ -208,10 +212,14 @@ export const movementsService = {
   async list(params = {}) {
     try {
       console.log('[GET] /movements: Params:', params);
-      const response = await api.get('/movements', { params });
+      const response = await api.get('/movements', { 
+        params: {
+          ...params,
+          include: 'payments.installments.boletos' // Incluindo pagamentos, parcelas e boletos
+        }
+      });
       console.log('Raw API response:', response);
       
-      // Transformando a resposta para o formato esperado pelo frontend
       return {
         items: response.data,
         total: response.pagination?.total || 0,

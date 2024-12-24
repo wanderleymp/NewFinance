@@ -51,10 +51,15 @@ const Login = () => {
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.message || 
-        'Erro ao fazer login. Verifique suas credenciais.'
-      );
+      let errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
