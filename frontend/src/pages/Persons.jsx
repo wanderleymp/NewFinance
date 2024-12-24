@@ -70,6 +70,9 @@ const Persons = () => {
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [contactSearch, setContactSearch] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   const loadPersons = async () => {
     try {
@@ -103,6 +106,24 @@ const Persons = () => {
       setPersons([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContacts = async (personId, search) => {
+    try {
+      setLoadingContacts(true);
+      const response = await personsService.listContacts(personId, {
+        search,
+        page: 1,
+        limit: 10
+      });
+      
+      setContacts(response.items || []);
+    } catch (error) {
+      console.error('Erro ao carregar contatos:', error);
+      enqueueSnackbar('Erro ao carregar contatos', { variant: 'error' });
+    } finally {
+      setLoadingContacts(false);
     }
   };
 
@@ -219,9 +240,20 @@ const Persons = () => {
     page * rowsPerPage + rowsPerPage,
   );
 
-  const handleOpenContacts = (person) => {
+  const handleOpenContacts = (person, event) => {
     setSelectedPerson(person);
+    setContactSearch('');
+    setContacts([]);
     setContactsModalOpen(true);
+    loadContacts(person.id, '');
+  };
+
+  const handleContactSearchChange = (event) => {
+    const value = event.target.value;
+    setContactSearch(value);
+    if (selectedPerson) {
+      loadContacts(selectedPerson.id, value);
+    }
   };
 
   const handleCloseContacts = () => {
@@ -427,7 +459,7 @@ const Persons = () => {
                       <Tooltip title="Ver contatos">
                         <IconButton
                           size="small"
-                          onClick={() => handleOpenContacts(person)}
+                          onClick={(event) => handleOpenContacts(person, event)}
                         >
                           <ContactsIcon fontSize="small" />
                           <Typography variant="caption" sx={{ ml: 0.5 }}>
@@ -439,7 +471,7 @@ const Persons = () => {
                       <Tooltip title="Adicionar contatos">
                         <IconButton
                           size="small"
-                          onClick={() => handleOpenContacts(person)}
+                          onClick={(event) => handleOpenContacts(person, event)}
                         >
                           <AddIcon fontSize="small" />
                         </IconButton>
@@ -512,64 +544,65 @@ const Persons = () => {
       <Dialog 
         open={contactsModalOpen} 
         onClose={handleCloseContacts}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>
-          Contatos - {selectedPerson?.full_name}
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseContacts}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">
+              Contatos - {selectedPerson?.full_name}
+            </Typography>
+            <IconButton onClick={handleCloseContacts}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
         </DialogTitle>
         <DialogContent>
-          {selectedPerson?.contacts?.length > 0 ? (
-            <List>
-              {selectedPerson.contacts.map((contact, index) => (
-                <ListItem
-                  key={index}
-                  secondaryAction={
-                    <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(contact.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  }
-                >
-                  <ListItemIcon>
-                    {contact.contact_type === 'phone' ? <PhoneIcon /> : contact.contact_type === 'whatsapp' ? <WhatsAppIcon /> : <EmailIcon />}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={contact.contact_value}
-                    secondary={contact.description || contact.contact_type}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          ) : (
-            <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-              Nenhum contato cadastrado
-            </Typography>
-          )}
+          <Box mb={2}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Buscar contatos..."
+              value={contactSearch}
+              onChange={handleContactSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: loadingContacts && (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Box>
+          <List>
+            {contacts.map((contact) => (
+              <ListItem key={contact.id}>
+                <ListItemIcon>
+                  {contact.contact_type === 'EMAIL' && <EmailIcon />}
+                  {contact.contact_type === 'WHATSAPP' && <WhatsAppIcon />}
+                  {contact.contact_type === 'PHONE' && <PhoneIcon />}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={contact.contact_value}
+                  secondary={contact.contact_type.toLowerCase()}
+                />
+              </ListItem>
+            ))}
+            {!loadingContacts && contacts.length === 0 && (
+              <ListItem>
+                <ListItemText 
+                  primary="Nenhum contato encontrado"
+                  secondary={contactSearch ? "Tente outra busca" : "Adicione um novo contato"}
+                />
+              </ListItem>
+            )}
+          </List>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseContacts}>Fechar</Button>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />}
-            onClick={() => {
-              handleCloseContacts();
-              navigate(`/persons/${selectedPerson.id}/edit`, { state: { activeTab: 1 } });
-            }}
-          >
-            Adicionar Contato
-          </Button>
-        </DialogActions>
       </Dialog>
     </Box>
   );

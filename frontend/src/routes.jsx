@@ -1,4 +1,4 @@
-import { Navigate, useRoutes, Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -9,22 +9,31 @@ import Persons from './pages/Persons';
 import PersonForm from './pages/PersonForm';
 import SystemStatus from './pages/SystemStatus';
 import ImportCNPJ from './pages/ImportCNPJ';
+import Contacts from './pages/Contacts';
+import Users from './pages/Users';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 const PublicRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return !isAuthenticated ? children : <Navigate to="/dashboard" />;
+  return !isAuthenticated ? children : <Navigate to="/" replace />;
 };
 
-const AppRoutes = ({ darkMode, setDarkMode }) => {
+export default function AppRoutes({ darkMode, setDarkMode }) {
   return (
     <Routes>
-      <Route path="/" element={<PrivateRoute><Dashboard darkMode={darkMode} setDarkMode={setDarkMode} /></PrivateRoute>}>
-        <Route index element={<Navigate to="/dashboard" />} />
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Home />} />
         <Route path="dashboard" element={<Home />} />
         <Route path="movements" element={<Movements />} />
         <Route path="movements/new" element={<NewMovement />} />
@@ -35,10 +44,17 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="persons/:id/edit" element={<PersonForm />} />
         <Route path="receivables" element={<Receivables />} />
         <Route path="system/status" element={<SystemStatus />} />
+        <Route path="contacts" element={<Contacts />} />
+        <Route path="users" element={<Users />} />
       </Route>
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
     </Routes>
   );
-};
-
-export default AppRoutes;
+}

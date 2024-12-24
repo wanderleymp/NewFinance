@@ -2,29 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
-  Box,
+  Container,
+  Grid,
+  Typography,
+  TextField,
   Button,
   Card,
   CardContent,
-  Grid,
-  TextField,
-  Typography,
-  MenuItem,
-  Switch,
-  FormControlLabel,
-  Divider,
-  IconButton,
-  Paper,
-  Tabs,
-  Tab,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
+  CircularProgress,
+  InputAdornment,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+  Tabs,
+  Tab,
+  ListItemSecondaryAction,
+  IconButton,
+  Switch,
+  FormControlLabel,
+  Divider,
   Autocomplete,
+  Input,
+  TableContainer,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -32,6 +41,7 @@ import {
   Delete as DeleteIcon,
   Add as AddIcon,
   Edit as EditIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import personsService from '../services/personsService';
@@ -82,6 +92,8 @@ const PersonForm = () => {
   const [contacts, setContacts] = useState([]);
   const [searchContacts, setSearchContacts] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [showContactList, setShowContactList] = useState(false);
 
   // Formulários de endereço e contato
   const [newAddress, setNewAddress] = useState({
@@ -96,12 +108,16 @@ const PersonForm = () => {
 
   const [editingAddress, setEditingAddress] = useState(null);
 
+  // Estado inicial do contato
   const [newContact, setNewContact] = useState({
-    type: 'phone',
+    type: 'email',
     contact: '',
     description: '',
     is_main: false,
+    contact_id: null
   });
+
+  const [editingContact, setEditingContact] = useState(null);
 
   const resetAddressForm = () => {
     setNewAddress({
@@ -117,48 +133,42 @@ const PersonForm = () => {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      // Se não tiver ID, não faz nada (é um novo cadastro)
-      if (!id) {
-        setLoading(false);
-        return;
-      }
+    if (id) {
+      const loadData = async () => {
+        try {
+          setLoading(true);
+          const [personData, contactsData, addressesData] = await Promise.all([
+            personsService.get(id),
+            personsService.listContacts({ person_id: id }),
+            personsService.listAddresses(id)
+          ]);
 
-      try {
-        setLoading(true);
-        // Carrega todos os dados da pessoa
-        const personData = await personsService.getDetailsById(id);
+          // Formatar a data para o formato esperado pelo input
+          const formattedDate = personData.birth_date ? 
+            new Date(personData.birth_date).toISOString().split('T')[0] : 
+            '';
 
-        // Atualiza dados principais
-        setFormData({
-          full_name: personData.full_name || '',
-          fantasy_name: personData.fantasy_name || '',
-          birth_date: personData.birth_date ? format(new Date(personData.birth_date), 'yyyy-MM-dd') : '',
-          person_type: personData.documents?.[0]?.document_type === 'CNPJ' ? 'PJ' : 'PF',
-          active: personData.active || true,
-        });
+          setFormData({
+            full_name: personData.full_name || '',
+            fantasy_name: personData.fantasy_name || '',
+            birth_date: formattedDate,
+            person_type: personData.person_type || 'PF',
+            active: personData.active || false
+          });
 
-        // Atualiza contatos e endereços
-        setContacts(personData.contacts || []);
-        setAddresses(personData.addresses || []);
-      } catch (error) {
-        console.error('Error loading person:', error);
-        if (error.response?.status === 500) {
-          navigate('/persons');
-          enqueueSnackbar('Pessoa não encontrada', { variant: 'error' });
-        } else {
-          enqueueSnackbar(
-            error.response?.data?.message || 'Erro ao carregar dados da pessoa',
-            { variant: 'error' }
-          );
+          setContacts(contactsData.items || []);
+          setAddresses(addressesData.items || []);
+        } catch (error) {
+          console.error('Error loading person data:', error);
+          enqueueSnackbar('Erro ao carregar dados da pessoa', { variant: 'error' });
+        } finally {
+          setLoading(false);
         }
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    loadData();
-  }, [id, enqueueSnackbar, navigate]);
+      loadData();
+    }
+  }, [id]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -186,20 +196,48 @@ const PersonForm = () => {
 
   const handleAddContact = async () => {
     try {
-      await personsService.addContact(id, newContact);
+      if (!newContact.contact) {
+        enqueueSnackbar('Por favor, preencha o contato', { variant: 'warning' });
+        return;
+      }
+
+      const contactData = {
+        type: newContact.type,
+        value: newContact.contact,
+        name: newContact.description || null
+      };
+
+      // Se tiver contact_id, é um contato existente
+      if (newContact.contact_id) {
+        contactData.contact_id = newContact.contact_id;
+      }
+
+      if (editingContact) {
+        await personsService.updateContact(id, editingContact.id, contactData);
+        enqueueSnackbar('Contato atualizado com sucesso!', { variant: 'success' });
+      } else {
+        await personsService.createContact(id, contactData);
+        enqueueSnackbar('Contato adicionado com sucesso!', { variant: 'success' });
+      }
+
+      // Recarrega a lista de contatos
       const contactsData = await personsService.listContacts(id);
       setContacts(contactsData.items || []);
+
+      // Limpa o formulário
       setNewContact({
-        type: 'phone',
+        type: 'email',
         contact: '',
         description: '',
         is_main: false,
+        contact_id: null
       });
-      enqueueSnackbar('Contato adicionado com sucesso!', { variant: 'success' });
+      setSearchText('');
+      setEditingContact(null);
     } catch (error) {
-      console.error('Error adding contact:', error);
+      console.error('Error adding/updating contact:', error);
       enqueueSnackbar(
-        error.response?.data?.message || 'Erro ao adicionar contato',
+        error.response?.data?.message || 'Erro ao adicionar/atualizar contato',
         { variant: 'error' }
       );
     }
@@ -208,7 +246,7 @@ const PersonForm = () => {
   const handleDeleteContact = async (contactId) => {
     try {
       await personsService.deleteContact(id, contactId);
-      const contactsData = await personsService.listContacts(id);
+      const contactsData = await personsService.listContactsByPerson(id);
       setContacts(contactsData.items || []);
       enqueueSnackbar('Contato excluído com sucesso!', { variant: 'success' });
     } catch (error) {
@@ -218,6 +256,18 @@ const PersonForm = () => {
         { variant: 'error' }
       );
     }
+  };
+
+  const handleEditContact = (contact) => {
+    setEditingContact(contact);
+    setNewContact({
+      type: contact.type.toLowerCase(),
+      contact: contact.value,
+      description: contact.name || '',
+      is_main: contact.is_main || false,
+      contact_id: contact.id
+    });
+    setSearchText(contact.value);
   };
 
   const handleAddAddress = async () => {
@@ -293,39 +343,70 @@ const PersonForm = () => {
     }
   };
 
-  const handleContactSearch = async (searchValue) => {
-    if (!searchValue) {
-      setSearchContacts([]);
-      return;
-    }
-
-    setSearchLoading(true);
+  const handleSearchContacts = async (search) => {
     try {
-      const { items } = await personsService.listContacts(id, { search: searchValue });
-      setSearchContacts(items || []);
+      setSearchText(search);
+      setSearchLoading(true);
+      if (!search) {
+        setSearchContacts([]);
+        setShowContactList(false);
+        return;
+      }
+
+      const response = await personsService.searchContacts({ search });
+      setSearchContacts(response.items || []);
+      setShowContactList(true);
     } catch (error) {
       console.error('Error searching contacts:', error);
-      enqueueSnackbar('Erro ao buscar contatos', { variant: 'error' });
+      setSearchContacts([]);
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const handleContactChange = (event, newValue) => {
-    if (newValue && typeof newValue === 'object') {
-      // Se selecionou um contato existente
+  const handleContactSelect = (selectedContact) => {
+    if (selectedContact) {
       setNewContact({
-        type: newValue.contact_type.toLowerCase(),
-        contact: newValue.contact_value,
-        description: newValue.description || '',
-        is_main: newValue.is_main || false,
+        type: selectedContact.type.toLowerCase(),
+        contact: selectedContact.value,
+        description: selectedContact.name || '',
+        is_main: false,
+        contact_id: selectedContact.id
       });
-    } else {
-      // Se digitou um novo valor
-      setNewContact((prev) => ({
-        ...prev,
-        contact: newValue || '',
-      }));
+      setSearchText(selectedContact.value);
+    }
+    setShowContactList(false);
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [personData, contactsData, addressesData] = await Promise.all([
+        personsService.get(id),
+        personsService.listContacts({ person_id: id }),
+        personsService.listAddresses(id)
+      ]);
+
+      // Formatar a data para o formato esperado pelo input
+      const formattedDate = personData.birth_date ? 
+        new Date(personData.birth_date).toISOString().split('T')[0] : 
+        '';
+
+      setFormData({
+        full_name: personData.full_name || '',
+        fantasy_name: personData.fantasy_name || '',
+        birth_date: formattedDate,
+        person_type: personData.person_type || 'PF',
+        active: personData.active || false
+      });
+
+      setContacts(contactsData.items || []);
+      setAddresses(addressesData.items || []);
+    } catch (error) {
+      console.error('Error loading person data:', error);
+      enqueueSnackbar('Erro ao carregar dados da pessoa', { variant: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -416,8 +497,8 @@ const PersonForm = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={formData.active}
-                        onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                        checked={formData.active || false}
+                        onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
                       />
                     }
                     label="Ativo"
@@ -460,69 +541,120 @@ const PersonForm = () => {
                 <Typography variant="h6" gutterBottom>
                   Adicionar Contato
                 </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={3}>
-                    <FormControl fullWidth>
-                      <InputLabel>Tipo</InputLabel>
-                      <Select
-                        value={newContact.type}
-                        onChange={(e) => setNewContact({ ...newContact, type: e.target.value })}
-                        label="Tipo"
-                      >
-                        <MenuItem value="phone">Telefone</MenuItem>
-                        <MenuItem value="whatsapp">WhatsApp</MenuItem>
-                        <MenuItem value="email">Email</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Autocomplete
-                      freeSolo
-                      options={searchContacts}
-                      getOptionLabel={(option) => {
-                        if (typeof option === 'string') return option;
-                        return option.contact_value || '';
+                <Box sx={{ mt: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Tipo</InputLabel>
+                    <Select
+                      value={newContact.type}
+                      onChange={(e) =>
+                        setNewContact({ ...newContact, type: e.target.value })
+                      }
+                      label="Tipo"
+                    >
+                      <MenuItem value="email">E-mail</MenuItem>
+                      <MenuItem value="phone">Telefone</MenuItem>
+                      <MenuItem value="whatsapp">WhatsApp</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ mt: 2, position: 'relative' }}>
+                    <TextField
+                      fullWidth
+                      label="Contato"
+                      value={searchText}
+                      onChange={(e) => handleSearchContacts(e.target.value)}
+                      InputProps={{
+                        endAdornment: searchText && (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setSearchText('');
+                                setSearchContacts([]);
+                                setShowContactList(false);
+                                setNewContact({
+                                  ...newContact,
+                                  contact: '',
+                                  description: '',
+                                  contact_id: null,
+                                });
+                              }}
+                            >
+                              <ClearIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
                       }}
-                      onInputChange={(event, newInputValue) => {
-                        handleContactSearch(newInputValue);
-                      }}
-                      onChange={handleContactChange}
-                      loading={searchLoading}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Contato"
-                          fullWidth
-                          value={newContact.contact}
-                          onChange={(e) => setNewContact({ ...newContact, contact: e.target.value })}
-                        />
-                      )}
-                      renderOption={(props, option) => (
-                        <li {...props}>
-                          <Box>
-                            <Typography variant="body1">
-                              {option.contact_value}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {option.description || option.contact_type}
-                            </Typography>
-                          </Box>
-                        </li>
-                      )}
                     />
-                  </Grid>
-                  <Grid item xs={12} sm={3}>
+
+                    {showContactList && searchContacts.length > 0 && (
+                      <Paper
+                        sx={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          zIndex: 1000,
+                          mt: 1,
+                          maxHeight: 200,
+                          overflow: 'auto',
+                        }}
+                      >
+                        <List>
+                          {searchContacts.map((contact) => (
+                            <ListItem
+                              key={contact.id}
+                              button
+                              onClick={() => handleContactSelect(contact)}
+                            >
+                              <ListItemText
+                                primary={contact.value}
+                                secondary={contact.name}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    )}
+                  </Box>
+
+                  <TextField
+                    fullWidth
+                    label="Nome do Contato"
+                    value={newContact.description}
+                    onChange={(e) =>
+                      setNewContact({ ...newContact, description: e.target.value })
+                    }
+                    sx={{ mt: 2 }}
+                  />
+
+                  <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
                     <Button
                       variant="contained"
                       onClick={handleAddContact}
-                      disabled={!newContact.contact}
-                      sx={{ height: '100%' }}
-                      fullWidth
+                      disabled={!searchText}
                     >
-                      Adicionar
+                      {editingContact ? 'Atualizar' : 'Adicionar'}
                     </Button>
-                  </Grid>
-                </Grid>
+                    {editingContact && (
+                      <Button
+                        onClick={() => {
+                          setEditingContact(null);
+                          setNewContact({
+                            type: 'email',
+                            contact: '',
+                            description: '',
+                            is_main: false,
+                            contact_id: null,
+                          });
+                          setSearchText('');
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
               </Grid>
 
               <Grid item xs={12}>
@@ -531,25 +663,44 @@ const PersonForm = () => {
                   Contatos
                 </Typography>
                 {contacts.length > 0 ? (
-                  <List>
-                    {contacts.map((contact, index) => (
-                      <ListItem
-                        key={index}
-                        secondaryAction={
-                          <IconButton edge="end" onClick={() => handleDeleteContact(contact.id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemText
-                          primary={contact.contact}
-                          secondary={`${contact.type === 'phone' ? 'Telefone' : 'E-mail'}${
-                            contact.description ? ` - ${contact.description}` : ''
-                          }`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
+                  <TableContainer>
+                    <Table>
+                      <TableBody>
+                        {contacts.map((contact) => (
+                          <TableRow key={contact.id}>
+                            <TableCell>
+                              <Typography variant="body1">
+                                {contact.value}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {contact.name || 'Sem nome'}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {contact.type.toUpperCase()}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                onClick={() => handleEditContact(contact)}
+                                color="primary"
+                                size="small"
+                                sx={{ mr: 1 }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                onClick={() => handleDeleteContact(contact.id)}
+                                color="error"
+                                size="small"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 ) : (
                   <Typography color="text.secondary" align="center">
                     Nenhum contato cadastrado
