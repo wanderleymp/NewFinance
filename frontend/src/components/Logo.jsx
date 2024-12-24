@@ -51,7 +51,6 @@ const Logo = ({ size = 'medium' }) => {
             component="span"
             sx={{
               color: theme.palette.primary.main,
-              marginLeft: '2px',
             }}
           >
             Finance

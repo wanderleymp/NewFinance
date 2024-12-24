@@ -62,56 +62,61 @@ import MovementForm from '../components/MovementForm';
 import { useNavigate } from 'react-router-dom';
 
 const MovementCard = ({ movement }) => {
-  const [notificationAnchor, setNotificationAnchor] = useState(null);
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
+
   const status = movement.status || movement.status_name || 'draft';
   const statusId = movement.movement_status_id || movement.status_id || 1;
   const description = movement.description || 'Sem descrição';
   const amount = movement.amount || movement.total_amount || 0;
   const date = movement.date || movement.movement_date || new Date();
   const customer = movement.customer || movement.person_name || 'Cliente não especificado';
+  const personId = movement.person_id || 'N/A';
   const type = movement.type || movement.type_name || 'Não especificado';
-  
-  const isConfirmed = statusId === 2;
-  const canNotify = isConfirmed; // Agora só mostra o botão se estiver confirmado
 
-  const handleNotificationClick = (event) => {
-    setNotificationAnchor(event.currentTarget);
+  const getStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+      case 'confirmado':
+        return 'success';
+      case 'pending':
+      case 'pendente':
+        return 'warning';
+      case 'cancelled':
+      case 'cancelado':
+        return 'error';
+      case 'draft':
+      case 'rascunho':
+        return 'default';
+      default:
+        return 'default';
+    }
   };
 
-  const handleNotificationClose = () => {
-    setNotificationAnchor(null);
+  const handleEdit = () => {
+    navigate(`/movements/${movement.id}`);
   };
 
-  const handleEmailNotification = () => {
-    // TODO: Implementar envio por email
-    console.log('Enviando notificação por email...');
-    handleNotificationClose();
+  const handleDelete = async () => {
+    try {
+      await movementsService.delete(movement.id);
+      enqueueSnackbar('Movimento excluído com sucesso!', { variant: 'success' });
+    } catch (error) {
+      console.error('Erro ao excluir movimento:', error);
+      enqueueSnackbar('Erro ao excluir movimento', { variant: 'error' });
+    }
   };
 
-  const handleWhatsAppNotification = () => {
-    // TODO: Implementar envio por WhatsApp
-    console.log('Enviando notificação por WhatsApp...');
-    handleNotificationClose();
-  };
-
-  const handleAllNotifications = () => {
-    // TODO: Implementar envio por todos os canais
-    console.log('Enviando notificação por todos os canais...');
-    handleNotificationClose();
-  };
-
-  const handleGenerateInvoice = () => {
-    // TODO: Implementar geração de nota fiscal
-    console.log('Gerando nota fiscal...');
-  };
-  
   return (
     <Card
+      elevation={0}
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
           transform: 'translateY(-4px)',
@@ -119,96 +124,83 @@ const MovementCard = ({ movement }) => {
         },
       }}
     >
-      <CardContent sx={{ flex: 1, pb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h6" component="div" fontWeight="600">
-            {description}
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Chip
+      <CardContent sx={{ flex: 1, p: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              {format(parseISO(date), 'dd/MM/yyyy')}
+            </Typography>
+            <Typography variant="subtitle1" sx={{ mt: 0.5 }}>
+              {description}
+            </Typography>
+          </Box>
+          <Chip
+            label={status}
+            size="small"
+            color={getStatusColor(status)}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+
+        <Stack spacing={2}>
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Cliente
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+              <Chip 
+                label={personId}
+                size="small"
+                variant="outlined"
+                sx={{ minWidth: 70 }}
+              />
+              <Typography variant="body1">
+                {customer}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Tipo
+            </Typography>
+            <Chip 
               label={type}
               size="small"
               color="primary"
               variant="outlined"
+              sx={{ mt: 0.5 }}
             />
-            <Chip
-              label={isConfirmed ? 'Confirmado' : status}
-              color={isConfirmed ? 'success' : 'default'}
-              size="small"
-            />
-          </Stack>
-        </Box>
-        
-        <Typography variant="h5" color="primary" fontWeight="600" gutterBottom>
-          {new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-          }).format(parseFloat(amount))}
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-        </Typography>
-        
-        <Typography variant="body2" color="text.secondary">
-          Cliente: {customer}
-        </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              Valor
+            </Typography>
+            <Typography 
+              variant="h6" 
+              color={amount >= 0 ? 'success.main' : 'error.main'}
+              sx={{ mt: 0.5 }}
+            >
+              {formatCurrency(amount)}
+            </Typography>
+          </Box>
+        </Stack>
       </CardContent>
-      
-      <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-        <Tooltip title="Visualizar">
-          <IconButton size="small">
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+
+      <Divider />
+
+      <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
         <Tooltip title="Editar">
-          <IconButton size="small">
+          <IconButton size="small" onClick={handleEdit}>
             <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Excluir">
-          <IconButton size="small" color="error">
+          <IconButton size="small" color="error" onClick={handleDelete}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        {isConfirmed && (
-          <>
-            <Tooltip title="Gerar Nota Fiscal">
-              <IconButton 
-                size="small" 
-                color="primary"
-                onClick={handleGenerateInvoice}
-              >
-                <PostAddIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Enviar Notificação">
-              <IconButton 
-                size="small" 
-                color="primary"
-                onClick={handleNotificationClick}
-              >
-                <NotificationsIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Menu
-              anchorEl={notificationAnchor}
-              open={Boolean(notificationAnchor)}
-              onClose={handleNotificationClose}
-            >
-              <MenuItem onClick={handleAllNotifications}>
-                <NotificationsIcon sx={{ mr: 1 }} /> Enviar por Todos
-              </MenuItem>
-              <Divider />
-              <MenuItem onClick={handleEmailNotification}>
-                <EmailIcon sx={{ mr: 1 }} /> Enviar por Email
-              </MenuItem>
-              <MenuItem onClick={handleWhatsAppNotification}>
-                <WhatsAppIcon sx={{ mr: 1 }} /> Enviar por WhatsApp
-              </MenuItem>
-            </Menu>
-          </>
-        )}
       </Box>
     </Card>
   );
@@ -381,111 +373,122 @@ const MovementRow = ({ movement }) => {
   );
 };
 
-const MovementTable = ({ movements, onSort, orderBy, orderDirection }) => {
-  const [notificationAnchor, setNotificationAnchor] = useState(null);
+const MovementTable = ({ movements, onSort, orderBy, orderDirection, page, rowsPerPage, onPageChange, onRowsPerPageChange, totalCount }) => {
   const [selectedMovement, setSelectedMovement] = useState(null);
 
-  const handleNotificationClick = (event, movement) => {
-    setSelectedMovement(movement);
-    setNotificationAnchor(event.currentTarget);
-  };
-
-  const handleNotificationClose = () => {
-    setNotificationAnchor(null);
-    setSelectedMovement(null);
-  };
-
-  const handleEmailNotification = () => {
-    console.log('Enviando notificação por email...', selectedMovement);
-    handleNotificationClose();
-  };
-
-  const handleWhatsAppNotification = () => {
-    console.log('Enviando notificação por WhatsApp...', selectedMovement);
-    handleNotificationClose();
-  };
-
-  const handleAllNotifications = () => {
-    console.log('Enviando notificação por todos os canais...', selectedMovement);
-    handleNotificationClose();
-  };
-
-  const renderSortLabel = (column) => {
-    return (
-      <TableSortLabel
-        active={orderBy === column}
-        direction={orderBy === column ? orderDirection : 'asc'}
-        onClick={() => onSort(column)}
-      >
-        {column === 'date' ? 'Data' :
-         column === 'description' ? 'Descrição' :
-         column === 'value' ? 'Valor' :
-         column === 'type' ? 'Tipo' : 'Status'}
-      </TableSortLabel>
-    );
+  const handleClick = (movement) => {
+    setSelectedMovement(selectedMovement === movement ? null : movement);
   };
 
   return (
-    <TableContainer component={Paper} sx={{ mt: 2 }}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell padding="checkbox" /> {/* Coluna para o botão de expandir */}
-            <TableCell>
-              <TableSortLabel
-                active={orderBy === 'date'}
-                direction={orderBy === 'date' ? orderDirection : 'asc'}
-                onClick={() => onSort('date')}
-              >
-                Data
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>
-              <TableSortLabel
-                active={orderBy === 'description'}
-                direction={orderBy === 'description' ? orderDirection : 'asc'}
-                onClick={() => onSort('description')}
-              >
-                Descrição
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>
-              <TableSortLabel
-                active={orderBy === 'person'}
-                direction={orderBy === 'person' ? orderDirection : 'asc'}
-                onClick={() => onSort('person')}
-              >
-                Cliente
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={orderBy === 'amount'}
-                direction={orderBy === 'amount' ? orderDirection : 'asc'}
-                onClick={() => onSort('amount')}
-              >
-                Valor
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>
-              <TableSortLabel
-                active={orderBy === 'status'}
-                direction={orderBy === 'status' ? orderDirection : 'asc'}
-                onClick={() => onSort('status')}
-              >
-                Status
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">Ações</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {movements.map((movement) => (
-            <MovementRow key={movement.movement_id || movement.id} movement={movement} />
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <Paper 
+      elevation={0} 
+      sx={{ 
+        overflow: 'hidden',
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        background: 'transparent',
+        '& .MuiTableCell-root': {
+          borderColor: 'divider',
+        },
+      }}
+    >
+      <TableContainer>
+        <Table sx={{ minWidth: 750 }} size="medium">
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox" />
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'date'}
+                  direction={orderBy === 'date' ? orderDirection : 'asc'}
+                  onClick={() => onSort('date')}
+                >
+                  Data
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'description'}
+                  direction={orderBy === 'description' ? orderDirection : 'asc'}
+                  onClick={() => onSort('description')}
+                >
+                  Descrição
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>ID Cliente</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'customer'}
+                  direction={orderBy === 'customer' ? orderDirection : 'asc'}
+                  onClick={() => onSort('customer')}
+                >
+                  Cliente
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'type'}
+                  direction={orderBy === 'type' ? orderDirection : 'asc'}
+                  onClick={() => onSort('type')}
+                >
+                  Tipo
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={orderBy === 'amount'}
+                  direction={orderBy === 'amount' ? orderDirection : 'asc'}
+                  onClick={() => onSort('amount')}
+                >
+                  Valor
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'status'}
+                  direction={orderBy === 'status' ? orderDirection : 'asc'}
+                  onClick={() => onSort('status')}
+                >
+                  Status
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {movements.map((movement) => (
+              <MovementRow key={movement.id} movement={movement} />
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 2,
+        p: 2,
+        borderTop: '1px solid',
+        borderColor: 'divider'
+      }}>
+        <Typography variant="body2" color="text.secondary">
+          Total de registros: {totalCount}
+        </Typography>
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          onPageChange={onPageChange}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={onRowsPerPageChange}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          labelRowsPerPage="Itens por página"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+        />
+      </Box>
+    </Paper>
   );
 };
 
@@ -517,29 +520,35 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
         start = startOfDay(subDays(today, 29)); // últimos 30 dias
         end = endOfDay(today);
         break;
-      default:
-        start = startOfDay(subDays(today, 6)); // últimos 7 dias como padrão
+      case 'month3':
+        start = startOfDay(subDays(today, 89)); // últimos 90 dias
         end = endOfDay(today);
+        break;
+      case 'month6':
+        start = startOfDay(subDays(today, 179)); // últimos 180 dias
+        end = endOfDay(today);
+        break;
+      case 'year':
+        start = startOfDay(subDays(today, 364)); // últimos 365 dias
+        end = endOfDay(today);
+        break;
+      default:
+        return;
     }
     
     onDateRangeChange([start, end]);
     handleClose();
   };
 
-  const handleDateChange = (newValue, isStart) => {
-    const [start, end] = dateRange;
-    if (isStart) {
-      onDateRangeChange([newValue, end]);
-    } else {
-      onDateRangeChange([start, newValue]);
-    }
-  };
-  
+  // Garantir que dateRange é um array com duas datas válidas
+  const [startDate, endDate] = Array.isArray(dateRange) && dateRange.length === 2 
+    ? dateRange.map(date => date instanceof Date ? date : new Date())
+    : [subDays(new Date(), 30), new Date()];
+
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <IconButton onClick={() => {
-        const [start, end] = dateRange;
-        onDateRangeChange([subDays(start, 1), subDays(end, 1)]);
+        onDateRangeChange([subDays(startDate, 1), subDays(endDate, 1)]);
       }}>
         <BeforeIcon />
       </IconButton>
@@ -549,13 +558,13 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
         startIcon={<DateRangeIcon />}
         endIcon={<FilterIcon />}
         variant="outlined"
+        size="small"
       >
-        {format(dateRange[0], "dd/MM/yyyy")} - {format(dateRange[1], "dd/MM/yyyy")}
+        {format(startDate, "dd/MM/yyyy")} - {format(endDate, "dd/MM/yyyy")}
       </Button>
       
       <IconButton onClick={() => {
-        const [start, end] = dateRange;
-        onDateRangeChange([addDays(start, 1), addDays(end, 1)]);
+        onDateRangeChange([addDays(startDate, 1), addDays(endDate, 1)]);
       }}>
         <NextIcon />
       </IconButton>
@@ -566,32 +575,29 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
         onClose={handleClose}
       >
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label="Data Inicial"
-            type="date"
-            value={format(dateRange[0], 'yyyy-MM-dd')}
-            onChange={(e) => handleDateChange(new Date(e.target.value), true)}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-          <TextField
-            label="Data Final"
-            type="date"
-            value={format(dateRange[1], 'yyyy-MM-dd')}
-            onChange={(e) => handleDateChange(new Date(e.target.value), false)}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-          />
-          <Divider />
-          <MenuItem onClick={() => handlePeriodSelect('today')}>
-            <TodayIcon sx={{ mr: 1 }} /> Hoje
-          </MenuItem>
-          <MenuItem onClick={() => handlePeriodSelect('week')}>
-            <DateRangeIcon sx={{ mr: 1 }} /> Últimos 7 dias
-          </MenuItem>
-          <MenuItem onClick={() => handlePeriodSelect('month')}>
-            <DateRangeIcon sx={{ mr: 1 }} /> Últimos 30 dias
-          </MenuItem>
+          <Typography variant="subtitle2" color="text.secondary">
+            Período
+          </Typography>
+          <Stack spacing={1}>
+            <Button size="small" onClick={() => handlePeriodSelect('today')}>
+              Hoje
+            </Button>
+            <Button size="small" onClick={() => handlePeriodSelect('week')}>
+              Últimos 7 dias
+            </Button>
+            <Button size="small" onClick={() => handlePeriodSelect('month')}>
+              Últimos 30 dias
+            </Button>
+            <Button size="small" onClick={() => handlePeriodSelect('month3')}>
+              Últimos 90 dias
+            </Button>
+            <Button size="small" onClick={() => handlePeriodSelect('month6')}>
+              Últimos 180 dias
+            </Button>
+            <Button size="small" onClick={() => handlePeriodSelect('year')}>
+              Último ano
+            </Button>
+          </Stack>
         </Box>
       </Menu>
     </Box>
@@ -599,72 +605,51 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
 };
 
 const Movements = () => {
-  const navigate = useNavigate();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
+  const [orderBy, setOrderBy] = useState('date');
+  const [orderDirection, setOrderDirection] = useState('desc');
+  const [dateRange, setDateRange] = useState([
+    subDays(new Date(), 30),
+    new Date()
+  ]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [viewMode, setViewMode] = useState('table');
+  const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const [formOpen, setFormOpen] = useState(false);
-  
-  // Estados para filtros
-  const [viewMode, setViewMode] = useState('grid');
-  const [statusFilter, setStatusFilter] = useState('2');
-  const [typeFilter, setTypeFilter] = useState('2');
-  const [personFilter, setPersonFilter] = useState('');
-  const [valueMin, setValueMin] = useState('');
-  const [valueMax, setValueMax] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [dateRange, setDateRange] = useState(() => {
-    const end = endOfDay(new Date());
-    const start = startOfDay(subDays(new Date(), 6)); // últimos 7 dias
-    return [start, end];
-  });
-  
-  // Estados para ordenação
-  const [orderBy, setOrderBy] = useState('created_at');
-  const [orderDirection, setOrderDirection] = useState('DESC');
 
   const fetchMovements = async () => {
     try {
       setLoading(true);
-      
       const params = {
-        page,
-        limit: 10,
-        search: searchText || undefined,
-        person_id: personFilter || undefined,
-        movement_type_id: typeFilter !== 'all' ? typeFilter : undefined,
-        value_min: valueMin || undefined,
-        value_max: valueMax || undefined,
-        start_date: dateRange[0] ? format(dateRange[0], 'yyyy-MM-dd') : undefined,
-        end_date: dateRange[1] ? format(dateRange[1], 'yyyy-MM-dd') : undefined,
-        sort_by: orderBy || 'created_at',
-        sort_order: orderDirection || 'DESC'
+        page: page + 1,
+        limit: rowsPerPage,
+        orderBy,
+        orderDirection,
+        ...(dateRange[0] && { startDate: format(dateRange[0], 'yyyy-MM-dd') }),
+        ...(dateRange[1] && { endDate: format(dateRange[1], 'yyyy-MM-dd') }),
       };
 
-      // Log dos parâmetros
       console.log('Fetching movements with params:', params);
-      
-      // Primeiro tenta buscar com includes
-      try {
-        const response = await movementsService.list({
-          ...params,
-          include: 'payments.installments.boletos'
-        });
-        setMovements(response.items);
-        setTotalPages(Math.ceil(response.total / limit));
-      } catch (error) {
-        console.warn('Failed to fetch with includes, trying without:', error);
-        // Se falhar, tenta buscar sem includes
-        const response = await movementsService.list(params);
-        setMovements(response.items);
-        setTotalPages(Math.ceil(response.total / limit));
+      const response = await movementsService.list(params);
+      console.log('Raw API response:', response);
+
+      const { items, meta } = response?.data || {};
+
+      if (!items || !Array.isArray(items)) {
+        console.error('Formato de resposta inválido:', response?.data);
+        enqueueSnackbar('Erro ao carregar movimentações: formato de resposta inválido', { variant: 'error' });
+        return;
       }
+
+      setMovements(items);
+      setTotalCount(meta?.totalItems || items.length);
+      
     } catch (error) {
       console.error('Error fetching movements:', error);
-      enqueueSnackbar('Erro ao carregar movimentações', { variant: 'error' });
+      enqueueSnackbar(`Erro ao carregar movimentações: ${error.message}`, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -672,224 +657,129 @@ const Movements = () => {
 
   useEffect(() => {
     fetchMovements();
-  }, [
-    page,
-    limit,
-    statusFilter,
-    typeFilter,
-    personFilter,
-    valueMin,
-    valueMax,
-    dateRange,
-    searchText,
-    orderBy,
-    orderDirection
-  ]);
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange]);
 
-  const handlePageChange = (event, value) => {
-    setPage(value);
+  const handleSort = (property) => {
+    const isAsc = orderBy === property && orderDirection === 'asc';
+    setOrderDirection(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
   };
 
-  const handleSort = (field) => {
-    if (orderBy === field) {
-      setOrderDirection(orderDirection === 'ASC' ? 'DESC' : 'ASC');
-    } else {
-      setOrderBy(field);
-      setOrderDirection('ASC');
-    }
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
   };
 
-  const handlePeriodSelect = (newPeriod) => {
-    let start, end;
-    const today = new Date();
-    
-    switch (newPeriod) {
-      case 'today':
-        start = startOfDay(today);
-        end = endOfDay(today);
-        break;
-      case 'week':
-        start = startOfDay(subDays(today, 6)); // últimos 7 dias
-        end = endOfDay(today);
-        break;
-      case 'month':
-        start = startOfDay(subDays(today, 29)); // últimos 30 dias
-        end = endOfDay(today);
-        break;
-      default:
-        start = startOfDay(subDays(today, 6)); // últimos 7 dias como padrão
-        end = endOfDay(today);
-    }
-    
-    setDateRange([start, end]);
-  };
-
-  const handleNewMovement = (formData) => {
-    console.log('Nova movimentação:', formData);
-    // TODO: Implementar a criação da movimentação
-    setFormOpen(false);
-    // Após criar, recarregar a lista
-    fetchMovements();
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header com título e botão de nova movimentação */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="600">
-          Movimentações
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h5" component="h1" gutterBottom>
+            Movimentações
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Gerencie todas as movimentações financeiras
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => navigate('/movements/new')}
-          sx={{
-            fontWeight: 600,
-            '&:hover': {
-              transform: 'translateY(-2px)',
-            },
-            transition: 'transform 0.2s',
+          sx={{ 
+            borderRadius: 2,
+            textTransform: 'none',
+            px: 3
           }}
         >
           Nova Movimentação
         </Button>
       </Box>
 
-      <MovementForm 
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSubmit={handleNewMovement}
-      />
-
-      {/* Barra de filtros */}
-      <Box sx={{ mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          {/* Botões de visualização */}
-          <Grid item>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={9}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={(e, newValue) => newValue && setViewMode(newValue)}
               size="small"
+              aria-label="Modo de visualização"
+              sx={{ 
+                backgroundColor: 'background.paper',
+                '& .MuiToggleButton-root': {
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
+                },
+              }}
             >
-              <ToggleButton value="grid">
-                <Tooltip title="Visualização em Grade" placement="top">
-                  <GridViewIcon />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list">
-                <Tooltip title="Visualização em Lista" placement="top">
+              <ToggleButton value="table" aria-label="Visualização em tabela">
+                <Tooltip title="Visualização em Tabela">
                   <ListViewIcon />
                 </Tooltip>
               </ToggleButton>
+              <ToggleButton value="grid" aria-label="Visualização em grade">
+                <Tooltip title="Visualização em Cards">
+                  <GridViewIcon />
+                </Tooltip>
+              </ToggleButton>
             </ToggleButtonGroup>
-          </Grid>
 
-          <Grid item>
-            <Divider orientation="vertical" flexItem />
-          </Grid>
-
-          {/* Seletor de período */}
-          <Grid item>
             <DateRangeSelector
               dateRange={dateRange}
               onDateRangeChange={setDateRange}
             />
-          </Grid>
-
-          <Grid item>
-            <Divider orientation="vertical" flexItem />
-          </Grid>
-
-          <Grid item>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="1">Rascunho</MenuItem>
-                <MenuItem value="2">Confirmado</MenuItem>
-                <MenuItem value="99">Cancelado</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Tipo</InputLabel>
-              <Select
-                value={typeFilter}
-                label="Tipo"
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <MenuItem value="1">Compra</MenuItem>
-                <MenuItem value="2">Venda</MenuItem>
-                <MenuItem value="3">Contrato Venda</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item>
-            <TextField
-              size="small"
-              label="Buscar"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Descrição..."
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item>
-            <TextField
-              size="small"
-              label="Valor Mínimo"
-              value={valueMin}
-              onChange={(e) => setValueMin(e.target.value)}
-              type="number"
-              InputProps={{
-                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-              }}
-              sx={{ width: 150 }}
-            />
-          </Grid>
-
-          <Grid item>
-            <TextField
-              size="small"
-              label="Valor Máximo"
-              value={valueMax}
-              onChange={(e) => setValueMax(e.target.value)}
-              type="number"
-              InputProps={{
-                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-              }}
-              sx={{ width: 150 }}
-            />
-          </Grid>
+          </Box>
         </Grid>
-      </Box>
+        <Grid item xs={12} md={3}>
+          <Card 
+            elevation={0}
+            sx={{ 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              height: '100%'
+            }}
+          >
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total de Registros
+              </Typography>
+              <Typography variant="h4">
+                {totalCount}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      {/* Conteúdo */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+        <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
-      ) : movements.length === 0 ? (
-        <Card sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
-            Nenhuma movimentação encontrada
-          </Typography>
-        </Card>
-      ) : viewMode === 'grid' ? (
+      ) : viewMode === 'table' ? (
+        <MovementTable
+          movements={movements}
+          onSort={handleSort}
+          orderBy={orderBy}
+          orderDirection={orderDirection}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          totalCount={totalCount}
+        />
+      ) : (
         <>
           <Grid container spacing={3}>
             {movements.map((movement) => (
@@ -898,22 +788,29 @@ const Movements = () => {
               </Grid>
             ))}
           </Grid>
+          <Box sx={{ 
+            mt: 3, 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Total de registros: {totalCount}
+            </Typography>
+            <TablePagination
+              component="div"
+              count={totalCount}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[6, 12, 24, 48]}
+              labelRowsPerPage="Cards por página"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            />
+          </Box>
         </>
-      ) : (
-        <MovementTable movements={movements} onSort={handleSort} orderBy={orderBy} orderDirection={orderDirection} />
-      )}
-
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-            shape="rounded"
-          />
-        </Box>
       )}
     </Box>
   );

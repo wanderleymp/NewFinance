@@ -3,9 +3,12 @@ import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   timeout: 10000,
 });
+
+// Log da URL base para debug
+console.log('API Base URL:', api.defaults.baseURL);
 
 // Função para verificar se o token está próximo de expirar (menos de 5 minutos)
 const isTokenExpiringSoon = (token) => {
@@ -40,37 +43,46 @@ const processQueue = (error, token = null) => {
 };
 
 // Interceptor para adicionar o token e verificar expiração
-api.interceptors.request.use(async (config) => {
-  const token = localStorage.getItem('accessToken');
-  
-  if (token) {
-    // Verificar se o token está próximo de expirar
-    if (isTokenExpiringSoon(token) && !config.url.includes('/auth/refresh-token')) {
-      try {
-        const newToken = await refreshTokenIfNeeded();
-        config.headers.Authorization = `Bearer ${newToken}`;
-      } catch (error) {
-        // Se falhar em renovar o token, redirecionar para login
-        handleAuthError();
-        return Promise.reject(error);
+api.interceptors.request.use(
+  async (config) => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (token) {
+      // Verificar se o token está próximo de expirar
+      if (isTokenExpiringSoon(token) && !config.url.includes('/auth/refresh-token')) {
+        try {
+          const newToken = await refreshTokenIfNeeded();
+          config.headers.Authorization = `Bearer ${newToken}`;
+        } catch (error) {
+          // Se falhar em renovar o token, redirecionar para login
+          handleAuthError();
+          return Promise.reject(error);
+        }
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    } else {
-      config.headers.Authorization = `Bearer ${token}`;
     }
-  }
 
-  // Remove undefined e null dos parâmetros
-  if (config.params) {
-    Object.keys(config.params).forEach(key => {
-      if (config.params[key] === undefined || config.params[key] === null) {
-        delete config.params[key];
-      }
-    });
-  }
+    // Remove undefined e null dos parâmetros
+    if (config.params) {
+      Object.keys(config.params).forEach(key => {
+        if (config.params[key] === undefined || config.params[key] === null) {
+          delete config.params[key];
+        }
+      });
+    }
 
-  console.log('Sending params to API:', config.params);
-  return config;
-});
+    // Log dos parâmetros enviados
+    if (config.params) {
+      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params:`, config.params);
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Função para renovar o token
 const refreshTokenIfNeeded = async () => {
@@ -121,10 +133,18 @@ const handleAuthError = () => {
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => {
-    console.log('Raw API response:', response.data);
+    console.log(`[${response.config.method.toUpperCase()}] ${response.config.url}:`, response.data);
     return response;
   },
   async (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    
     const originalRequest = error.config;
     
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -340,6 +360,22 @@ export const itemsService = {
 
   getById(id) {
     return api.get(`/items/${id}`).then(response => response.data);
+  }
+};
+
+// Contacts Service
+export const searchContacts = async (query) => {
+  try {
+    const response = await api.get('/contacts', {
+      params: {
+        search: query,
+        limit: 10
+      }
+    });
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error searching contacts:', error);
+    return [];
   }
 };
 

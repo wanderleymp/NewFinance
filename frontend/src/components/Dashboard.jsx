@@ -16,10 +16,14 @@ import {
   Divider,
   Avatar,
   ListItemButton,
+  Collapse,
+  Tooltip,
+  CssBaseline,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
   Menu as MenuIcon,
+  ChevronLeft as ChevronLeftIcon,
   Dashboard as DashboardIcon,
   AccountBalanceWallet as AccountBalanceWalletIcon,
   AttachMoney as AttachMoneyIcon,
@@ -33,212 +37,333 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   Logout as LogoutIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  Category as CategoryIcon,
+  AccountBalance as AccountBalanceIcon,
+  Assignment as AssignmentIcon,
+  Business as BusinessIcon,
+  LocalAtm as LocalAtmIcon,
+  AccountBox as AccountBoxIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
+  Security as SecurityIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import Logo from './Logo';
 import { useSnackbar } from 'notistack';
 
-const drawerWidth = 280;
-
 const Dashboard = ({ darkMode, setDarkMode }) => {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
+  
+  const drawerWidth = 240;
+  const collapsedDrawerWidth = 72;
+
+  const [openDrawer, setOpenDrawer] = useState(true);
+  const [openSubMenus, setOpenSubMenus] = useState({});
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setOpenDrawer(!openDrawer);
+  };
+
+  const handleSubMenuToggle = (menuId) => {
+    setOpenSubMenus(prev => ({
+      ...prev,
+      [menuId]: !prev[menuId]
+    }));
   };
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
-    enqueueSnackbar('Logout realizado com sucesso!', { variant: 'success' });
     navigate('/login');
+    enqueueSnackbar('Logout realizado com sucesso!', { variant: 'success' });
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Movimentos', icon: <ReceiptIcon />, path: '/movements' },
-    { text: 'Pessoas', icon: <PeopleIcon />, path: '/persons' },
-    { text: 'Contas a Receber', icon: <AttachMoneyIcon />, path: '/receivables' },
-    { text: 'Contas', icon: <AccountBalanceWalletIcon />, path: '/accounts' },
-    { text: 'Cartões', icon: <CreditCardIcon />, path: '/cards' },
-    { text: 'Investimentos', icon: <TrendingUpIcon />, path: '/investments' },
-    { text: 'Relatórios', icon: <PieChartIcon />, path: '/reports' },
-    { text: 'Configurações', icon: <SettingsIcon />, path: '/settings' },
+    {
+      id: 'dashboard',
+      title: 'Dashboard',
+      path: '/dashboard',
+      icon: <DashboardIcon />,
+    },
+    {
+      id: 'financial',
+      title: 'Financeiro',
+      icon: <AccountBalanceWalletIcon />,
+      subItems: [
+        {
+          title: 'Movimentações',
+          path: '/movements',
+          icon: <AttachMoneyIcon />,
+        },
+        {
+          title: 'Recebíveis',
+          path: '/receivables',
+          icon: <LocalAtmIcon />,
+        },
+      ],
+    },
+    {
+      id: 'register',
+      title: 'Cadastros',
+      icon: <AssignmentIcon />,
+      subItems: [
+        {
+          title: 'Pessoas',
+          path: '/persons',
+          icon: <PeopleIcon />,
+        },
+        {
+          title: 'Categorias',
+          path: '/categories',
+          icon: <CategoryIcon />,
+        },
+        {
+          title: 'Contas',
+          path: '/accounts',
+          icon: <AccountBalanceIcon />,
+        },
+      ],
+    },
+    {
+      id: 'system',
+      title: 'Sistema',
+      icon: <SettingsIcon />,
+      subItems: [
+        {
+          title: 'Status',
+          path: '/system/status',
+          icon: <HealthAndSafetyIcon />,
+        },
+      ],
+    },
   ];
 
-  const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Toolbar sx={{ px: 3 }}>
-        <Logo />
-      </Toolbar>
-      <Divider />
-      <List sx={{ flex: 1 }}>
-        {menuItems.map((item) => (
-          <ListItem 
-            key={item.text} 
-            disablePadding 
-            onClick={() => {
+  const renderMenuItem = (item) => {
+    const isSelected = location.pathname === item.path;
+    const hasSubItems = item.subItems?.length > 0;
+    const isSubMenuOpen = openSubMenus[item.id];
+
+    return (
+      <Box key={item.id}>
+        <ListItemButton
+          onClick={() => {
+            if (hasSubItems) {
+              handleSubMenuToggle(item.id);
+            } else {
               navigate(item.path);
-              setMobileOpen(false);
-            }}
-          >
-            <ListItemButton
-              selected={location.pathname === item.path}
+            }
+          }}
+          selected={isSelected}
+          sx={{
+            minHeight: 48,
+            justifyContent: openDrawer ? 'initial' : 'center',
+            px: 2.5,
+            '&.Mui-selected': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              },
+            },
+          }}
+        >
+          <Tooltip title={!openDrawer ? item.title : ''} placement="right">
+            <ListItemIcon
               sx={{
-                py: 1.5,
-                mx: 1,
-                borderRadius: 2,
-                '&.Mui-selected': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.15),
-                  },
-                },
+                minWidth: 0,
+                mr: openDrawer ? 2 : 'auto',
+                justifyContent: 'center',
               }}
             >
-              <ListItemIcon sx={{ minWidth: 45 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <List>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => setDarkMode(!darkMode)}
-            sx={{
-              py: 1.5,
-              mx: 1,
-              borderRadius: 2,
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 45 }}>
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              {item.icon}
             </ListItemIcon>
-            <ListItemText primary={darkMode ? 'Modo Claro' : 'Modo Escuro'} />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={handleLogout}
-            sx={{
-              py: 1.5,
-              mx: 1,
-              borderRadius: 2,
-              color: theme.palette.error.main,
-              '&:hover': {
-                bgcolor: alpha(theme.palette.error.main, 0.1),
-              },
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 45, color: 'inherit' }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Sair" />
-          </ListItemButton>
-        </ListItem>
-      </List>
-    </Box>
-  );
+          </Tooltip>
+          {openDrawer && (
+            <>
+              <ListItemText 
+                primary={item.title}
+                sx={{
+                  opacity: openDrawer ? 1 : 0,
+                  '& .MuiTypography-root': {
+                    fontWeight: isSelected ? 600 : 400,
+                  },
+                }}
+              />
+              {hasSubItems && (isSubMenuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />)}
+            </>
+          )}
+        </ListItemButton>
+        {hasSubItems && (
+          <Collapse in={openDrawer && isSubMenuOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {item.subItems.map((subItem) => (
+                <ListItemButton
+                  key={subItem.path}
+                  onClick={() => navigate(subItem.path)}
+                  selected={location.pathname === subItem.path}
+                  sx={{
+                    minHeight: 48,
+                    justifyContent: openDrawer ? 'initial' : 'center',
+                    pl: openDrawer ? 4 : 2.5,
+                    '&.Mui-selected': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                      },
+                    },
+                  }}
+                >
+                  <Tooltip title={!openDrawer ? subItem.title : ''} placement="right">
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 0,
+                        mr: openDrawer ? 2 : 'auto',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {subItem.icon}
+                    </ListItemIcon>
+                  </Tooltip>
+                  {openDrawer && (
+                    <ListItemText
+                      primary={subItem.title}
+                      sx={{
+                        opacity: openDrawer ? 1 : 0,
+                        '& .MuiTypography-root': {
+                          fontWeight: location.pathname === subItem.path ? 600 : 400,
+                        },
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+        )}
+      </Box>
+    );
+  };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-          boxShadow: 'none',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          width: openDrawer ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${collapsedDrawerWidth}px)`,
+          marginLeft: openDrawer ? `${drawerWidth}px` : `${collapsedDrawerWidth}px`,
+          transition: (theme) =>
+            theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.leavingScreen,
+            }),
         }}
       >
         <Toolbar>
           <IconButton
             color="inherit"
-            aria-label="open drawer"
+            aria-label="toggle drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{
+              mr: 2,
+              display: { sm: 'none' },
+            }}
           >
             <MenuIcon />
           </IconButton>
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography variant="subtitle1" fontWeight="600" color="text.primary">
-                {JSON.parse(localStorage.getItem('user'))?.username || 'Usuário'}
+          <IconButton onClick={() => setDarkMode(!darkMode)} color="inherit">
+            {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}>W</Avatar>
+            <Box sx={{ ml: 1 }}>
+              <Typography variant="subtitle2" color="text.primary">
+                Wanderley Pinheiro
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Bem-vindo de volta
               </Typography>
             </Box>
-
-            <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: theme.palette.primary.main,
-              }}
-            >
-              {JSON.parse(localStorage.getItem('user'))?.username?.[0]?.toUpperCase() || 'U'}
-            </Avatar>
           </Box>
+
+          <IconButton color="inherit" onClick={handleLogout} sx={{ ml: 2 }}>
+            <LogoutIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      <Drawer
+        variant="permanent"
+        sx={{
+          '& .MuiDrawer-paper': {
+            position: 'fixed',
+            whiteSpace: 'nowrap',
+            width: openDrawer ? drawerWidth : collapsedDrawerWidth,
+            transition: (theme) =>
+              theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+            boxSizing: 'border-box',
+            ...(!openDrawer && {
+              overflowX: 'hidden',
+              width: collapsedDrawerWidth,
+            }),
+          },
+        }}
+        open={openDrawer}
       >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
+        <Toolbar
           sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: openDrawer ? 'space-between' : 'center',
+            px: [1],
           }}
         >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              borderRight: `1px solid ${theme.palette.divider}`,
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+          {openDrawer ? (
+            <>
+              <Logo size="medium" />
+              <IconButton onClick={handleDrawerToggle}>
+                <ChevronLeftIcon />
+              </IconButton>
+            </>
+          ) : (
+            <IconButton onClick={handleDrawerToggle}>
+              <MenuIcon />
+            </IconButton>
+          )}
+        </Toolbar>
+        <Divider />
+        <List component="nav" sx={{ px: 1 }}>
+          {menuItems.map(renderMenuItem)}
+        </List>
+      </Drawer>
 
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8,
-          backgroundColor: theme.palette.background.default,
+          overflow: 'auto',
           minHeight: '100vh',
+          marginLeft: openDrawer ? `${drawerWidth}px` : `${collapsedDrawerWidth}px`,
+          width: openDrawer ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${collapsedDrawerWidth}px)`,
+          transition: (theme) =>
+            theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.leavingScreen,
+            }),
+          pt: 8,
+          px: 3,
         }}
       >
         <Outlet />

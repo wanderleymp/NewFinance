@@ -7,6 +7,8 @@ import NewMovement from './pages/NewMovement';
 import Receivables from './pages/Receivables';
 import Persons from './pages/Persons';
 import PersonForm from './pages/PersonForm';
+import SystemStatus from './pages/SystemStatus';
+import ImportCNPJ from './pages/ImportCNPJ';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -26,10 +28,13 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="dashboard" element={<Home />} />
         <Route path="movements" element={<Movements />} />
         <Route path="movements/new" element={<NewMovement />} />
+        <Route path="movements/:id" element={<NewMovement />} />
         <Route path="persons" element={<Persons />} />
         <Route path="persons/new" element={<PersonForm />} />
+        <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
         <Route path="persons/:id/edit" element={<PersonForm />} />
         <Route path="receivables" element={<Receivables />} />
+        <Route path="system/status" element={<SystemStatus />} />
       </Route>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     </Routes>

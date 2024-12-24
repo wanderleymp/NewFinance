@@ -40,7 +40,7 @@ const ImportCnpjDialog = ({ open, onClose, onSuccess }) => {
       const cleanCnpj = cnpj.replace(/\D/g, '');
       
       // Busca dados do CNPJ
-      const response = await personsService.fetchByCnpj(cleanCnpj);
+      const response = await personsService.importCnpj(cleanCnpj);
       
       // Prepara os dados para salvar
       const personData = {
