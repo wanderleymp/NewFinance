@@ -24,11 +24,12 @@ import {
   AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { personsService, itemsService, movementsService } from '../services/api';
 
 const NewMovement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     description: '',
@@ -57,20 +58,37 @@ const NewMovement = () => {
   useEffect(() => {
     const loadDefaultItem = async () => {
       try {
-        const defaultItem = await itemsService.getById(3);
-        setFormData(prev => ({
-          ...prev,
-          item: defaultItem,
-          amount: defaultItem.price.toString()
-        }));
-        setItemOptions([defaultItem]);
+        const searchParams = new URLSearchParams(location.search);
+        const itemId = searchParams.get('itemId');
+        
+        if (itemId) {
+          const response = await itemsService.getById(itemId);
+          if (response && response.data) {
+            setFormData(prev => ({
+              ...prev,
+              item: response.data,
+              amount: response.data.price.toString()
+            }));
+            setItemOptions([response.data]);
+          }
+        } else {
+          const defaultItem = await itemsService.getById(3);
+          setFormData(prev => ({
+            ...prev,
+            item: defaultItem,
+            amount: defaultItem.price.toString()
+          }));
+          setItemOptions([defaultItem]);
+        }
       } catch (error) {
         console.error('Erro ao carregar item padrão:', error);
+        // Não mostrar erro ao usuário se for apenas erro de carregamento do item padrão
+        // enqueueSnackbar('Erro ao carregar item padrão', { variant: 'error' });
       }
     };
 
     loadDefaultItem();
-  }, []);
+  }, [location.search]);
 
   // Função para buscar pessoas
   const searchPersons = useCallback(

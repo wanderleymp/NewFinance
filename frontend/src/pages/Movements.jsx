@@ -1015,11 +1015,13 @@ const Movements = () => {
   const [orderBy, setOrderBy] = useState('date');
   const [orderDirection, setOrderDirection] = useState('desc');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(12); 
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
   const fetchMovements = async () => {
     try {
@@ -1031,13 +1033,13 @@ const Movements = () => {
         orderDirection,
         startDate: format(dateRange[0], 'yyyy-MM-dd'),
         endDate: format(dateRange[1], 'yyyy-MM-dd'),
-        ...(statusFilter !== 'all' && { status: statusFilter }),
-        ...(typeFilter !== 'all' && { type: typeFilter }),
+        ...(statusFilter !== 'all' && { movement_status_id: statusFilter }),
+        ...(typeFilter !== 'all' && { movement_type_id: typeFilter }),
+        ...(searchQuery && { search: searchQuery }),
       };
 
       const response = await movementsService.list(params);
       
-      // Verificar e formatar os dados corretamente
       if (response && response.items && response.items.data) {
         setMovements(response.items.data);
         setTotalCount(response.items.total || 0);
@@ -1058,15 +1060,36 @@ const Movements = () => {
     }
   };
 
+  const handleSearch = (event) => {
+    const { value } = event.target;
+    setSearchQuery(value);
+
+    // Limpa o timeout anterior se existir
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Cria um novo timeout para fazer a busca
+    const timeoutId = setTimeout(() => {
+      setPage(0); // Reset da página ao buscar
+      fetchMovements();
+    }, 500); // Delay de 500ms
+
+    setSearchTimeout(timeoutId);
+  };
+
   useEffect(() => {
     fetchMovements();
   }, [page, rowsPerPage, orderBy, orderDirection, dateRange, statusFilter, typeFilter]);
 
-  const handleSort = (property) => {
-    const isAsc = orderBy === property && orderDirection === 'asc';
-    setOrderDirection(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-  };
+  // Limpa o timeout ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -1077,10 +1100,33 @@ const Movements = () => {
     setPage(0);
   };
 
+  const handleSort = (property) => {
+    const isAsc = orderBy === property && orderDirection === 'asc';
+    setOrderDirection(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // Reset página ao ordenar
+  };
+
   return (
     <Box sx={{ width: '100%', p: 3 }}>
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Buscar movimentações..."
+              value={searchQuery}
+              onChange={handleSearch}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
           </Grid>
@@ -1126,35 +1172,15 @@ const Movements = () => {
               value={view}
               exclusive
               onChange={(e, newView) => newView && setView(newView)}
-              size="small"
-              aria-label="Modo de visualização"
-              sx={{ 
-                backgroundColor: 'background.paper',
-                '& .MuiToggleButton-root': {
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                    },
-                  },
-                },
-              }}
+              sx={{ mr: 2 }}
             >
-              <ToggleButton value="grid" aria-label="Visualização em grade">
-                <Tooltip title="Visualização em Cards">
-                  <GridViewIcon />
-                </Tooltip>
+              <ToggleButton value="grid">
+                <GridViewIcon />
               </ToggleButton>
-              <ToggleButton value="table" aria-label="Visualização em tabela">
-                <Tooltip title="Visualização em Tabela">
-                  <ListViewIcon />
-                </Tooltip>
+              <ToggleButton value="list">
+                <ListViewIcon />
               </ToggleButton>
             </ToggleButtonGroup>
-
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -1174,21 +1200,12 @@ const Movements = () => {
         <>
           <Grid container spacing={3}>
             {Array.isArray(movements) && movements.map((movement) => (
-              <Grid item xs={12} sm={6} md={4} key={movement.id}>
+              <Grid item xs={12} sm={6} md={4} key={movement.id || `movement-${movement.movement_id}`}>
                 <MovementCard movement={movement} />
               </Grid>
             ))}
           </Grid>
-          <Box sx={{ 
-            mt: 3, 
-            display: 'flex', 
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Total de registros: {totalCount}
-            </Typography>
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
             <TablePagination
               component="div"
               count={totalCount}
@@ -1196,9 +1213,11 @@ const Movements = () => {
               onPageChange={handleChangePage}
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              rowsPerPageOptions={[6, 12, 24, 48]}
-              labelRowsPerPage="Cards por página"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+              rowsPerPageOptions={[6, 10, 24, 48]}
+              labelRowsPerPage="Itens por página"
+              labelDisplayedRows={({ from, to, count }) => 
+                `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
+              }
             />
           </Box>
         </>
