@@ -279,10 +279,24 @@ export const movementsService = {
 
 export const installmentsService = {
   list(params = {}) {
-    return api.get('/installments/details', { params }).then(response => response.data);
+    return api.get('/installments/details', { params })
+      .then(response => {
+        console.log('Resposta completa do serviço de installments:', response);
+        console.log('Dados da resposta:', response.data);
+        return response.data;
+      });
   },
   get(id) {
     return api.get(`/installments/details/${id}`).then(response => response.data);
+  },
+  updateDueDate(id, { dueDate, amount }) {
+    return api.patch(`/installments/${id}/due-date`, { 
+      due_date: dueDate,
+      amount: amount
+    }).then(response => response.data);
+  },
+  confirmPayment(id, paymentData) {
+    return api.put(`/installments/${id}/payment`, paymentData).then(response => response.data);
   },
 };
 
