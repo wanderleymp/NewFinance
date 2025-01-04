@@ -12,15 +12,22 @@ import {
   TablePagination,
   TextField,
   InputAdornment,
-  IconButton
+  IconButton,
+  Grid,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
-  CalendarMonth as CalendarIcon 
+  CalendarMonth as CalendarIcon,
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, formatISO } from 'date-fns';
+import { format, formatISO, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { installmentsService } from '../services/api';
 import { useSnackbar } from 'notistack';
@@ -31,9 +38,16 @@ export default function Installments() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [status, setStatus] = useState('Pendente');
+  const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
+
+  const statusOptions = [
+    { value: '', label: 'Nenhum' },
+    { value: 'Pendente', label: 'Pendente' },
+    { value: 'Pago', label: 'Pago' }
+  ];
 
   const loadInstallments = async () => {
     try {
@@ -46,6 +60,8 @@ export default function Installments() {
         status: status || undefined,
       };
 
+      console.log('Params enviados para buscar installments:', params);
+
       const data = await installmentsService.list(params);
       setInstallments(data);
     } catch (error) {
@@ -57,6 +73,7 @@ export default function Installments() {
   };
 
   useEffect(() => {
+    console.log('Status atual:', status);
     loadInstallments();
   }, [page, rowsPerPage, startDate, endDate, status]);
 
@@ -71,10 +88,31 @@ export default function Installments() {
 
   const renderBoletoStatus = (status) => {
     const statusColors = {
-      'A_RECEBER': 'blue',
-      'EXPIRADO': 'red',
+      'A_RECEBER': 'info',
+      'EXPIRADO': 'error',
     };
-    return <span style={{ color: statusColors[status] || 'black' }}>{status}</span>;
+    return <Chip 
+      label={status} 
+      color={statusColors[status] || 'default'} 
+      size="small" 
+      variant="outlined" 
+    />;
+  };
+
+  const formatDateDisplay = (date) => {
+    return date ? format(date, 'dd MMM yyyy', { locale: ptBR }) : '';
+  };
+
+  const renderInstallmentStatus = (status) => {
+    const statusColors = {
+      'Pendente': 'warning',
+      'Pago': 'success'
+    };
+    return <Chip 
+      label={status} 
+      color={statusColors[status] || 'default'} 
+      size="small" 
+    />;
   };
 
   return (
@@ -83,24 +121,48 @@ export default function Installments() {
         Contas a Receber
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
-          <DesktopDatePicker
-            label="Data Inicial"
-            value={startDate}
-            onChange={(newValue) => setStartDate(newValue)}
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-          <DesktopDatePicker
-            label="Data Final"
-            value={endDate}
-            onChange={(newValue) => setEndDate(newValue)}
-            renderInput={(params) => <TextField {...params} size="small" />}
-          />
-        </LocalizationProvider>
-      </Box>
+      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <Grid item>
+          <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
+            <DesktopDatePicker
+              label="Data Inicial"
+              value={startDate}
+              onChange={(newValue) => setStartDate(newValue)}
+              renderInput={(params) => <TextField {...params} size="small" />}
+              format="dd MMM yyyy"
+            />
+          </LocalizationProvider>
+        </Grid>
+        <Grid item>
+          <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
+            <DesktopDatePicker
+              label="Data Final"
+              value={endDate}
+              onChange={(newValue) => setEndDate(newValue)}
+              renderInput={(params) => <TextField {...params} size="small" />}
+              format="dd MMM yyyy"
+            />
+          </LocalizationProvider>
+        </Grid>
+        <Grid item>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={status}
+              label="Status"
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {statusOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} elevation={3}>
         <Table>
           <TableHead>
             <TableRow>
@@ -114,17 +176,21 @@ export default function Installments() {
           </TableHead>
           <TableBody>
             {installments.items.map((installment) => (
-              <TableRow key={installment.installment_id}>
+              <TableRow key={installment.installment_id} hover>
                 <TableCell>{installment.installment_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
-                <TableCell>{format(new Date(installment.due_date), 'dd/MM/yyyy')}</TableCell>
-                <TableCell>R$ {installment.amount}</TableCell>
-                <TableCell>{installment.status}</TableCell>
+                <TableCell>
+                  {format(new Date(installment.due_date), 'dd/MM/yyyy')}
+                </TableCell>
+                <TableCell>R$ {parseFloat(installment.amount).toFixed(2)}</TableCell>
+                <TableCell>
+                  {renderInstallmentStatus(installment.status)}
+                </TableCell>
                 <TableCell>
                   {installment.boletos.map((boleto) => (
-                    <div key={boleto.boleto_id}>
-                      {renderBoletoStatus(boleto.status)} - {boleto.boleto_number}
-                    </div>
+                    <Box key={boleto.boleto_id} sx={{ mb: 1 }}>
+                      {renderBoletoStatus(boleto.status)} {boleto.boleto_number}
+                    </Box>
                   ))}
                 </TableCell>
               </TableRow>
@@ -141,6 +207,10 @@ export default function Installments() {
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+        labelRowsPerPage="Linhas por página"
+        labelDisplayedRows={({ from, to, count }) => 
+          `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
+        }
       />
     </Box>
   );

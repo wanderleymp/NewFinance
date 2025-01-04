@@ -75,6 +75,7 @@ api.interceptors.request.use(
     // Log dos parâmetros enviados
     if (config.params) {
       console.log(`[${config.method.toUpperCase()}] ${config.url}: Params:`, config.params);
+      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params (detailed):`, JSON.stringify(config.params, null, 2));
     }
 
     return config;
