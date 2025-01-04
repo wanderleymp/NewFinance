@@ -277,42 +277,11 @@ export const movementsService = {
 };
 
 export const installmentsService = {
-  async list(params = {}) {
-    try {
-      // Formatar as datas se necessário
-      if (params.startDate) {
-        params.start_date = format(new Date(params.startDate), 'yyyy-MM-dd');
-        delete params.startDate;
-      }
-      if (params.endDate) {
-        params.end_date = format(new Date(params.endDate), 'yyyy-MM-dd');
-        delete params.endDate;
-      }
-
-      // Remover parâmetros vazios
-      const cleanParams = Object.fromEntries(
-        Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
-      );
-
-      // Log dos parâmetros enviados
-      console.log('Sending params to API:', cleanParams);
-
-      const response = await api.get('/installments', { params: cleanParams });
-      
-      // Log da resposta completa
-      console.log('Raw API response:', response);
-      
-      return {
-        items: response.data.data || [],
-        total: response.data.pagination?.total || 0,
-        page: response.data.pagination?.currentPage || 1,
-        limit: response.data.pagination?.limit || 10,
-        totalPages: response.data.pagination?.totalPages || 1
-      };
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
+  list(params = {}) {
+    return api.get('/installments/details', { params }).then(response => response.data);
+  },
+  get(id) {
+    return api.get(`/installments/details/${id}`).then(response => response.data);
   },
 };
 

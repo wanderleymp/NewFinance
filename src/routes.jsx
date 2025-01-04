@@ -11,6 +11,8 @@ import SystemStatus from './pages/SystemStatus';
 import ImportCNPJ from './pages/ImportCNPJ';
 import Contacts from './pages/Contacts';
 import Users from './pages/Users';
+import Installments from './pages/Installments';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -46,6 +48,7 @@ export default function AppRoutes({ darkMode, setDarkMode }) {
         <Route path="system/status" element={<SystemStatus />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="users" element={<Users />} />
+        <Route path="installments" element={<Installments />} />
       </Route>
       <Route
         path="/login"

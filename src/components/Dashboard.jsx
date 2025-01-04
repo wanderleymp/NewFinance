@@ -40,7 +40,8 @@ import {
   ExitToApp,
   Notifications as NotificationsIcon,
   DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon
+  LightMode as LightModeIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService } from '../services/api';
@@ -154,7 +155,20 @@ export default function Dashboard({ darkMode, setDarkMode }) {
       id: 'financial',
       title: 'Financeiro',
       icon: <MonetizationOnIcon />,
-      path: '/movements',
+      subItems: [
+        {
+          id: 'movements',
+          title: 'Movimentações',
+          path: '/movements',
+          icon: <AccountBalanceIcon />,
+        },
+        {
+          id: 'installments',
+          title: 'Contas a Receber',
+          path: '/installments',
+          icon: <ReceiptIcon />,
+        },
+      ],
     },
     {
       id: 'register',
