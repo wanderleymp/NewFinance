@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -37,6 +37,11 @@ import {
   Edit as EditIcon,
   CalendarToday as CalendarTodayIcon
 } from '@mui/icons-material';
+import { 
+  AttachMoney as MoneyIcon, 
+  CheckCircle as PaidIcon, 
+  PendingActions as PendingIcon 
+} from '@mui/icons-material';
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
@@ -44,6 +49,7 @@ import { installmentsService } from '../services/api';
 import { useSnackbar } from 'notistack';
 import { format, formatISO, parseISO } from 'date-fns';
 import moment from 'moment-timezone';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } from 'date-fns';
 
 export default function Installments() {
   const [installments, setInstallments] = useState({
@@ -187,11 +193,11 @@ export default function Installments() {
 
   const normalizeCurrencyValue = (value) => {
     // Se já for um número com casas decimais, retorna como está
-    if (typeof value === 'number' && value < 1000) {
+    if (typeof value === 'number') {
       return value;
     }
 
-    // Remove pontos de milhar
+    // Remove pontos de milhar e substitui vírgula por ponto
     const cleanValue = typeof value === 'string' 
       ? value.replace(/\./g, '').replace(',', '.')
       : value.toString();
@@ -199,7 +205,7 @@ export default function Installments() {
     // Converte para número
     const numericValue = parseFloat(cleanValue);
 
-    // Se o valor for muito grande, divide por 100
+    // Retorna o valor convertido, dividindo por 100 se for muito grande
     return numericValue >= 1000 ? numericValue / 100 : numericValue;
   };
 
@@ -312,6 +318,136 @@ export default function Installments() {
     }
   };
 
+  const getQuickDateRanges = () => {
+    const today = new Date();
+    return [
+      {
+        label: 'Hoje',
+        startDate: today,
+        endDate: today
+      },
+      {
+        label: 'Semana Atual',
+        startDate: startOfWeek(today, { locale: ptBR }),
+        endDate: endOfWeek(today, { locale: ptBR })
+      },
+      {
+        label: 'Mês Atual',
+        startDate: startOfMonth(today),
+        endDate: endOfMonth(today)
+      },
+      {
+        label: 'Últimos 7 dias',
+        startDate: subDays(today, 6),
+        endDate: today
+      },
+      {
+        label: 'Últimos 30 dias',
+        startDate: subDays(today, 29),
+        endDate: today
+      }
+    ];
+  };
+
+  const handleQuickDateFilter = (range) => {
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
+  };
+
+  const calculateInstallmentsSummary = (data) => {
+    console.group('Cálculo de Resumo de Installments');
+    console.log('Dados recebidos:', data);
+
+    if (!data || data.length === 0) {
+      console.log('Dados vazios, retornando resumo zerado');
+      console.groupEnd();
+      return {
+        totalAmount: 0,
+        pendingAmount: 0,
+        paidAmount: 0,
+        totalInstallments: 0,
+        pendingInstallments: 0,
+        paidInstallments: 0
+      };
+    }
+
+    const paymentStatusMap = {
+      'Pendente': 'pending',
+      'Pago': 'paid',
+      'Parcial': 'partial',
+      'Vencido': 'overdue'
+    };
+
+    const summary = data.reduce((acc, installment) => {
+      // Log de cada installment sendo processado
+      console.log('Processando installment:', {
+        id: installment.installment_id,
+        amount: installment.amount,
+        status: installment.status
+      });
+
+      // Normaliza o valor
+      const amount = normalizeCurrencyValue(installment.amount);
+      
+      // Incrementa totais
+      acc.totalAmount += amount;
+      acc.totalInstallments += 1;
+
+      // Determina o status de pagamento
+      const paymentStatus = paymentStatusMap[installment.status] || 'unknown';
+
+      // Separa por status
+      switch (paymentStatus) {
+        case 'pending':
+          acc.pendingAmount += amount;
+          acc.pendingInstallments += 1;
+          console.log(`Installment Pendente: +${amount}`);
+          break;
+        case 'paid':
+          acc.paidAmount += amount;
+          acc.paidInstallments += 1;
+          console.log(`Installment Pago: +${amount}`);
+          break;
+        case 'partial':
+          acc.pendingAmount += amount / 2;
+          acc.paidAmount += amount / 2;
+          acc.pendingInstallments += 1;
+          acc.paidInstallments += 1;
+          console.log(`Installment Parcial: +${amount/2} (pendente e pago)`);
+          break;
+        case 'overdue':
+          acc.pendingAmount += amount;
+          acc.pendingInstallments += 1;
+          console.log(`Installment Vencido: +${amount}`);
+          break;
+        default:
+          console.warn('Status de installment não reconhecido:', installment.status);
+      }
+
+      return acc;
+    }, {
+      totalAmount: 0,
+      pendingAmount: 0,
+      paidAmount: 0,
+      totalInstallments: 0,
+      pendingInstallments: 0,
+      paidInstallments: 0
+    });
+
+    console.log('Resumo final:', summary);
+    console.groupEnd();
+
+    return summary;
+  };
+
+  const installmentsSummary = useMemo(() => {
+    return calculateInstallmentsSummary(installments.data);
+  }, [installments.data]);
+
+  useEffect(() => {
+    console.log('Estado completo de installments:', installments);
+  }, [installments]);
+
   return (
     <Box sx={{ width: '100%', p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -322,6 +458,113 @@ export default function Installments() {
           </IconButton>
         </Tooltip>
       </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              bgcolor: 'background.default',
+              transition: 'transform 0.3s',
+              '&:hover': { transform: 'scale(1.02)' }
+            }}
+          >
+            <Box sx={{ 
+              bgcolor: 'primary.light', 
+              color: 'primary.contrastText', 
+              borderRadius: 2, 
+              p: 1, 
+              mr: 2 
+            }}>
+              <MoneyIcon />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" color="text.secondary">
+                Total de Parcelas
+              </Typography>
+              <Typography variant="h5" fontWeight="bold">
+                R$ {formatCurrency(installmentsSummary.totalAmount)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {installmentsSummary.totalInstallments} parcelas
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              bgcolor: 'background.default',
+              transition: 'transform 0.3s',
+              '&:hover': { transform: 'scale(1.02)' }
+            }}
+          >
+            <Box sx={{ 
+              bgcolor: 'warning.light', 
+              color: 'warning.contrastText', 
+              borderRadius: 2, 
+              p: 1, 
+              mr: 2 
+            }}>
+              <PendingIcon />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" color="text.secondary">
+                Parcelas Pendentes
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" color="warning.main">
+                R$ {formatCurrency(installmentsSummary.pendingAmount)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {installmentsSummary.pendingInstallments} parcelas
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              bgcolor: 'background.default',
+              transition: 'transform 0.3s',
+              '&:hover': { transform: 'scale(1.02)' }
+            }}
+          >
+            <Box sx={{ 
+              bgcolor: 'success.light', 
+              color: 'success.contrastText', 
+              borderRadius: 2, 
+              p: 1, 
+              mr: 2 
+            }}>
+              <PaidIcon />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" color="text.secondary">
+                Parcelas Pagas
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" color="success.main">
+                R$ {formatCurrency(installmentsSummary.paidAmount)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {installmentsSummary.paidInstallments} parcelas
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
 
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Grid item>
@@ -380,6 +623,27 @@ export default function Installments() {
               ),
             }}
           />
+        </Grid>
+        <Grid item>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {getQuickDateRanges().map((range) => (
+              <Button 
+                key={range.label}
+                variant="outlined" 
+                size="small"
+                color={
+                  startDate && endDate && 
+                  isSameDay(startDate, range.startDate) && 
+                  isSameDay(endDate, range.endDate) 
+                    ? 'primary' 
+                    : 'secondary'
+                }
+                onClick={() => handleQuickDateFilter(range)}
+              >
+                {range.label}
+              </Button>
+            ))}
+          </Box>
         </Grid>
       </Grid>
 
@@ -583,6 +847,20 @@ export default function Installments() {
           `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
         }
       />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+        <Typography variant="h6">Resumo:</Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <Typography variant="body1">
+            Total: R$ {formatCurrency(installmentsSummary.totalAmount)}
+          </Typography>
+          <Typography variant="body1">
+            Pendente: R$ {formatCurrency(installmentsSummary.pendingAmount)}
+          </Typography>
+          <Typography variant="body1">
+            Pago: R$ {formatCurrency(installmentsSummary.paidAmount)}
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 }
