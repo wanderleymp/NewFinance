@@ -45,11 +45,26 @@ import {
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
-import { installmentsService } from '../services/api';
+import { formatISO, parseISO, format } from 'date-fns';
 import { useSnackbar } from 'notistack';
-import { format, formatISO, parseISO } from 'date-fns';
-import moment from 'moment-timezone';
+import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } from 'date-fns';
+
+// Função para limpar valor de moeda
+const cleanCurrencyValue = (value) => {
+  if (!value) return '';
+  
+  // Remove caracteres não numéricos, exceto vírgula e ponto
+  const cleanedValue = value.toString().replace(/[^\d,\.]/g, '');
+  
+  // Substitui vírgula por ponto se necessário
+  const normalizedValue = cleanedValue.replace(',', '.');
+  
+  // Converte para número com duas casas decimais
+  const result = parseFloat(parseFloat(normalizedValue).toFixed(2));
+  
+  return isNaN(result) ? 0 : result;
+};
 
 export default function Installments() {
   const [installments, setInstallments] = useState({
@@ -92,6 +107,18 @@ export default function Installments() {
         status: status || undefined,
         full_name: fullNameFilter || undefined,
       };
+
+      // Log detalhado de todos os parâmetros
+      console.log('PARÂMETROS COMPLETOS:', JSON.stringify({
+        page: params.page,
+        limit: params.limit,
+        start_date: params.start_date,
+        end_date: params.end_date,
+        status: params.status,
+        full_name: params.full_name,
+        fullNameFilter: fullNameFilter,
+        currentStatus: status
+      }, null, 2));
 
       console.log('Params enviados para buscar installments:', params);
 
@@ -248,35 +275,33 @@ export default function Installments() {
     return result;
   };
 
-  const handleUpdateDueDate = async () => {
-    if (!selectedInstallmentForDueDateEdit || !newDueDate) return;
-
+  const handleUpdateDueDate = async (installmentId, newDueDate) => {
     try {
-      // Converter valor usando a nova função
-      const formattedAmount = convertBRLToNumber(newAmount);
+      // Converte a data para o formato ISO
+      const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
 
-      // Log adicional
-      console.log('Valor formatado antes do envio:', formattedAmount);
+      console.log('Iniciando atualização de data de vencimento:', { 
+        installmentId, 
+        newDueDate: formattedDueDate, 
+        apiSource: 'N8N' 
+      });
 
-      // Formatar data para zero hora no timezone de São Paulo
-      const formattedDate = moment(newDueDate)
-        .tz('America/Sao_Paulo')
-        .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
-        .format('YYYY-MM-DDTHH:mm:ssZ');
-
-      await installmentsService.updateDueDate(
-        selectedInstallmentForDueDateEdit.installment_id, 
-        {
-          due_date: formattedDate,
-          amount: formattedAmount
-        }
-      );
+      // Usa N8N como API principal para este submite específico
+      const result = await updateInstallmentDueDate(installmentId, formattedDueDate, 'N8N');
       
+      console.log('Resultado da atualização de data de vencimento:', result);
+
+      // Atualiza o estado local ou mostra feedback
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
+      
+      // Recarrega os dados de installments
       loadInstallments();
-      setEditDueDateDialogOpen(false);
     } catch (error) {
-      console.error('Erro ao atualizar data de vencimento:', error);
+      console.error('Erro detalhado ao atualizar data de vencimento:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
     }
   };
@@ -799,7 +824,7 @@ export default function Installments() {
             Cancelar
           </Button>
           <Button 
-            onClick={handleUpdateDueDate} 
+            onClick={() => handleUpdateDueDate(selectedInstallmentForDueDateEdit.installment_id, newDueDate)} 
             color="primary" 
             variant="contained"
           >

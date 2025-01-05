@@ -433,4 +433,78 @@ export const healthService = {
   clearCache: () => api.post('/health/cache/clear').then(response => response.data),
 };
 
+// Configuração de APIs de alteração de data de vencimento
+const DUE_DATE_APIS = {
+  N8N: {
+    url: 'https://n8n.webhook.agilefinance.com.br/webhook/instalment/due_date',
+    method: 'PUT',
+    headers: {
+      'apikey': 'ffcaa89a3e19bd98e911475c7974309b'
+    }
+  },
+  MAIN: {
+    url: `${api.defaults.baseURL}/installments/due_date`,
+    method: 'PUT',
+    headers: {}
+  }
+};
+
+// Função para alterar data de vencimento
+export const updateInstallmentDueDate = async (installmentId, newDueDate, apiSource = 'N8N') => {
+  try {
+    console.log('Preparando atualização de data de vencimento via API:', {
+      installmentId,
+      newDueDate,
+      apiSource
+    });
+
+    // Seleciona a configuração da API
+    const apiConfig = DUE_DATE_APIS[apiSource];
+
+    console.log('Configuração da API selecionada:', apiConfig);
+
+    // Prepara os dados da requisição
+    const requestData = {
+      installment_id: installmentId,
+      new_due_date: newDueDate
+    };
+
+    console.log('Dados da requisição:', requestData);
+    console.log('Detalhes completos da requisição:', {
+      method: apiConfig.method,
+      url: apiConfig.url,
+      headers: {
+        'Content-Type': 'application/json',
+        ...apiConfig.headers
+      },
+      data: requestData
+    });
+
+    // Realiza a requisição
+    const response = await axios({
+      method: apiConfig.method,
+      url: apiConfig.url,
+      headers: {
+        'Content-Type': 'application/json',
+        ...apiConfig.headers
+      },
+      data: requestData
+    });
+
+    console.log('Resposta da API:', {
+      status: response.status,
+      data: response.data
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Erro na atualização de data de vencimento:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    throw error;
+  }
+};
+
 export default api;
