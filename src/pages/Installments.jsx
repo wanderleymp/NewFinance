@@ -91,6 +91,21 @@ export default function Installments() {
 
       const responseData = await installmentsService.list(params);
       
+      // Log detalhado para verificar o conteúdo completo dos itens
+      console.log('Detalhes completos dos installments:', 
+        JSON.stringify(responseData.items, null, 2)
+      );
+
+      // Log para verificar o formato dos valores
+      console.log('Valores de installments recebidos:', 
+        responseData.items.map(item => ({
+          id: item.installment_id,
+          originalAmount: item.amount,
+          amountType: typeof item.amount,
+          fullDetails: Object.keys(item)
+        }))
+      );
+
       // Mapear para o formato esperado
       const installmentsData = {
         data: responseData.items || [],
@@ -170,14 +185,30 @@ export default function Installments() {
     handleShareClose();
   };
 
+  const normalizeCurrencyValue = (value) => {
+    // Se já for um número com casas decimais, retorna como está
+    if (typeof value === 'number' && value < 1000) {
+      return value;
+    }
+
+    // Remove pontos de milhar
+    const cleanValue = typeof value === 'string' 
+      ? value.replace(/\./g, '').replace(',', '.')
+      : value.toString();
+
+    // Converte para número
+    const numericValue = parseFloat(cleanValue);
+
+    // Se o valor for muito grande, divide por 100
+    return numericValue >= 1000 ? numericValue / 100 : numericValue;
+  };
+
   const formatCurrency = (value) => {
-    // Converte para número com duas casas decimais
-    const numericValue = typeof value === 'string' 
-      ? parseFloat(value.replace(/\./g, '').replace(',', '.')) 
-      : value;
+    // Normaliza o valor primeiro
+    const normalizedValue = normalizeCurrencyValue(value);
     
     // Formata para string brasileira
-    return numericValue.toLocaleString('pt-BR', {
+    return normalizedValue.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
@@ -373,7 +404,7 @@ export default function Installments() {
                 <TableCell>
                   {formatDateDisplay(parseISO(installment.due_date))}
                 </TableCell>
-                <TableCell>R$ {parseFloat(installment.amount).toFixed(2)}</TableCell>
+                <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
                 <TableCell>
                   {renderInstallmentStatus(installment.status)}
                 </TableCell>
@@ -451,6 +482,21 @@ export default function Installments() {
                         fullWidth 
                         label="Nova Data de Vencimento" 
                         variant="outlined"
+                        InputLabelProps={{
+                          shrink: true,
+                          sx: {
+                            position: 'relative',
+                            transform: 'none',
+                            marginBottom: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500
+                          }
+                        }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            marginTop: '0 !important'
+                          }
+                        }}
                       />
                     )
                   }}
