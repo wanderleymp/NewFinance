@@ -25,7 +25,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button
+  Button,
+  CircularProgress
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
@@ -88,6 +89,7 @@ export default function Installments() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInstallmentForPayment, setSelectedInstallmentForPayment] = useState(null);
   const [paymentValue, setPaymentValue] = useState('');
+  const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
 
   const statusOptions = [
@@ -277,6 +279,9 @@ export default function Installments() {
 
   const handleUpdateDueDate = async (installmentId, newDueDate) => {
     try {
+      // Ativa o estado de carregamento
+      setIsUpdatingDueDate(true);
+
       // Converte a data para o formato ISO
       const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
 
@@ -295,7 +300,10 @@ export default function Installments() {
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
       
       // Recarrega os dados de installments
-      loadInstallments();
+      await loadInstallments();
+
+      // Fecha o modal de edição de data
+      setEditDueDateDialogOpen(false);
     } catch (error) {
       console.error('Erro detalhado ao atualizar data de vencimento:', {
         message: error.message,
@@ -303,6 +311,9 @@ export default function Installments() {
         status: error.response?.status
       });
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
+    } finally {
+      // Desativa o estado de carregamento
+      setIsUpdatingDueDate(false);
     }
   };
 
@@ -827,8 +838,13 @@ export default function Installments() {
             onClick={() => handleUpdateDueDate(selectedInstallmentForDueDateEdit.installment_id, newDueDate)} 
             color="primary" 
             variant="contained"
+            disabled={isUpdatingDueDate}
           >
-            Salvar
+            {isUpdatingDueDate ? (
+              <CircularProgress size={24} />
+            ) : (
+              'Salvar'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
