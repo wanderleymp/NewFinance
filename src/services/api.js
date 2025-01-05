@@ -9,6 +9,7 @@ const api = axios.create({
 
 // Log da URL base para debug
 console.log('API Base URL:', api.defaults.baseURL);
+console.log('Variável de ambiente VITE_API_URL:', import.meta.env.VITE_API_URL);
 
 // Função para verificar se o token está próximo de expirar (menos de 5 minutos)
 const isTokenExpiringSoon = (token) => {
@@ -284,16 +285,43 @@ export const installmentsService = {
         console.log('Resposta completa do serviço de installments:', response);
         console.log('Dados da resposta:', response.data);
         return response.data;
+      })
+      .catch(error => {
+        console.error('Erro ao buscar installments:', error);
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        throw error;
       });
   },
   get(id) {
     return api.get(`/installments/details/${id}`).then(response => response.data);
   },
-  updateDueDate(id, { dueDate, amount }) {
+  updateDueDate(id, { due_date, amount }) {
+    console.log('Payload para atualização de data:', { 
+      id, 
+      due_date, 
+      amount 
+    });
     return api.patch(`/installments/${id}/due-date`, { 
-      due_date: dueDate,
+      due_date: due_date,
       amount: amount
-    }).then(response => response.data);
+    })
+    .then(response => {
+      console.log('Resposta da atualização de data:', response);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('Erro ao atualizar data de vencimento:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    });
   },
   confirmPayment(id, paymentData) {
     return api.put(`/installments/${id}/payment`, paymentData).then(response => response.data);

@@ -39,10 +39,11 @@ import {
 } from '@mui/icons-material';
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, formatISO, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { installmentsService } from '../services/api';
 import { useSnackbar } from 'notistack';
+import { format, formatISO, parseISO } from 'date-fns';
+import moment from 'moment-timezone';
 
 export default function Installments() {
   const [installments, setInstallments] = useState({
@@ -169,31 +170,68 @@ export default function Installments() {
     handleShareClose();
   };
 
+  const formatCurrency = (value) => {
+    // Converte para número com duas casas decimais
+    const numericValue = typeof value === 'string' 
+      ? parseFloat(value.replace(/\./g, '').replace(',', '.')) 
+      : value;
+    
+    // Formata para string brasileira
+    return numericValue.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   const handleEditDueDate = (installment) => {
     setSelectedInstallmentForDueDateEdit(installment);
     setNewDueDate(new Date(installment.due_date));
-    // Formatar valor para exibição com duas casas decimais e vírgula
-    setNewAmount(installment.balance.toLocaleString('pt-BR', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    }));
+    
+    // Formatar valor para exibição correta
+    setNewAmount(formatCurrency(installment.balance));
     setEditDueDateDialogOpen(true);
+  };
+
+  const convertBRLToNumber = (value) => {
+    // Remove pontos de milhar
+    const cleanValue = value.replace(/\./g, '')
+      // Substitui vírgula por ponto
+      .replace(',', '.');
+    
+    // Converte para número com duas casas decimais
+    const result = parseFloat(parseFloat(cleanValue).toFixed(2));
+    
+    // Log detalhado
+    console.log('Conversão de valor:', {
+      original: value,
+      cleaned: cleanValue,
+      result: result
+    });
+
+    return result;
   };
 
   const handleUpdateDueDate = async () => {
     if (!selectedInstallmentForDueDateEdit || !newDueDate) return;
 
     try {
-      const formattedDate = formatISO(newDueDate, { representation: 'date' });
-      
-      // Converter valor de volta para formato numérico
-      const numericAmount = parseFloat(newAmount.replace('.', '').replace(',', '.'));
+      // Converter valor usando a nova função
+      const formattedAmount = convertBRLToNumber(newAmount);
+
+      // Log adicional
+      console.log('Valor formatado antes do envio:', formattedAmount);
+
+      // Formatar data para zero hora no timezone de São Paulo
+      const formattedDate = moment(newDueDate)
+        .tz('America/Sao_Paulo')
+        .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
+        .format('YYYY-MM-DDTHH:mm:ssZ');
 
       await installmentsService.updateDueDate(
         selectedInstallmentForDueDateEdit.installment_id, 
         {
-          dueDate: formattedDate,
-          amount: numericAmount
+          due_date: formattedDate,
+          amount: formattedAmount
         }
       );
       
@@ -333,7 +371,7 @@ export default function Installments() {
                 <TableCell>{installment.installment_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
                 <TableCell>
-                  {format(new Date(installment.due_date), 'dd/MM/yyyy')}
+                  {formatDateDisplay(parseISO(installment.due_date))}
                 </TableCell>
                 <TableCell>R$ {parseFloat(installment.amount).toFixed(2)}</TableCell>
                 <TableCell>
@@ -384,16 +422,19 @@ export default function Installments() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ 
-          typography: 'h6', 
-          fontWeight: 'bold', 
-          textOverflow: 'ellipsis', 
-          overflow: 'hidden', 
-          whiteSpace: 'nowrap' 
-        }}>
-          {selectedInstallmentForDueDateEdit 
-            ? `Alterar Vencimento - ${selectedInstallmentForDueDateEdit.full_name}` 
-            : 'Alterar Vencimento'}
+        <DialogTitle 
+          sx={{ 
+            typography: 'h6', 
+            fontWeight: 'bold', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            paddingBottom: 2
+          }}
+        >
+          <Box sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Alterar Vencimento - {selectedInstallmentForDueDateEdit?.full_name || 'Parcela'}
+          </Box>
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
@@ -404,7 +445,14 @@ export default function Installments() {
                   value={newDueDate}
                   onChange={(newValue) => setNewDueDate(newValue)}
                   slots={{
-                    textField: (params) => <TextField {...params} fullWidth />
+                    textField: (params) => (
+                      <TextField 
+                        {...params} 
+                        fullWidth 
+                        label="Nova Data de Vencimento" 
+                        variant="outlined"
+                      />
+                    )
                   }}
                   format="dd/MM/yyyy"
                 />
@@ -414,8 +462,14 @@ export default function Installments() {
               <TextField
                 label="Valor"
                 value={newAmount}
-                onChange={(e) => setNewAmount(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Remove caracteres não numéricos, exceto vírgula
+                  const cleanValue = value.replace(/[^\d,]/g, '');
+                  setNewAmount(cleanValue);
+                }}
                 fullWidth
+                variant="outlined"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -428,7 +482,10 @@ export default function Installments() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDueDateDialogOpen(false)} color="secondary">
+          <Button 
+            onClick={() => setEditDueDateDialogOpen(false)} 
+            color="secondary"
+          >
             Cancelar
           </Button>
           <Button 
