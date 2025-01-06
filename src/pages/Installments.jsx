@@ -26,7 +26,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  CircularProgress
+  CircularProgress,
+  Checkbox
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
@@ -36,7 +37,8 @@ import {
   Email as EmailIcon, 
   Share as ShareIcon,
   Edit as EditIcon,
-  CalendarToday as CalendarTodayIcon
+  CalendarToday as CalendarTodayIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { 
   AttachMoney as MoneyIcon, 
@@ -50,6 +52,7 @@ import { formatISO, parseISO, format, addDays } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } from 'date-fns';
+import axios from 'axios';
 
 // Função para limpar valor de moeda
 const cleanCurrencyValue = (value) => {
@@ -90,6 +93,8 @@ export default function Installments() {
   const [selectedInstallmentForPayment, setSelectedInstallmentForPayment] = useState(null);
   const [paymentValue, setPaymentValue] = useState('');
   const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
+  const [selectedInstallments, setSelectedInstallments] = useState([]);
+  const [isNotifyingSelected, setIsNotifyingSelected] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
 
   const statusOptions = [
@@ -211,6 +216,53 @@ export default function Installments() {
       color={statusColors[status] || 'default'} 
       size="small" 
     />;
+  };
+
+  const handleNotifyInstallment = async (installment) => {
+    // Cria um estado de processamento específico para este installment
+    const updatedInstallments = installments.data.map(item => 
+      item.installment_id === installment.installment_id 
+        ? { ...item, isNotifying: true } 
+        : item
+    );
+    
+    setInstallments(prev => ({
+      ...prev,
+      data: updatedInstallments
+    }));
+
+    try {
+      const response = await axios.post(
+        'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
+        { installment_id: installment.installment_id },
+        {
+          headers: {
+            'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Simula um tempo de processamento
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      enqueueSnackbar('Notificação enviada com sucesso!', { variant: 'success' });
+    } catch (error) {
+      console.error('Erro ao enviar notificação:', error);
+      enqueueSnackbar('Erro ao enviar notificação', { variant: 'error' });
+    } finally {
+      // Remove o estado de processamento
+      const resetInstallments = installments.data.map(item => 
+        item.installment_id === installment.installment_id 
+          ? { ...item, isNotifying: false } 
+          : item
+      );
+      
+      setInstallments(prev => ({
+        ...prev,
+        data: resetInstallments
+      }));
+    }
   };
 
   const handleShareClick = (event, installment = null) => {
@@ -497,15 +549,97 @@ export default function Installments() {
     console.log('Estado completo de installments:', installments);
   }, [installments]);
 
+  const handleSelectAllInstallments = (event) => {
+    if (event.target.checked) {
+      const allInstallmentIds = installments.data.map(item => item.installment_id);
+      setSelectedInstallments(allInstallmentIds);
+    } else {
+      setSelectedInstallments([]);
+    }
+  };
+
+  const handleSelectInstallment = (installmentId) => {
+    setSelectedInstallments(prev => 
+      prev.includes(installmentId)
+        ? prev.filter(id => id !== installmentId)
+        : [...prev, installmentId]
+    );
+  };
+
+  const handleNotifySelectedInstallments = async () => {
+    if (selectedInstallments.length === 0) {
+      enqueueSnackbar('Nenhuma parcela selecionada', { variant: 'warning' });
+      return;
+    }
+
+    setIsNotifyingSelected(true);
+
+    try {
+      const notificationPromises = selectedInstallments.map(installmentId => 
+        axios.post(
+          'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
+          { installment_id: installmentId },
+          {
+            headers: {
+              'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+      );
+
+      // Simula um tempo de processamento
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      await Promise.all(notificationPromises);
+      
+      enqueueSnackbar(`Notificação enviada para ${selectedInstallments.length} parcela(s)`, { 
+        variant: 'success',
+        autoHideDuration: 2000 // Tempo específico para auto-hide
+      });
+      
+      setSelectedInstallments([]); // Limpa seleção após notificação
+    } catch (error) {
+      console.error('Erro ao enviar notificações:', error);
+      enqueueSnackbar('Erro ao enviar notificações', { variant: 'error' });
+    } finally {
+      setIsNotifyingSelected(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', p: 2 }}>
+      {selectedInstallments.length > 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          backgroundColor: 'rgba(0, 0, 0, 0.1)', 
+          padding: 1, 
+          borderRadius: 1,
+          marginBottom: 2
+        }}>
+          <Typography variant="body2">
+            {selectedInstallments.length} parcela(s) selecionada(s)
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<NotificationsIcon />}
+            onClick={handleNotifySelectedInstallments}
+            disabled={isNotifyingSelected}
+          >
+            {isNotifyingSelected ? (
+              <CircularProgress size={24} />
+            ) : (
+              'Notificar Selecionadas'
+            )}
+          </Button>
+        </Box>
+      )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Contas a Receber</Typography>
-        <Tooltip title="Compartilhar lista">
-          <IconButton onClick={(e) => handleShareClick(e)}>
-            <ShareIcon />
-          </IconButton>
-        </Tooltip>
+        {/* Removido ícone de notificação de listagem */}
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -700,6 +834,12 @@ export default function Installments() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox 
+                  onChange={handleSelectAllInstallments} 
+                  checked={selectedInstallments.length === installments.data.length}
+                />
+              </TableCell>
               <TableCell>ID Parcela</TableCell>
               <TableCell>Nome</TableCell>
               <TableCell>Data Vencimento</TableCell>
@@ -712,6 +852,12 @@ export default function Installments() {
           <TableBody>
             {installments.data.map((installment) => (
               <TableRow key={installment.installment_id} hover>
+                <TableCell padding="checkbox">
+                  <Checkbox 
+                    checked={selectedInstallments.includes(installment.installment_id)} 
+                    onChange={() => handleSelectInstallment(installment.installment_id)}
+                  />
+                </TableCell>
                 <TableCell>{installment.installment_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
                 <TableCell>
@@ -729,8 +875,15 @@ export default function Installments() {
                   ))}
                 </TableCell>
                 <TableCell>
-                  <IconButton onClick={(e) => handleShareClick(e, installment)}>
-                    <ShareIcon />
+                  <IconButton 
+                    onClick={() => handleNotifyInstallment(installment)} 
+                    disabled={installment.isNotifying}
+                  >
+                    {installment.isNotifying ? (
+                      <CircularProgress size={24} />
+                    ) : (
+                      <NotificationsIcon />
+                    )}
                   </IconButton>
                   <IconButton onClick={() => handleEditDueDate(installment)}>
                     <CalendarTodayIcon />
@@ -744,21 +897,6 @@ export default function Installments() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Menu
-        anchorEl={shareAnchorEl}
-        open={Boolean(shareAnchorEl)}
-        onClose={handleShareClose}
-      >
-        <MenuItem onClick={handleWhatsAppShare}>
-          <WhatsAppIcon sx={{ mr: 1 }} />
-          Compartilhar via WhatsApp
-        </MenuItem>
-        <MenuItem onClick={handleEmailShare}>
-          <EmailIcon sx={{ mr: 1 }} />
-          Compartilhar via Email
-        </MenuItem>
-      </Menu>
 
       <Dialog 
         open={editDueDateDialogOpen} 
