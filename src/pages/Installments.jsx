@@ -46,7 +46,7 @@ import {
 import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
-import { formatISO, parseISO, format } from 'date-fns';
+import { formatISO, parseISO, format, addDays } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } from 'date-fns';
@@ -184,8 +184,21 @@ export default function Installments() {
     />;
   };
 
-  const formatDateDisplay = (date) => {
-    return date ? format(date, 'dd MMM yyyy', { locale: ptBR }) : '';
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    
+    // Extrai apenas a parte da data sem conversão
+    const datePart = dateString.split('T')[0];
+    const [year, month, day] = datePart.split('-');
+    
+    // Mapeamento de meses para abreviações
+    const monthAbbreviations = {
+      '01': 'jan', '02': 'fev', '03': 'mar', '04': 'abr', 
+      '05': 'mai', '06': 'jun', '07': 'jul', '08': 'ago', 
+      '09': 'set', '10': 'out', '11': 'nov', '12': 'dez'
+    };
+    
+    return `${day} ${monthAbbreviations[month]} ${year}`;
   };
 
   const renderInstallmentStatus = (status) => {
@@ -702,7 +715,7 @@ export default function Installments() {
                 <TableCell>{installment.installment_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
                 <TableCell>
-                  {formatDateDisplay(parseISO(installment.due_date))}
+                  {formatDateDisplay(installment.due_date)}
                 </TableCell>
                 <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
                 <TableCell>
