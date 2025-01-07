@@ -149,8 +149,12 @@ export default function Installments() {
       // Mapear para o formato esperado
       const installmentsData = {
         data: responseData.items || [],
-        total: responseData.meta?.totalItems || 0
+        total: responseData.total || 0
       };
+
+      console.log('Resposta completa da API:', responseData);
+      console.log('Total de itens:', responseData.total);
+      console.log('Dados de installments:', installmentsData);
 
       setInstallments(installmentsData);
     } catch (error) {
