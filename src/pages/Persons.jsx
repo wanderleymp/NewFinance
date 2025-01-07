@@ -388,7 +388,7 @@ const Persons = () => {
         <Table sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" />
+              <TableCell>ID</TableCell>
               <TableCell>Tipo</TableCell>
               <TableCell>Nome / Razão Social</TableCell>
               <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Localização</TableCell>
@@ -420,8 +420,12 @@ const Persons = () => {
                   key={person.person_id || `temp-${index}`}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                 >
+                  <TableCell>{person.person_id}</TableCell>
                   <TableCell>
-                    <Chip {...getTypeChip(person.documents?.[0]?.document_type === 'CNPJ' ? 'COMPANY' : 'PERSON')} size="small" />
+                    <Chip 
+                      {...getTypeChip(person.documents?.[0]?.document_type === 'CNPJ' ? 'COMPANY' : 'PERSON')} 
+                      size="small" 
+                    />
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -491,7 +495,10 @@ const Persons = () => {
                     {person.birth_date ? format(new Date(person.birth_date), 'dd/MM/yyyy') : '-'}
                   </TableCell>
                   <TableCell>
-                    <Chip {...getStatusChipProps(person.active)} size="small" />
+                    <Chip 
+                      {...getStatusChipProps(person.active)} 
+                      size="small" 
+                    />
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title="Editar">
