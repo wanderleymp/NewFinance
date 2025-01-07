@@ -243,14 +243,33 @@ const PersonForm = () => {
     }
   };
 
-  const handleDeleteContact = async (contactId) => {
+  const handleDeleteContact = async (personContactId) => {
+    // Adicione esta verificação
+    if (!personContactId) {
+      console.error('Person Contact ID is undefined');
+      enqueueSnackbar('ID do contato não encontrado', { variant: 'error' });
+      return;
+    }
+
     try {
-      await personsService.deleteContact(id, contactId);
-      const contactsData = await personsService.listContactsByPerson(id);
+      console.log('Attempting to delete contact:', {
+        personId: id,
+        personContactId: personContactId
+      });
+      const deleteResponse = await personsService.deleteContact(id, personContactId);
+      console.log('Delete contact response:', deleteResponse);
+      
+      const contactsData = await personsService.listContacts({ person_id: id });
       setContacts(contactsData.items || []);
       enqueueSnackbar('Contato excluído com sucesso!', { variant: 'success' });
     } catch (error) {
       console.error('Error deleting contact:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       enqueueSnackbar(
         error.response?.data?.message || 'Erro ao excluir contato',
         { variant: 'error' }
@@ -689,7 +708,13 @@ const PersonForm = () => {
                                 <EditIcon />
                               </IconButton>
                               <IconButton
-                                onClick={() => handleDeleteContact(contact.id)}
+                                onClick={() => {
+                                  console.log('Contact Full Object:', contact);
+                                  console.log('Contact ID:', contact.id);
+                                  console.log('Contact contact_id:', contact.contact_id);
+                                  console.log('Contact person_contact_id:', contact.person_contact_id);
+                                  handleDeleteContact(contact.person_contact_id);
+                                }}
                                 color="error"
                                 size="small"
                               >

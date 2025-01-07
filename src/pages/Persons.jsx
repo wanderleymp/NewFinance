@@ -48,7 +48,8 @@ import {
   ContactPhone as ContactsIcon,
   Business as BusinessIcon,
   Close as CloseIcon,
-  CloudDownload as CloudDownloadIcon
+  CloudDownload as CloudDownloadIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -89,21 +90,29 @@ const Persons = () => {
       const response = await personsService.listDetails(params);
       console.log('Response completa:', response);
       
-      const { items, meta } = response?.data || {};
+      if (!response?.data) {
+        console.error('Resposta vazia:', response);
+        enqueueSnackbar('Erro ao carregar pessoas: resposta vazia', { variant: 'error' });
+        return;
+      }
+
+      const { items, meta } = response.data;
       
       if (!items || !Array.isArray(items)) {
-        console.error('Formato de resposta inválido:', response?.data);
+        console.error('Formato de resposta inválido:', response.data);
         enqueueSnackbar('Erro ao carregar pessoas: formato de resposta inválido', { variant: 'error' });
         return;
       }
 
       setPersons(items);
       setTotalCount(meta?.totalItems || items.length);
-      
     } catch (error) {
       console.error('Erro ao carregar pessoas:', error);
       enqueueSnackbar(`Erro ao carregar pessoas: ${error.message}`, { variant: 'error' });
-      setPersons([]);
+      if (error.response) {
+        console.error('Erro ao carregar pessoas:', error.response.data);
+        enqueueSnackbar(`Erro ao carregar pessoas: ${error.response.data.message}`, { variant: 'error' });
+      }
     } finally {
       setLoading(false);
     }

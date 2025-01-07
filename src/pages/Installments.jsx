@@ -136,24 +136,14 @@ export default function Installments() {
         JSON.stringify(responseData.items, null, 2)
       );
 
-      // Log para verificar o formato dos valores
-      console.log('Valores de installments recebidos:', 
-        responseData.items.map(item => ({
-          id: item.installment_id,
-          originalAmount: item.amount,
-          amountType: typeof item.amount,
-          fullDetails: Object.keys(item)
-        }))
-      );
-
-      // Mapear para o formato esperado
+      // Correção na extração dos dados
       const installmentsData = {
         data: responseData.items || [],
-        total: responseData.total || 0
+        total: responseData.total || responseData.meta?.total || 0
       };
 
       console.log('Resposta completa da API:', responseData);
-      console.log('Total de itens:', responseData.total);
+      console.log('Total de itens:', installmentsData.total);
       console.log('Dados de installments:', installmentsData);
 
       setInstallments(installmentsData);
@@ -901,134 +891,6 @@ export default function Installments() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Dialog 
-        open={editDueDateDialogOpen} 
-        onClose={() => setEditDueDateDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle 
-          sx={{ 
-            typography: 'h6', 
-            fontWeight: 'bold', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            paddingBottom: 2
-          }}
-        >
-          <Box sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Alterar Vencimento - {selectedInstallmentForDueDateEdit?.full_name || 'Parcela'}
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
-                <DesktopDatePicker
-                  label="Nova Data de Vencimento"
-                  value={newDueDate}
-                  onChange={(newValue) => setNewDueDate(newValue)}
-                  slots={{
-                    textField: (params) => (
-                      <TextField 
-                        {...params} 
-                        fullWidth 
-                        label="Nova Data de Vencimento" 
-                        variant="outlined"
-                        InputLabelProps={{
-                          shrink: true,
-                          sx: {
-                            position: 'relative',
-                            transform: 'none',
-                            marginBottom: '8px',
-                            fontSize: '0.875rem',
-                            fontWeight: 500
-                          }
-                        }}
-                        sx={{
-                          '& .MuiInputBase-root': {
-                            marginTop: '0 !important'
-                          }
-                        }}
-                      />
-                    )
-                  }}
-                  format="dd/MM/yyyy"
-                />
-              </LocalizationProvider>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Valor"
-                value={newAmount}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Remove caracteres não numéricos, exceto vírgula
-                  const cleanValue = value.replace(/[^\d,]/g, '');
-                  setNewAmount(cleanValue);
-                }}
-                fullWidth
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      R$
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setEditDueDateDialogOpen(false)} 
-            color="secondary"
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={() => handleUpdateDueDate(selectedInstallmentForDueDateEdit.installment_id, newDueDate)} 
-            color="primary" 
-            variant="contained"
-            disabled={isUpdatingDueDate}
-          >
-            {isUpdatingDueDate ? (
-              <CircularProgress size={24} />
-            ) : (
-              'Salvar'
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog 
-        open={paymentDialogOpen} 
-        onClose={() => setPaymentDialogOpen(false)}
-      >
-        <DialogTitle>Confirmar Pagamento</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Valor"
-            value={paymentValue}
-            onChange={(e) => setPaymentValue(e.target.value)}
-            fullWidth
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  R$
-                </InputAdornment>
-              ),
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={handleConfirmPayment} color="primary">Confirmar</Button>
-        </DialogActions>
-      </Dialog>
 
       <TablePagination
         rowsPerPageOptions={[10, 25, 50]}

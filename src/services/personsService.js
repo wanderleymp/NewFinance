@@ -57,7 +57,27 @@ const personsService = {
   searchContacts: (params) => api.get('/contacts', { params }).then(response => response.data),
   createContact: (personId, data) => api.post(`/persons/${personId}/contacts`, data).then(response => response.data),
   updateContact: (personId, contactId, data) => api.put(`/persons/${personId}/contacts/${contactId}`, data).then(response => response.data),
-  deleteContact: (personId, contactId) => api.delete(`/persons/${personId}/contacts/${contactId}`).then(response => response.data),
+  deleteContact: (personId, contactId) => {
+    console.log('Attempting to delete contact:', {
+      personId,
+      contactId,
+      url: `/persons/${personId}/contacts/${contactId}`
+    });
+    return api.delete(`/persons/${personId}/contacts/${contactId}`)
+      .then(response => {
+        console.log('Delete contact response:', response);
+        return response.data;
+      })
+      .catch(error => {
+        console.error('Delete contact error:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          headers: error.response?.headers
+        });
+        throw error;
+      });
+  },
 
   getContact: async (personId, contactId) => {
     const response = await api.get(`/persons/${personId}/contacts/${contactId}`);
