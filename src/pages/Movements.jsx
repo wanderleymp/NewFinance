@@ -66,7 +66,7 @@ import {
   Cancel as CancelIcon
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { endOfDay, format, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
+import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
@@ -1011,7 +1011,7 @@ const Movements = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState([]);
-  const [view, setView] = useState('grid');
+  const [viewMode, setViewMode] = useState('list'); // 'list' ou 'card'
   const [orderBy, setOrderBy] = useState('date');
   const [orderDirection, setOrderDirection] = useState('desc');
   const [page, setPage] = useState(0);
@@ -1027,34 +1027,36 @@ const Movements = () => {
     try {
       setLoading(true);
       const params = {
-        page: page + 1,
+        page: page + 1, // Backend espera página começando em 1
         limit: rowsPerPage,
         orderBy,
         orderDirection,
-        startDate: format(dateRange[0], 'yyyy-MM-dd'),
-        endDate: format(dateRange[1], 'yyyy-MM-dd'),
-        ...(statusFilter !== 'all' && { movement_status_id: statusFilter }),
-        ...(typeFilter !== 'all' && { movement_type_id: typeFilter }),
-        ...(searchQuery && { search: searchQuery }),
+        startDate: format(dateRange[0], 'yyyy-MM-dd'), // Formato de string
+        endDate: format(dateRange[1], 'yyyy-MM-dd'), // Formato de string
+        include: 'payments.installments.boletos'
       };
+
+      console.log('Parâmetros da requisição:', params);
 
       const response = await movementsService.list(params);
       
-      if (response && response.items && response.items.data) {
-        setMovements(response.items.data);
-        setTotalCount(response.items.total || 0);
-      } else if (Array.isArray(response.items)) {
-        setMovements(response.items);
-        setTotalCount(response.meta?.total || 0);
-      } else {
-        setMovements([]);
-        setTotalCount(0);
-        console.error('Formato de resposta inesperado:', response);
-      }
+      console.log('Resposta completa da API:', response);
+      
+      // Extração correta dos dados
+      const movementsData = response.items?.items || [];
+      const totalCount = response.total || response.items?.meta?.total || 0;
+
+      console.log('Items recebidos:', movementsData);
+      console.log('Total de itens:', totalCount);
+      
+      // Correção aqui: use movementsData e totalCount
+      setMovements(movementsData);
+      setTotalCount(totalCount);
+      
     } catch (error) {
-      console.error('Erro ao carregar movimentações:', error);
-      enqueueSnackbar('Erro ao carregar movimentações', { variant: 'error' });
-      setMovements([]);
+      console.error('Erro ao buscar movimentos:', error);
+      console.error('Detalhes do erro:', error.response?.data);
+      enqueueSnackbar('Erro ao carregar movimentos', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -1109,6 +1111,40 @@ const Movements = () => {
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 2 
+      }}>
+        <Typography variant="h4">Movimentos</Typography>
+        
+        {/* Novo componente de seleção de visualização */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(e, newViewMode) => {
+              if (newViewMode !== null) {
+                setViewMode(newViewMode);
+              }
+            }}
+            aria-label="view mode"
+          >
+            <ToggleButton value="list" aria-label="list view">
+              <Tooltip title="Visualização em Lista">
+                <ListViewIcon />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="card" aria-label="card view">
+              <Tooltip title="Visualização em Cards">
+                <GridViewIcon />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Box>
+
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12}>
@@ -1168,19 +1204,6 @@ const Movements = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={(e, newView) => newView && setView(newView)}
-              sx={{ mr: 2 }}
-            >
-              <ToggleButton value="grid">
-                <GridViewIcon />
-              </ToggleButton>
-              <ToggleButton value="list">
-                <ListViewIcon />
-              </ToggleButton>
-            </ToggleButtonGroup>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -1196,32 +1219,7 @@ const Movements = () => {
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
-      ) : view === 'grid' ? (
-        <>
-          <Grid container spacing={3}>
-            {Array.isArray(movements) && movements.map((movement) => (
-              <Grid item xs={12} sm={6} md={4} key={movement.id || `movement-${movement.movement_id}`}>
-                <MovementCard movement={movement} />
-              </Grid>
-            ))}
-          </Grid>
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={handleChangePage}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              rowsPerPageOptions={[6, 10, 24, 48]}
-              labelRowsPerPage="Itens por página"
-              labelDisplayedRows={({ from, to, count }) => 
-                `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
-              }
-            />
-          </Box>
-        </>
-      ) : (
+      ) : viewMode === 'list' ? (
         <MovementTable
           movements={movements}
           onSort={handleSort}
@@ -1233,7 +1231,30 @@ const Movements = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
           totalCount={totalCount}
         />
+      ) : (
+        <Grid container spacing={3}>
+          {Array.isArray(movements) && movements.map((movement) => (
+            <Grid item xs={12} sm={6} md={4} key={movement.id || `movement-${movement.movement_id}`}>
+              <MovementCard movement={movement} />
+            </Grid>
+          ))}
+        </Grid>
       )}
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[6, 10, 24, 48]}
+          labelRowsPerPage="Itens por página"
+          labelDisplayedRows={({ from, to, count }) => 
+            `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
+          }
+        />
+      </Box>
     </Box>
   );
 };
