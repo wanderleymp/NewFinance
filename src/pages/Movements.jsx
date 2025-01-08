@@ -255,10 +255,13 @@ const MovementCard = ({ movement }) => {
 };
 
 const formatCurrency = (value) => {
+  if (value === null || value === undefined || isNaN(value)) {
+    return 'R$ 0,00';
+  }
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
-  }).format(parseFloat(value));
+  }).format(value);
 }
 
 const InstallmentRow = ({ installment }) => {
@@ -410,17 +413,26 @@ const MovementRow = ({ movement }) => {
         </TableCell>
         <TableCell>{movement.movement_id}</TableCell>
         <TableCell>{movement.person_id}</TableCell>
+        <TableCell>{movement.person_name || '-'}</TableCell>
         <TableCell>
-          {movement.person_name || '-'}
+          <Chip 
+            label={movement.type_name}
+            size="small"
+            color={movement.movement_type_id === 1 || movement.movement_type_id === 3 ? 'success' : 'info'}
+          />
         </TableCell>
-        <TableCell>{movement.type_name}</TableCell>
         <TableCell align="right">
-          {formatCurrency(movement.total_amount)}
+          {formatCurrency(Number(movement.total_amount || 0))}
         </TableCell>
         <TableCell>
           <Chip
             label={status}
-            color={isConfirmed ? 'success' : 'default'}
+            color={
+              status.toLowerCase() === 'confirmado' ? 'success' :
+              status.toLowerCase() === 'pendente' ? 'warning' :
+              status.toLowerCase() === 'cancelado' ? 'error' :
+              'default'
+            }
             size="small"
           />
         </TableCell>
@@ -432,7 +444,10 @@ const MovementRow = ({ movement }) => {
                   <IconButton
                     size="small"
                     color="primary"
-                    onClick={handleGenerateInvoice}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGenerateInvoice(e);
+                    }}
                   >
                     <PostAddIcon fontSize="small" />
                   </IconButton>
@@ -446,7 +461,10 @@ const MovementRow = ({ movement }) => {
                     <IconButton
                       size="small"
                       color="primary"
-                      onClick={handleNotificationClick}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNotificationClick(e);
+                      }}
                     >
                       <NotificationsIcon fontSize="small" />
                     </IconButton>
@@ -469,37 +487,6 @@ const MovementRow = ({ movement }) => {
               </Tooltip>
             )}
           </Box>
-          <Menu
-            anchorEl={notificationAnchor}
-            open={Boolean(notificationAnchor)}
-            onClose={handleNotificationClose}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {selectedBoleto?.boleto_url ? (
-              <>
-                <MenuItem onClick={() => {
-                  // TODO: Implementar envio por email
-                  handleNotificationClose();
-                }}>
-                  <EmailIcon fontSize="small" sx={{ mr: 1 }} />
-                  Enviar por Email
-                </MenuItem>
-                <MenuItem onClick={() => {
-                  // TODO: Implementar envio por WhatsApp
-                  handleNotificationClose();
-                }}>
-                  <WhatsAppIcon fontSize="small" sx={{ mr: 1 }} />
-                  Enviar por WhatsApp
-                </MenuItem>
-              </>
-            ) : (
-              <MenuItem disabled>
-                <Typography variant="body2" color="text.secondary">
-                  Nenhum boleto disponível para compartilhar
-                </Typography>
-              </MenuItem>
-            )}
-          </Menu>
         </TableCell>
       </TableRow>
       <TableRow>
@@ -796,9 +783,9 @@ const MovementTable = ({ movements, onSort, orderBy, orderDirection, page, rowsP
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'movement_date'}
-                  direction={orderBy === 'movement_date' ? orderDirection : 'asc'}
-                  onClick={() => onSort('movement_date')}
+                  active={orderBy === 'date'}
+                  direction={orderBy === 'date' ? orderDirection : 'asc'}
+                  onClick={() => onSort('date')}
                 >
                   Data
                 </TableSortLabel>
@@ -812,39 +799,56 @@ const MovementTable = ({ movements, onSort, orderBy, orderDirection, page, rowsP
                   Descrição
                 </TableSortLabel>
               </TableCell>
-              <TableCell>ID</TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'customer'}
-                  direction={orderBy === 'customer' ? orderDirection : 'asc'}
-                  onClick={() => onSort('customer')}
+                  active={orderBy === 'movement_id'}
+                  direction={orderBy === 'movement_id' ? orderDirection : 'asc'}
+                  onClick={() => onSort('movement_id')}
                 >
-                  Cliente
+                  Código
                 </TableSortLabel>
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'type'}
-                  direction={orderBy === 'type' ? orderDirection : 'asc'}
-                  onClick={() => onSort('type')}
+                  active={orderBy === 'person_id'}
+                  direction={orderBy === 'person_id' ? orderDirection : 'asc'}
+                  onClick={() => onSort('person_id')}
+                >
+                  Código Cliente
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'person_name'}
+                  direction={orderBy === 'person_name' ? orderDirection : 'asc'}
+                  onClick={() => onSort('person_name')}
+                >
+                  Nome Cliente
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'movement_type_id'}
+                  direction={orderBy === 'movement_type_id' ? orderDirection : 'asc'}
+                  onClick={() => onSort('movement_type_id')}
                 >
                   Tipo
                 </TableSortLabel>
               </TableCell>
               <TableCell align="right">
                 <TableSortLabel
-                  active={orderBy === 'amount'}
-                  direction={orderBy === 'amount' ? orderDirection : 'asc'}
-                  onClick={() => onSort('amount')}
+                  active={orderBy === 'total_amount'}
+                  direction={orderBy === 'total_amount' ? orderDirection : 'asc'}
+                  onClick={() => onSort('total_amount')}
                 >
                   Valor
                 </TableSortLabel>
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'status'}
-                  direction={orderBy === 'status' ? orderDirection : 'asc'}
-                  onClick={() => onSort('status')}
+                  active={orderBy === 'status_name'}
+                  direction={orderBy === 'status_name' ? orderDirection : 'asc'}
+                  onClick={() => onSort('status_name')}
                 >
                   Status
                 </TableSortLabel>
@@ -1033,7 +1037,10 @@ const Movements = () => {
         orderDirection,
         startDate: format(dateRange[0], 'yyyy-MM-dd'), // Formato de string
         endDate: format(dateRange[1], 'yyyy-MM-dd'), // Formato de string
-        include: 'payments.installments.boletos'
+        include: 'payments.installments.boletos',
+        search: searchQuery || undefined, // Adiciona o parâmetro de busca apenas se existir
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        type: typeFilter !== 'all' ? typeFilter : undefined
       };
 
       console.log('Parâmetros da requisição:', params);
@@ -1082,7 +1089,7 @@ const Movements = () => {
 
   useEffect(() => {
     fetchMovements();
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, statusFilter, typeFilter]);
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, statusFilter, typeFilter, searchQuery]); // Adicionado searchQuery
 
   // Limpa o timeout ao desmontar o componente
   useEffect(() => {
@@ -1111,70 +1118,71 @@ const Movements = () => {
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>
+      {/* Cabeçalho com título e botões de visualização */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        mb: 2 
+        mb: 3
       }}>
-        <Typography variant="h4">Movimentos</Typography>
-        
-        {/* Novo componente de seleção de visualização */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Typography variant="h5">Movimentos</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <ToggleButtonGroup
             value={viewMode}
             exclusive
+            size="small"
             onChange={(e, newViewMode) => {
               if (newViewMode !== null) {
                 setViewMode(newViewMode);
               }
             }}
-            aria-label="view mode"
           >
-            <ToggleButton value="list" aria-label="list view">
-              <Tooltip title="Visualização em Lista">
-                <ListViewIcon />
-              </Tooltip>
+            <ToggleButton value="list">
+              <ListViewIcon fontSize="small" />
             </ToggleButton>
-            <ToggleButton value="card" aria-label="card view">
-              <Tooltip title="Visualização em Cards">
-                <GridViewIcon />
-              </Tooltip>
+            <ToggleButton value="card">
+              <GridViewIcon fontSize="small" />
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
       </Box>
 
+      {/* Barra de filtros */}
       <Box sx={{ mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Buscar movimentações..."
+            <OutlinedInput
               value={searchQuery}
               onChange={handleSearch}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              placeholder="Buscar movimentações..."
+              size="small"
+              fullWidth
+              startAdornment={
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              }
+              sx={{
+                borderRadius: 2,
+                backgroundColor: 'background.paper',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'divider',
+                },
               }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
+            <DateRangeSelector
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+            />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(0);
-                }}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status"
               >
                 <MenuItem value="all">Todos</MenuItem>
@@ -1184,15 +1192,12 @@ const Movements = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
               <InputLabel>Tipo</InputLabel>
               <Select
                 value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value);
-                  setPage(0);
-                }}
+                onChange={(e) => setTypeFilter(e.target.value)}
                 label="Tipo"
               >
                 <MenuItem value="all">Todos</MenuItem>
@@ -1203,11 +1208,19 @@ const Movements = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => navigate('/movements/new')}
+              sx={{ 
+                bgcolor: 'primary.main',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+                textTransform: 'none',
+                borderRadius: 1
+              }}
             >
               Nova Movimentação
             </Button>
@@ -1220,21 +1233,106 @@ const Movements = () => {
           <CircularProgress />
         </Box>
       ) : viewMode === 'list' ? (
-        <MovementTable
-          movements={movements}
-          onSort={handleSort}
-          orderBy={orderBy}
-          orderDirection={orderDirection}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          totalCount={totalCount}
-        />
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            overflow: 'hidden',
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: 'transparent',
+          }}
+        >
+          <TableContainer>
+            <Table sx={{ minWidth: 750 }} size="medium">
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox" />
+                  <TableCell>
+                    <TableSortLabel
+                      active={orderBy === 'date'}
+                      direction={orderBy === 'date' ? orderDirection : 'asc'}
+                      onClick={() => onSort('date')}
+                    >
+                      Data
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>Descrição</TableCell>
+                  <TableCell>Código</TableCell>
+                  <TableCell>Código Cliente</TableCell>
+                  <TableCell>Nome Cliente</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell align="right">Valor</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Ações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {movements.map((movement) => (
+                  <MovementRow key={movement.movement_id} movement={movement} />
+                ))}
+                {movements.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      Nenhuma movimentação encontrada
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            px: 2,
+            py: 1.5,
+            borderTop: '1px solid',
+            borderColor: 'divider'
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              Total de registros: {totalCount}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Itens por página:
+              </Typography>
+              <Select
+                value={rowsPerPage}
+                onChange={(e) => handleChangeRowsPerPage(e)}
+                size="small"
+                sx={{ minWidth: 80 }}
+              >
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={25}>25</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+              <Typography variant="body2" color="text.secondary">
+                {`${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, totalCount)} de ${totalCount}`}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <IconButton 
+                  size="small"
+                  onClick={() => handleChangePage(null, page - 1)}
+                  disabled={page === 0}
+                >
+                  <BeforeIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => handleChangePage(null, page + 1)}
+                  disabled={page >= Math.ceil(totalCount / rowsPerPage) - 1}
+                >
+                  <NextIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
       ) : (
-        <Grid container spacing={3}>
-          {Array.isArray(movements) && movements.map((movement) => (
-            <Grid item xs={12} sm={6} md={4} key={movement.id || `movement-${movement.movement_id}`}>
+        <Grid container spacing={2}>
+          {movements.map((movement) => (
+            <Grid item xs={12} sm={6} md={4} key={movement.movement_id}>
               <MovementCard movement={movement} />
             </Grid>
           ))}
