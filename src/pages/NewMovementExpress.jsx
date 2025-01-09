@@ -25,7 +25,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { personsService, itemsService, movementsService } from '../services/api';
+import { personsService, itemsService, movementsService, paymentMethodService } from '../services/api';
 
 const NewMovement = () => {
   const navigate = useNavigate();
@@ -42,17 +42,11 @@ const NewMovement = () => {
   // Estados para as opções de autocomplete
   const [personOptions, setPersonOptions] = useState([]);
   const [itemOptions, setItemOptions] = useState([]);
+  const [paymentMethodOptions, setPaymentMethodOptions] = useState([]);
   const [loading, setLoading] = useState({
     persons: false,
     items: false
   });
-
-  // Mock data - substituir por chamadas à API
-  const mockPaymentMethods = [
-    { id: 1, name: 'Dinheiro' },
-    { id: 2, name: 'Cartão de Crédito' },
-    { id: 3, name: 'Boleto' },
-  ];
 
   // Carregar item padrão
   useEffect(() => {
@@ -89,6 +83,30 @@ const NewMovement = () => {
 
     loadDefaultItem();
   }, [location.search]);
+
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        const response = await paymentMethodService.getAll({ 
+          page: 1, 
+          limit: 100, 
+          active: true 
+        });
+        
+        const formattedMethods = response.data.map(method => ({
+          id: method.payment_method_id,
+          name: method.method_name
+        }));
+        
+        setPaymentMethodOptions(formattedMethods);
+      } catch (error) {
+        console.error('Erro ao buscar formas de pagamento:', error);
+        // toast.error('Erro ao carregar formas de pagamento');
+      }
+    };
+
+    fetchPaymentMethods();
+  }, []);
 
   // Função para buscar pessoas
   const searchPersons = useCallback(
@@ -328,7 +346,7 @@ const NewMovement = () => {
                 {renderSearchField(
                   'paymentMethod',
                   'Forma de Pagamento',
-                  mockPaymentMethods,
+                  paymentMethodOptions,
                   <PaymentIcon color="action" />
                 )}
               </CardContent>

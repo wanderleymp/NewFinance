@@ -619,4 +619,55 @@ export const updateInstallmentDueDate = async (
   }
 };
 
+export const paymentMethodService = {
+  async getAll(params = {}) {
+    console.log(`[GET] /payment-method: Params:`, params);
+    console.log(`[GET] /payment-method: Params (detailed):`, JSON.stringify(params, null, 2));
+    
+    const response = await api.get('/payment-method', { params });
+    
+    return response.data;
+  },
+
+  async get(id) {
+    console.log(`[GET] /payment-method/${id}: Params: Detalhes`);
+    
+    const response = await api.get(`/payment-method/${id}`);
+    
+    return response.data;
+  },
+
+  async create(data) {
+    console.log(`[POST] /payment-method: Dados:`, data);
+    
+    const response = await api.post('/payment-method', data);
+    
+    return response.data;
+  },
+
+  async update(id, data) {
+    console.log(`[PUT] /payment-method/${id}: Dados:`, data);
+    
+    const response = await api.put(`/payment-method/${id}`, data);
+    
+    return response.data;
+  },
+
+  async delete(id) {
+    console.log(`[DELETE] /payment-method/${id}`);
+    
+    const response = await api.delete(`/payment-method/${id}`);
+    
+    return response.data;
+  },
+
+  async toggleActive(id) {
+    console.log(`[PATCH] /payment-method/${id}/toggle-active`);
+    
+    const response = await api.patch(`/payment-method/${id}/toggle-active`);
+    
+    return response.data;
+  }
+};
+
 export default api;
