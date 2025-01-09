@@ -247,9 +247,36 @@ export const movementsService = {
         params: params
       });
       
-      console.log('Resposta completa do get movement:', JSON.stringify(response.data, null, 2));
-      console.log('Items na resposta:', response.data.items);
-      console.log('Movement Items na resposta:', response.data.movement_items);
+      // Filtrar boletos apenas com status 'a_receber' e o último gerado
+      if (response.data.payments) {
+        response.data.payments.forEach(payment => {
+          if (payment.installments) {
+            payment.installments.forEach(installment => {
+              if (installment.boletos) {
+                // Primeiro, filtrar apenas boletos 'a_receber'
+                const boletosAReceber = installment.boletos.filter(boleto => 
+                  boleto.status === 'a_receber'
+                );
+                
+                // Se houver boletos a receber, manter apenas o último
+                if (boletosAReceber.length > 0) {
+                  const ultimoBoleto = boletosAReceber.reduce((ultimo, atual) => 
+                    (new Date(atual.created_at) > new Date(ultimo.created_at)) ? atual : ultimo
+                  );
+                  
+                  // Substituir a lista de boletos pelo último boleto
+                  installment.boletos = [ultimoBoleto];
+                } else {
+                  // Se não houver boletos a receber, limpar a lista
+                  installment.boletos = [];
+                }
+              }
+            });
+          }
+        });
+      }
+      
+      console.log('Resposta filtrada do get movement:', JSON.stringify(response.data, null, 2));
       
       return response.data;
     } catch (error) {

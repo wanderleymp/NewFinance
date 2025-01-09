@@ -41,7 +41,9 @@ import {
   Notifications as NotificationsIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  CreditCard as CreditCardIcon,
+  Payment as PaymentIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService } from '../services/api';
@@ -167,6 +169,12 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           title: 'Contas a Receber',
           path: '/installments',
           icon: <ReceiptIcon />,
+        },
+        {
+          id: 'payment-methods',
+          title: 'Formas de Pagamento',
+          path: '/payment-methods',
+          icon: <PaymentIcon />,
         },
       ],
     },

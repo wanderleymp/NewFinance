@@ -9,6 +9,8 @@ import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -41,6 +43,17 @@ export default function App() {
           autoHideDuration={5000}
         >
           <AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />
+          <ToastContainer 
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
         </SnackbarProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
 import Loading from './pages/Loading';
+import { Payment as PaymentIcon } from '@mui/icons-material';
 
 // Lazy load all components
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -18,6 +19,8 @@ const Users = lazy(() => import('./pages/Users'));
 const Installments = lazy(() => import('./pages/Installments'));
 const Contacts = lazy(() => import('./pages/Contacts'));
 const SystemStatus = lazy(() => import('./pages/SystemStatus'));
+const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
+const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -77,6 +80,9 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="receivables" element={<Suspense fallback={<Loading />}><Receivables /></Suspense>} />
         <Route path="system/status" element={<Suspense fallback={<Loading />}><SystemStatus /></Suspense>} />
         <Route path="contacts" element={<Suspense fallback={<Loading />}><Contacts /></Suspense>} />
+        <Route path="payment-methods" element={<Suspense fallback={<Loading />}><PaymentMethods /></Suspense>} />
+        <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
+        <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
       </Route>
     </Routes>
   );
