@@ -299,15 +299,9 @@ const InstallmentRow = ({ installment }) => {
 };
 
 const MovementRow = ({ movement }) => {
-  const [open, setOpen] = useState(false);
-  const [notificationAnchor, setNotificationAnchor] = useState(null);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [selectedBoleto, setSelectedBoleto] = useState(null);
-  const [selectedContacts, setSelectedContacts] = useState([]);
-  const [contacts, setContacts] = useState([]);
-  const [boletoDialogOpen, setBoletoDialogOpen] = useState(false);
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const [open, setOpen] = useState(false);
 
   const status = movement.status_name || 'Rascunho';
   const statusId = movement.movement_status_id || 1;
@@ -316,11 +310,6 @@ const MovementRow = ({ movement }) => {
 
   const handleNotificationClick = (event) => {
     event.stopPropagation();
-    setNotificationAnchor(event.currentTarget);
-  };
-
-  const handleNotificationClose = () => {
-    setNotificationAnchor(null);
   };
 
   const handleGenerateInvoice = async (e) => {
@@ -344,44 +333,19 @@ const MovementRow = ({ movement }) => {
     }
   };
 
-  const fetchContacts = async () => {
-    try {
-      const response = await api.get('/persons');
-      setContacts(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar contatos:', error);
-    }
+  const handleEdit = (e) => {
+    e.stopPropagation(); // Evita que o clique propague para a linha
+    navigate(`/movements/edit/${movement.movement_id}`);
   };
 
-  const handleShare = async () => {
+  const handleDelete = async () => {
     try {
-      await api.post('/boletos/share', {
-        boleto_id: selectedBoleto.boleto_id,
-        person_ids: selectedContacts
-      });
-      enqueueSnackbar('Boleto compartilhado com sucesso!', { variant: 'success' });
+      await movementsService.delete(movement.movement_id);
+      enqueueSnackbar('Movimento excluído com sucesso!', { variant: 'success' });
     } catch (error) {
-      console.error('Erro ao compartilhar boleto:', error);
-      enqueueSnackbar('Erro ao compartilhar boleto', { variant: 'error' });
+      console.error('Erro ao excluir movimento:', error);
+      enqueueSnackbar('Erro ao excluir movimento', { variant: 'error' });
     }
-    setShareDialogOpen(false);
-  };
-
-  const handleCopyToClipboard = (text, message) => {
-    navigator.clipboard.writeText(text);
-    enqueueSnackbar(message, { variant: 'success' });
-  };
-
-  const handleCancelMovement = async () => {
-    try {
-      await api.post(`/movements/${movement.movement_id}/cancel`);
-      enqueueSnackbar('Movimentação cancelada com sucesso!', { variant: 'success' });
-      window.location.reload();
-    } catch (error) {
-      console.error('Erro ao cancelar movimentação:', error);
-      enqueueSnackbar('Erro ao cancelar movimentação', { variant: 'error' });
-    }
-    setConfirmCancelOpen(false);
   };
 
   return (
@@ -479,13 +443,20 @@ const MovementRow = ({ movement }) => {
                   color="error"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setConfirmCancelOpen(true);
                   }}
                 >
                   <CancelIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title="Editar Movimentação">
+              <IconButton
+                size="small"
+                onClick={handleEdit}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </TableCell>
       </TableRow>
@@ -549,8 +520,8 @@ const MovementRow = ({ movement }) => {
                                           if (boleto.boleto_url) {
                                             window.open(boleto.boleto_url, '_blank');
                                           } else {
-                                            setSelectedBoleto(boleto);
-                                            setBoletoDialogOpen(true);
+                                            // setSelectedBoleto(boleto);
+                                            // setBoletoDialogOpen(true);
                                           }
                                         }}
                                         sx={{ mr: 1 }}
@@ -562,9 +533,9 @@ const MovementRow = ({ movement }) => {
                                           size="small"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setSelectedBoleto(boleto);
-                                            setShareDialogOpen(true);
-                                            fetchContacts();
+                                            // setSelectedBoleto(boleto);
+                                            // setShareDialogOpen(true);
+                                            // fetchContacts();
                                           }}
                                         >
                                           <ShareIcon />
@@ -598,7 +569,7 @@ const MovementRow = ({ movement }) => {
       </TableRow>
 
       {/* Diálogo de Compartilhamento */}
-      <Dialog 
+      {/* <Dialog 
         open={shareDialogOpen} 
         onClose={() => setShareDialogOpen(false)}
         maxWidth="sm"
@@ -643,10 +614,10 @@ const MovementRow = ({ movement }) => {
             Compartilhar
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
 
       {/* Diálogo de Detalhes do Boleto */}
-      <Dialog 
+      {/* <Dialog 
         open={boletoDialogOpen} 
         onClose={() => setBoletoDialogOpen(false)}
         maxWidth="sm"
@@ -716,10 +687,10 @@ const MovementRow = ({ movement }) => {
             </Button>
           )}
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
 
       {/* Diálogo de Confirmação de Cancelamento */}
-      <Dialog 
+      {/* <Dialog 
         open={confirmCancelOpen} 
         onClose={() => setConfirmCancelOpen(false)}
         maxWidth="sm"
@@ -741,12 +712,22 @@ const MovementRow = ({ movement }) => {
             Cancelar Movimentação
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 };
 
-const MovementTable = ({ movements, onSort, orderBy, orderDirection, page, rowsPerPage, onPageChange, onRowsPerPageChange, totalCount }) => {
+const MovementTable = ({ 
+  movements, 
+  onSort, 
+  orderBy, 
+  orderDirection, 
+  page, 
+  rowsPerPage, 
+  onPageChange, 
+  onRowsPerPageChange, 
+  totalCount 
+}) => {
   const [selectedMovement, setSelectedMovement] = useState(null);
 
   const handleClick = (movement) => {

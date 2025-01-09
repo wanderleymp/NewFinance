@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import Movements from './pages/Movements';
 import NewMovement from './pages/NewMovement';
+import MovementEdit from './pages/MovementEdit';
 import Receivables from './pages/Receivables';
 import Persons from './pages/Persons';
 import PersonForm from './pages/PersonForm';
@@ -40,6 +41,7 @@ export default function AppRoutes({ darkMode, setDarkMode }) {
         <Route path="movements" element={<Movements />} />
         <Route path="movements/new" element={<NewMovement />} />
         <Route path="movements/:id" element={<NewMovement />} />
+        <Route path="movements/edit/:id" element={<MovementEdit />} />
         <Route path="persons" element={<Persons />} />
         <Route path="persons/new" element={<PersonForm />} />
         <Route path="persons/import-cnpj" element={<ImportCNPJ />} />

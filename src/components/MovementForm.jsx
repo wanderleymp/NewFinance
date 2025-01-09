@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -14,14 +14,14 @@ import {
 import { format } from 'date-fns';
 import { Search as SearchIcon } from '@mui/icons-material';
 
-const MovementForm = ({ open, onClose, onSubmit }) => {
+const MovementForm = ({ open, onClose, onSubmit, initialData }) => {
   const [formData, setFormData] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    description: '',
-    person: null,
-    item: null,
-    amount: '',
-    paymentMethod: null,
+    date: initialData?.date ? format(new Date(initialData.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+    description: initialData?.description || '',
+    person: initialData?.person || null,
+    item: initialData?.item || null,
+    amount: initialData?.amount?.toString() || '',
+    paymentMethod: initialData?.paymentMethod || null,
   });
 
   // Mock data - substituir por chamadas à API
@@ -40,6 +40,19 @@ const MovementForm = ({ open, onClose, onSubmit }) => {
     { id: 2, name: 'Cartão de Crédito' },
     { id: 3, name: 'Boleto' },
   ];
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        date: initialData.date ? format(new Date(initialData.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        description: initialData.description || '',
+        person: initialData.person || null,
+        item: initialData.item || null,
+        amount: initialData.amount?.toString() || '',
+        paymentMethod: initialData.paymentMethod || null,
+      });
+    }
+  }, [initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

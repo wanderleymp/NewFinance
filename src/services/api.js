@@ -235,6 +235,51 @@ export const movementsService = {
     }
   },
 
+  async get(id) {
+    try {
+      const params = {
+        include: 'payments.installments.boletos,items,movement_items'
+      };
+      
+      console.log('[GET] /movements/' + id + ': Params:', params);
+      
+      const response = await api.get(`/movements/${id}`, {
+        params: params
+      });
+      
+      console.log('Resposta completa do get movement:', JSON.stringify(response.data, null, 2));
+      console.log('Items na resposta:', response.data.items);
+      console.log('Movement Items na resposta:', response.data.movement_items);
+      
+      return response.data;
+    } catch (error) {
+      console.error('[GET] /movements/' + id + ': Erro:', error);
+      throw error;
+    }
+  },
+
+  async addItem(movementId, itemData) {
+    try {
+      console.log('Enviando requisição para adicionar item:', itemData);
+      
+      const data = {
+        item_id: itemData.item_id,
+        quantity: Number(itemData.quantity),
+        unit_price: Number(itemData.unit_price),
+        description: itemData.description
+      };
+      
+      const response = await api.post(`/movements/${movementId}/items`, data);
+      console.log('Resposta completa da adição de item:', JSON.stringify(response.data, null, 2));
+      
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao adicionar item:', error);
+      console.error('Detalhes do erro:', error.response?.data);
+      throw error;
+    }
+  },
+
   create(data) {
     return api.post('/movements', {
       movement_type_id: 1,
@@ -276,6 +321,15 @@ export const movementsService = {
       throw error;
     }
   },
+
+  async removeItem(movementId, itemId) {
+    try {
+      const response = await api.delete(`/movements/${movementId}/items/${itemId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 };
 
 export const installmentsService = {
