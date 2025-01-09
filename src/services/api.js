@@ -504,12 +504,24 @@ const DUE_DATE_APIS = {
 };
 
 // Função para alterar data de vencimento
-export const updateInstallmentDueDate = async (installmentId, newDueDate, apiSource = 'N8N') => {
+export const updateInstallmentDueDate = async (
+  installmentId, 
+  newDueDate, 
+  newAmount = null, 
+  updateBoletoWithFees = false, 
+  updateBoletoOnly = false, 
+  apiSource = 'N8N',
+  additionalData = {}
+) => {
   try {
     console.log('Preparando atualização de data de vencimento via API:', {
       installmentId,
       newDueDate,
-      apiSource
+      newAmount,
+      updateBoletoWithFees,
+      updateBoletoOnly,
+      apiSource,
+      additionalData
     });
 
     // Seleciona a configuração da API
@@ -520,7 +532,11 @@ export const updateInstallmentDueDate = async (installmentId, newDueDate, apiSou
     // Prepara os dados da requisição
     const requestData = {
       installment_id: installmentId,
-      new_due_date: newDueDate
+      new_due_date: newDueDate,
+      new_amount: newAmount,
+      update_boleto_with_fees: updateBoletoWithFees,
+      update_boleto_only: updateBoletoOnly,
+      ...additionalData
     };
 
     console.log('Dados da requisição:', requestData);
@@ -552,11 +568,7 @@ export const updateInstallmentDueDate = async (installmentId, newDueDate, apiSou
 
     return response.data;
   } catch (error) {
-    console.error('Erro na atualização de data de vencimento:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
+    console.error('Erro ao atualizar data de vencimento:', error);
     throw error;
   }
 };

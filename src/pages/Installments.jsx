@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -27,11 +27,13 @@ import {
   DialogActions,
   Button,
   CircularProgress,
-  Checkbox
+  Checkbox,
+  FormControlLabel,
+  Alert
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
-  CalendarMonth as CalendarIcon,
+  CalendarMonth as CalendarMonthIcon,
   FilterList as FilterListIcon,
   WhatsApp as WhatsAppIcon, 
   Email as EmailIcon, 
@@ -45,10 +47,13 @@ import {
   CheckCircle as PaidIcon, 
   PendingActions as PendingIcon 
 } from '@mui/icons-material';
-import { DesktopDatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { 
+  DatePicker, 
+  LocalizationProvider 
+} from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
-import { formatISO, parseISO, format, addDays } from 'date-fns';
+import { formatISO, parseISO, format, addDays, differenceInDays, isPast } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } from 'date-fns';
@@ -68,6 +73,22 @@ const cleanCurrencyValue = (value) => {
   const result = parseFloat(parseFloat(normalizedValue).toFixed(2));
   
   return isNaN(result) ? 0 : result;
+};
+
+// Função segura para formatar data
+const safeFormatDate = (date) => {
+  try {
+    // Se for uma string, tenta converter para Date
+    const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+    
+    // Verifica se é uma data válida
+    return parsedDate && !isNaN(parsedDate) 
+      ? format(parsedDate, 'dd/MM/yyyy') 
+      : 'Data inválida';
+  } catch (error) {
+    console.error('Erro ao formatar data:', error);
+    return 'Data inválida';
+  }
 };
 
 export default function Installments() {
@@ -95,6 +116,8 @@ export default function Installments() {
   const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
   const [selectedInstallments, setSelectedInstallments] = useState([]);
   const [isNotifyingSelected, setIsNotifyingSelected] = useState(false);
+  const [updateBoletoWithFees, setUpdateBoletoWithFees] = useState(false);
+  const [updateBoletoOnly, setUpdateBoletoOnly] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
 
   const statusOptions = [
@@ -102,6 +125,30 @@ export default function Installments() {
     { value: 'Pendente', label: 'Pendente' },
     { value: 'Pago', label: 'Pago' }
   ];
+
+  // Função de cálculo de juros e multa
+  const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
+    // Calcular dias de atraso
+    const daysOverdue = differenceInDays(newDueDate, originalDueDate);
+
+    // Calcular meses de atraso
+    const monthsOverdue = Math.ceil(daysOverdue / 30);
+
+    // Taxa de juros mensal
+    const monthlyInterestRate = 0.07; // 7% ao mês
+
+    // Taxa de multa
+    const penaltyRate = 0.02; // 2% de multa
+
+    // Calcular juros e multa
+    const interest = originalBalance * (monthlyInterestRate * monthsOverdue);
+    const penalty = originalBalance * penaltyRate;
+
+    // Calcular novo valor
+    const newBalance = originalBalance + interest + penalty;
+
+    return newBalance;
+  }, []);
 
   const loadInstallments = async () => {
     try {
@@ -308,14 +355,35 @@ export default function Installments() {
     });
   };
 
-  const handleEditDueDate = (installment) => {
-    setSelectedInstallmentForDueDateEdit(installment);
-    setNewDueDate(new Date(installment.due_date));
-    
-    // Formatar valor para exibição correta
-    setNewAmount(formatCurrency(installment.balance));
-    setEditDueDateDialogOpen(true);
-  };
+  const handleEditDueDate = useCallback((installment) => {
+    if (installment) {
+      // Definir estados iniciais
+      setSelectedInstallmentForDueDateEdit(installment);
+      
+      // Definir nova data
+      const originalDueDate = parseISO(installment.due_date);
+      const newDueDate = isPast(originalDueDate) ? new Date() : originalDueDate;
+      setNewDueDate(newDueDate);
+
+      // Definir valor
+      const originalBalance = formatCurrency(installment.balance || 0);
+      setNewAmount(originalBalance);
+
+      // Se já estiver vencido, calcular valor atualizado
+      if (isPast(originalDueDate)) {
+        const updatedBalance = calculateInterestAndPenalty(originalDueDate, new Date(), parseFloat(cleanCurrencyValue(originalBalance)));
+        setNewAmount(formatCurrency(updatedBalance));
+        setUpdateBoletoWithFees(true);
+        setUpdateBoletoOnly(true);
+      } else {
+        setUpdateBoletoWithFees(false);
+        setUpdateBoletoOnly(false);
+      }
+      
+      // Forçar abertura do modal
+      setEditDueDateDialogOpen(true);
+    }
+  }, [calculateInterestAndPenalty]);
 
   const convertBRLToNumber = (value) => {
     // Remove pontos de milhar
@@ -336,7 +404,7 @@ export default function Installments() {
     return result;
   };
 
-  const handleUpdateDueDate = async (installmentId, newDueDate) => {
+  const handleUpdateDueDate = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
     try {
       // Ativa o estado de carregamento
       setIsUpdatingDueDate(true);
@@ -347,11 +415,14 @@ export default function Installments() {
       console.log('Iniciando atualização de data de vencimento:', { 
         installmentId, 
         newDueDate: formattedDueDate, 
+        newAmount,
+        updateBoletoWithFees,
+        updateBoletoOnly,
         apiSource: 'N8N' 
       });
 
       // Usa N8N como API principal para este submite específico
-      const result = await updateInstallmentDueDate(installmentId, formattedDueDate, 'N8N');
+      const result = await updateInstallmentDueDate(installmentId, formattedDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly, 'N8N');
       
       console.log('Resultado da atualização de data de vencimento:', result);
 
@@ -601,6 +672,85 @@ export default function Installments() {
     }
   };
 
+  const renderActionColumn = useCallback((installment) => {
+    console.log('Renderizando coluna de ações:', installment);
+    return (
+      <IconButton 
+        size="small"
+        color="primary"
+        onClick={(event) => {
+          event.stopPropagation(); // Previne eventos indesejados
+          console.log('Botão de edição clicado:', installment);
+          handleEditDueDate(installment);
+        }}
+      >
+        <CalendarMonthIcon />
+      </IconButton>
+    );
+  }, [handleEditDueDate]);
+
+  const isOverdueDate = selectedInstallmentForDueDateEdit?.due_date && newDueDate && 
+    (
+      // Nova data posterior à data original
+      differenceInDays(newDueDate, parseISO(selectedInstallmentForDueDateEdit.due_date)) > 0 ||
+      // Parcela já está vencida
+      isPast(parseISO(selectedInstallmentForDueDateEdit.due_date))
+    );
+
+  const handleUpdateDueDateWithInterestAndPenalty = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
+    try {
+      // Ativa o estado de carregamento
+      setIsUpdatingDueDate(true);
+
+      // Converte a data para o formato ISO
+      const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
+
+      console.log('Iniciando atualização de data de vencimento:', { 
+        installmentId, 
+        newDueDate: formattedDueDate, 
+        newAmount,
+        updateBoletoWithFees,
+        updateBoletoOnly,
+        apiSource: 'N8N' 
+      });
+
+      // Usa N8N como API principal para este submite específico
+      const result = await updateInstallmentDueDate(
+        installmentId, 
+        formattedDueDate, 
+        newAmount, 
+        updateBoletoWithFees, 
+        updateBoletoOnly, 
+        'N8N',
+        { 
+          // Garante que apenas a atualização de boleto seja enviada no submit único
+          update_boleto_only: true 
+        }
+      );
+      
+      console.log('Resultado da atualização de data de vencimento:', result);
+
+      // Atualiza o estado local ou mostra feedback
+      enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
+      
+      // Recarrega os dados de installments
+      await loadInstallments();
+
+      // Fecha o modal de edição de data
+      setEditDueDateDialogOpen(false);
+    } catch (error) {
+      console.error('Erro detalhado ao atualizar data de vencimento:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
+    } finally {
+      // Desativa o estado de carregamento
+      setIsUpdatingDueDate(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', p: 2 }}>
       {selectedInstallments.length > 0 && (
@@ -633,7 +783,12 @@ export default function Installments() {
       )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Contas a Receber</Typography>
-        {/* Removido ícone de notificação de listagem */}
+        <IconButton 
+          onClick={() => handleShareClick(null)} 
+          color="primary"
+        >
+          <ShareIcon />
+        </IconButton>
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -746,26 +901,22 @@ export default function Installments() {
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Grid item>
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
-            <DesktopDatePicker
+            <DatePicker
               label="Data Inicial"
               value={startDate}
               onChange={(newValue) => setStartDate(newValue)}
-              slots={{
-                textField: (params) => <TextField {...params} size="small" />
-              }}
+              renderInput={(params) => <TextField {...params} size="small" />}
               format="dd/MM/yyyy"
             />
           </LocalizationProvider>
         </Grid>
         <Grid item>
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
-            <DesktopDatePicker
+            <DatePicker
               label="Data Final"
               value={endDate}
               onChange={(newValue) => setEndDate(newValue)}
-              slots={{
-                textField: (params) => <TextField {...params} size="small" />
-              }}
+              renderInput={(params) => <TextField {...params} size="small" />}
               format="dd/MM/yyyy"
             />
           </LocalizationProvider>
@@ -855,7 +1006,7 @@ export default function Installments() {
                 <TableCell>{installment.installment_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
                 <TableCell>
-                  {formatDateDisplay(installment.due_date)}
+                  {safeFormatDate(installment.due_date)}
                 </TableCell>
                 <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
                 <TableCell>
@@ -868,7 +1019,7 @@ export default function Installments() {
                     </Box>
                   ))}
                 </TableCell>
-                <TableCell>
+                <TableCell align="right">
                   <IconButton 
                     onClick={() => handleNotifyInstallment(installment)} 
                     disabled={installment.isNotifying}
@@ -879,11 +1030,19 @@ export default function Installments() {
                       <NotificationsIcon />
                     )}
                   </IconButton>
-                  <IconButton onClick={() => handleEditDueDate(installment)}>
-                    <CalendarTodayIcon />
-                  </IconButton>
                   <IconButton onClick={() => handleOpenPaymentDialog(installment)}>
                     <EditIcon />
+                  </IconButton>
+                  <IconButton 
+                    size="small"
+                    color="primary"
+                    onClick={(event) => {
+                      event.stopPropagation(); // Previne eventos indesejados
+                      console.log('Botão de edição clicado:', installment);
+                      handleEditDueDate(installment);
+                    }}
+                  >
+                    <CalendarMonthIcon />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -919,6 +1078,172 @@ export default function Installments() {
           </Typography>
         </Box>
       </Box>
+      <Dialog
+        open={editDueDateDialogOpen}
+        onClose={() => {
+          console.log('Fechando modal de edição de data de vencimento');
+          setEditDueDateDialogOpen(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center">
+              <CalendarMonthIcon sx={{ mr: 2 }} />
+              <Typography variant="h6">Alterar Parcela</Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {/* Seção de informações da parcela vencida */}
+          {isPast(parseISO(selectedInstallmentForDueDateEdit?.due_date)) && (
+            <Alert 
+              severity="warning" 
+              sx={{ 
+                mb: 2, 
+                '& .MuiAlert-message': { 
+                  display: 'flex', 
+                  flexDirection: 'column' 
+                } 
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle2">
+                  Parcela Vencida
+                </Typography>
+                <Typography variant="body2">
+                  Vencimento Original: {safeFormatDate(selectedInstallmentForDueDateEdit.due_date)}
+                </Typography>
+                <Typography variant="body2">
+                  Valor Original: {formatCurrency(selectedInstallmentForDueDateEdit.balance)}
+                </Typography>
+              </Box>
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                <DatePicker
+                  label="Nova Data de Vencimento"
+                  value={newDueDate}
+                  onChange={(newValue) => {
+                    console.log('Nova data selecionada:', newValue);
+                    setNewDueDate(newValue);
+                  }}
+                  slots={{
+                    textField: (params) => (
+                      <TextField 
+                        {...params} 
+                        fullWidth 
+                        margin="normal" 
+                        variant="outlined"
+                      />
+                    )
+                  }}
+                  format="dd/MM/yyyy"
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Novo Valor"
+                value={newAmount}
+                onChange={(e) => {
+                  const cleanedValue = cleanCurrencyValue(e.target.value);
+                  setNewAmount(formatCurrency(cleanedValue));
+                }}
+                fullWidth
+                margin="normal"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 1, 
+                border: '1px solid rgba(0,0,0,0.12)', 
+                borderRadius: 1, 
+                p: 2, 
+                mt: 1 
+              }}>
+                {isOverdueDate && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={updateBoletoWithFees}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setUpdateBoletoWithFees(isChecked);
+                          
+                          if (isChecked && selectedInstallmentForDueDateEdit) {
+                            const originalBalance = parseFloat(cleanCurrencyValue(selectedInstallmentForDueDateEdit.balance));
+                            const newBalance = calculateInterestAndPenalty(parseISO(selectedInstallmentForDueDateEdit.due_date), newDueDate, originalBalance);
+                            setNewAmount(formatCurrency(newBalance));
+                          } else if (!isChecked && selectedInstallmentForDueDateEdit) {
+                            setNewAmount(formatCurrency(selectedInstallmentForDueDateEdit.balance));
+                          }
+                        }}
+                      />
+                    }
+                    label="Atualizar Valor com Juros e Multa"
+                  />
+                )}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={updateBoletoOnly}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        setUpdateBoletoOnly(isChecked);
+                        
+                        if (isChecked) {
+                          setUpdateBoletoWithFees(false);
+                        }
+                      }}
+                    />
+                  }
+                  label="Atualizar Apenas Boleto"
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setEditDueDateDialogOpen(false)} 
+            color="secondary"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={() => {
+              console.log('Confirmando alteração de data de vencimento', {
+                installmentId: selectedInstallmentForDueDateEdit?.installment_id,
+                newDueDate,
+                newAmount: cleanCurrencyValue(newAmount),
+                updateBoletoWithFees,
+                updateBoletoOnly
+              });
+              handleUpdateDueDateWithInterestAndPenalty(
+                selectedInstallmentForDueDateEdit.installment_id, 
+                newDueDate,
+                cleanCurrencyValue(newAmount),
+                updateBoletoWithFees,
+                updateBoletoOnly
+              );
+            }} 
+            color="primary" 
+            variant="contained"
+          >
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
