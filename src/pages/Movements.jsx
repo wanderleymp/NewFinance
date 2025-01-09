@@ -63,7 +63,9 @@ import {
   ContentCopy as ContentCopyIcon,
   QrCode as QrCodeIcon,
   RequestQuote as RequestQuoteIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Speed as SpeedIcon,
+  ListAlt as ListAltIcon
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
@@ -1007,6 +1009,8 @@ const Movements = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTimeout, setSearchTimeout] = useState(null);
+  const [movementTypeDialogOpen, setMovementTypeDialogOpen] = useState(false);
+  const [movementTypeOptions, setMovementTypeOptions] = useState([]);
 
   const fetchMovements = async () => {
     try {
@@ -1095,6 +1099,27 @@ const Movements = () => {
     setOrderDirection(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
     setPage(0); // Reset página ao ordenar
+  };
+
+  const handleNewMovement = () => {
+    // Abrir um modal de seleção de tipo de movimento
+    const options = [
+      { 
+        label: 'Movimento Expresso', 
+        description: 'Rápido e simples, para lançamentos básicos', 
+        path: '/movements/new-express',
+        icon: <SpeedIcon />
+      },
+      { 
+        label: 'Movimento Detalhado', 
+        description: 'Completo, com múltiplos itens e pagamentos', 
+        path: '/movements/new-detailed',
+        icon: <ListAltIcon />
+      }
+    ];
+
+    setMovementTypeDialogOpen(true);
+    setMovementTypeOptions(options);
   };
 
   return (
@@ -1193,7 +1218,7 @@ const Movements = () => {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => navigate('/movements/new')}
+              onClick={handleNewMovement}
               sx={{ 
                 bgcolor: 'primary.main',
                 '&:hover': {
@@ -1334,6 +1359,32 @@ const Movements = () => {
           }
         />
       </Box>
+
+      <Dialog 
+        open={movementTypeDialogOpen} 
+        onClose={() => setMovementTypeDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Selecione o tipo de movimento</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2}>
+            {movementTypeOptions.map((option) => (
+              <Button 
+                key={option.path} 
+                variant="contained" 
+                startIcon={option.icon} 
+                onClick={() => navigate(option.path)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMovementTypeDialogOpen(false)}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

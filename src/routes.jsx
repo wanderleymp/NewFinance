@@ -1,65 +1,85 @@
+import React, { Suspense, lazy } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
-import Dashboard from './components/Dashboard';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Movements from './pages/Movements';
-import NewMovement from './pages/NewMovement';
-import MovementEdit from './pages/MovementEdit';
-import Receivables from './pages/Receivables';
-import Persons from './pages/Persons';
-import PersonForm from './pages/PersonForm';
-import SystemStatus from './pages/SystemStatus';
-import ImportCNPJ from './pages/ImportCNPJ';
-import Contacts from './pages/Contacts';
-import Users from './pages/Users';
-import Installments from './pages/Installments';
-import ReceiptIcon from '@mui/icons-material/Receipt';
+import Loading from './pages/Loading';
+
+// Lazy load all components
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Login = lazy(() => import('./pages/Login'));
+const Home = lazy(() => import('./pages/Home'));
+const Movements = lazy(() => import('./pages/Movements'));
+const NewMovementExpress = lazy(() => import('./pages/NewMovementExpress'));
+const NewMovementDetailed = lazy(() => import('./pages/NewMovementDetailed'));
+const MovementEdit = lazy(() => import('./pages/MovementEdit'));
+const Receivables = lazy(() => import('./pages/Receivables'));
+const Persons = lazy(() => import('./pages/Persons'));
+const PersonForm = lazy(() => import('./pages/PersonForm'));
+const ImportCNPJ = lazy(() => import('./pages/ImportCNPJ'));
+const Users = lazy(() => import('./pages/Users'));
+const Installments = lazy(() => import('./pages/Installments'));
+const Contacts = lazy(() => import('./pages/Contacts'));
+const SystemStatus = lazy(() => import('./pages/SystemStatus'));
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  return isAuthenticated ? (
+    <Suspense fallback={<Loading />}>
+      {children}
+    </Suspense>
+  ) : (
+    <Navigate to="/login" replace />
+  );
 };
 
 const PublicRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return !isAuthenticated ? children : <Navigate to="/" replace />;
+  return !isAuthenticated ? (
+    <Suspense fallback={<Loading />}>
+      {children}
+    </Suspense>
+  ) : (
+    <Navigate to="/" replace />
+  );
 };
 
-export default function AppRoutes({ darkMode, setDarkMode }) {
+const AppRoutes = ({ darkMode, setDarkMode }) => {
   return (
     <Routes>
+      <Route path="/login" element={
+        <PublicRoute>
+          <Suspense fallback={<Loading />}>
+            <Login />
+          </Suspense>
+        </PublicRoute>
+      } />
       <Route
         path="/"
         element={
           <PrivateRoute>
-            <Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />
+            <Suspense fallback={<Loading />}>
+              <Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />
+            </Suspense>
           </PrivateRoute>
         }
       >
-        <Route index element={<Home />} />
-        <Route path="dashboard" element={<Home />} />
-        <Route path="movements" element={<Movements />} />
-        <Route path="movements/new" element={<NewMovement />} />
-        <Route path="movements/:id" element={<NewMovement />} />
-        <Route path="movements/edit/:id" element={<MovementEdit />} />
-        <Route path="persons" element={<Persons />} />
-        <Route path="persons/new" element={<PersonForm />} />
-        <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
-        <Route path="persons/:id/edit" element={<PersonForm />} />
-        <Route path="receivables" element={<Receivables />} />
-        <Route path="system/status" element={<SystemStatus />} />
-        <Route path="contacts" element={<Contacts />} />
-        <Route path="users" element={<Users />} />
-        <Route path="installments" element={<Installments />} />
+        <Route index element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
+        <Route path="dashboard" element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
+        <Route path="movements" element={<Suspense fallback={<Loading />}><Movements /></Suspense>} />
+        <Route path="movements/new" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
+        <Route path="movements/:id" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
+        <Route path="movements/edit/:id" element={<Suspense fallback={<Loading />}><MovementEdit /></Suspense>} />
+        <Route path="movements/new-express" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
+        <Route path="movements/new-detailed" element={<Suspense fallback={<Loading />}><NewMovementDetailed /></Suspense>} />
+        <Route path="persons" element={<Suspense fallback={<Loading />}><Persons /></Suspense>} />
+        <Route path="persons/new" element={<Suspense fallback={<Loading />}><PersonForm /></Suspense>} />
+        <Route path="persons/import-cnpj" element={<Suspense fallback={<Loading />}><ImportCNPJ /></Suspense>} />
+        <Route path="users" element={<Suspense fallback={<Loading />}><Users /></Suspense>} />
+        <Route path="installments" element={<Suspense fallback={<Loading />}><Installments /></Suspense>} />
+        <Route path="receivables" element={<Suspense fallback={<Loading />}><Receivables /></Suspense>} />
+        <Route path="system/status" element={<Suspense fallback={<Loading />}><SystemStatus /></Suspense>} />
+        <Route path="contacts" element={<Suspense fallback={<Loading />}><Contacts /></Suspense>} />
       </Route>
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />
     </Routes>
   );
-}
+};
+
+export default AppRoutes;
