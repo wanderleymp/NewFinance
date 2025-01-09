@@ -385,6 +385,7 @@ export const installmentsService = {
 export const personsService = {
   async search(query = '') {
     try {
+      console.log('Buscando pessoas com query:', query);
       const response = await api.get('/persons', {
         params: {
           search: query,
@@ -392,11 +393,29 @@ export const personsService = {
           page: 1
         }
       });
+      
+      console.log('Resposta completa da busca de pessoas:', response.data);
+      
+      // Verificações robustas para diferentes estruturas de resposta
+      const data = response.data || {};
+      const personItems = data.data || data.items || [];
+      
+      console.log('Pessoas encontradas:', personItems);
+      
       return {
-        items: response.data.data,
-        pagination: response.data.pagination
+        items: personItems,
+        pagination: data.pagination || {
+          total: personItems.length,
+          page: 1,
+          limit: 10
+        }
       };
     } catch (error) {
+      console.error('Erro na busca de pessoas:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       throw error;
     }
   }

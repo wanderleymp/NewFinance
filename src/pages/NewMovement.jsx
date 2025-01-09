@@ -93,12 +93,31 @@ const NewMovement = () => {
   // Função para buscar pessoas
   const searchPersons = useCallback(
     debounce(async (query) => {
+      if (!query || query.trim().length < 2) {
+        setPersonOptions([]);
+        setLoading(prev => ({ ...prev, persons: false }));
+        return;
+      }
+
       try {
         setLoading(prev => ({ ...prev, persons: true }));
         const response = await personsService.search(query);
-        setPersonOptions(response.items || []);
+        console.log('Resposta da busca de pessoas:', response);
+        
+        // Verificação robusta para garantir que items seja um array
+        const personResults = Array.isArray(response.items) 
+          ? response.items 
+          : (response.items?.data || []);
+        
+        console.log('Resultados de pessoas processados:', personResults);
+        
+        setPersonOptions(personResults);
       } catch (error) {
-        console.error('Erro ao buscar pessoas:', error);
+        console.error('Erro detalhado ao buscar pessoas:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         setPersonOptions([]);
       } finally {
         setLoading(prev => ({ ...prev, persons: false }));
@@ -164,22 +183,28 @@ const NewMovement = () => {
     loading = false,
     placeholder = "Pesquisar..."
   ) => {
-    console.log(`Renderizando campo ${field}:`, { options, loading });
+    console.log(`Renderizando campo ${field}:`, { 
+      options: options || [], 
+      loading: loading || false 
+    });
+
     return (
       <Autocomplete
         value={formData[field]}
         onChange={handleChange(field)}
-        options={options}
+        options={options || []}
         getOptionLabel={(option) => {
           if (!option) return '';
           
           if (field === 'person') {
-            return option.fantasy_name ? `${option.fantasy_name} (${option.full_name})` : option.full_name;
+            return option.fantasy_name 
+              ? `${option.fantasy_name} (${option.full_name || 'Sem nome completo'})` 
+              : (option.full_name || 'Pessoa sem nome');
           }
           if (field === 'item') {
-            return `${option.name} - ${option.code}`;
+            return `${option.name || 'Item sem nome'} - ${option.code || 'Sem código'}`;
           }
-          return option.name;
+          return option.name || 'Sem nome';
         }}
         onInputChange={(event, value) => {
           console.log(`Input change ${field}:`, value);
@@ -187,7 +212,7 @@ const NewMovement = () => {
             onInputChange(value);
           }
         }}
-        loading={loading}
+        loading={loading || false}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -204,70 +229,11 @@ const NewMovement = () => {
                 </>
               ),
             }}
-            fullWidth
           />
         )}
-        renderOption={(props, option) => {
-          if (field === 'person') {
-            return (
-              <li {...props}>
-                <Box>
-                  <Typography variant="body1">
-                    {option.fantasy_name || option.full_name}
-                  </Typography>
-                  {option.fantasy_name && (
-                    <Typography variant="caption" color="text.secondary">
-                      {option.full_name}
-                    </Typography>
-                  )}
-                </Box>
-              </li>
-            );
-          }
-          if (field === 'item') {
-            return (
-              <li {...props}>
-                <Box sx={{ width: '100%' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <Typography variant="body1">
-                      {option.name}
-                    </Typography>
-                    <Typography variant="body2" color="primary" fontWeight="600">
-                      R$ {parseFloat(option.price).toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {option.code}
-                    </Typography>
-                    {option.description && option.description !== option.name && (
-                      <>
-                        <Typography variant="caption" color="text.secondary">•</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.description}
-                        </Typography>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-              </li>
-            );
-          }
-          return <li {...props}>{option.name}</li>;
-        }}
-        noOptionsText="Nenhum resultado encontrado"
-        loadingText="Carregando..."
-        isOptionEqualToValue={(option, value) => {
-          if (!option || !value) return false;
-          
-          if (field === 'person') {
-            return option.id === value.id;
-          }
-          if (field === 'item') {
-            return option.item_id === value.item_id;
-          }
-          return option.id === value.id;
-        }}
+        noOptionsText="Nenhuma opção encontrada"
+        clearOnBlur
+        handleHomeEndKeys
       />
     );
   };
