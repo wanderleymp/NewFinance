@@ -347,15 +347,15 @@ const MovementRow = ({ movement }) => {
     e.stopPropagation();
     try {
       enqueueSnackbar('Gerando boleto...', { variant: 'info' });
-      const response = await axios.post(`/boletos/generate/${installment.installment_id}`);
-      if (response.data) {
-        enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
-        // Recarregar os dados da movimentação
-        window.location.reload();
-      }
+      const boleto = await movementsService.generateBoleto(movement.movement_id);
+      
+      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
+      
+      // Recarregar os dados da movimentação
+      window.location.reload();
     } catch (error) {
       console.error('Erro ao gerar boleto:', error);
-      enqueueSnackbar('Erro ao gerar boleto', { variant: 'error' });
+      enqueueSnackbar('Erro ao gerar boleto: ' + error.message, { variant: 'error' });
     }
   };
 
@@ -527,53 +527,38 @@ const MovementRow = ({ movement }) => {
                           </TableCell>
                           <TableCell align="right">
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                              {installment.boletos && installment.boletos.map((boleto) => (
-                                <Box key={boleto.boleto_id}>
-                                  {boleto.boleto_number && (
-                                    <>
-                                      <Button
-                                        variant="contained"
+                              {installment.boletos && installment.boletos.length > 0 ? (
+                                installment.boletos.filter(boleto => boleto.status === 'A_RECEBER').map((boleto) => (
+                                  <Box key={boleto.boleto_id}>
+                                    <Tooltip title={`Boleto ${boleto.boleto_number || 'Sem número'}`}>
+                                      <IconButton
                                         size="small"
-                                        startIcon={<DescriptionIcon />}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (boleto.boleto_url) {
-                                            window.open(boleto.boleto_url, '_blank');
-                                          } else {
-                                            // setSelectedBoleto(boleto);
-                                            // setBoletoDialogOpen(true);
-                                          }
-                                        }}
-                                        sx={{ mr: 1 }}
+                                        color="primary"
+                                        disabled={!boleto.boleto_number}
+                                        onClick={() => window.open(`/api/boletos/${boleto.boleto_id}/pdf`, '_blank')}
                                       >
-                                        Boleto {boleto.boleto_number}
-                                      </Button>
-                                      {boleto.boleto_url && (
-                                        <IconButton
-                                          size="small"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            // setSelectedBoleto(boleto);
-                                            // setShareDialogOpen(true);
-                                            // fetchContacts();
-                                          }}
-                                        >
-                                          <ShareIcon />
-                                        </IconButton>
-                                      )}
-                                    </>
-                                  )}
-                                </Box>
-                              ))}
-                              {(!installment.boletos || installment.boletos.length === 0) && (
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  startIcon={<RequestQuoteIcon />}
-                                  onClick={(e) => handleGenerateBoleto(e, installment)}
-                                >
-                                  Gerar Boleto
-                                </Button>
+                                        <ReceiptIcon color={boleto.boleto_number ? 'primary' : 'disabled'} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Typography variant="body2">
+                                      {boleto.status} - {format(new Date(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
+                                    </Typography>
+                                  </Box>
+                                ))
+                              ) : null}
+                              
+                              {/* Botão para gerar boleto se não existir boleto com status A_RECEBER */}
+                              {(!installment.boletos || 
+                                installment.boletos.filter(boleto => boleto.status === 'A_RECEBER').length === 0) && (
+                                <Tooltip title="Gerar Boleto">
+                                  <IconButton
+                                    size="small"
+                                    color="secondary"
+                                    onClick={(e) => handleGenerateBoleto(e, installment)}
+                                  >
+                                    <RequestQuoteIcon />
+                                  </IconButton>
+                                </Tooltip>
                               )}
                             </Box>
                           </TableCell>

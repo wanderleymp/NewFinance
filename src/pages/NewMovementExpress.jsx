@@ -389,6 +389,26 @@ const NewMovement = () => {
     );
   };
 
+  const handleGenerateBoleto = async () => {
+    try {
+      // Verificar se o movimento já foi criado
+      if (!formData.id) {
+        enqueueSnackbar('Primeiro salve o movimento antes de gerar o boleto', { variant: 'warning' });
+        return;
+      }
+
+      // Chamar o serviço para gerar boleto
+      const boleto = await movementsService.generateBoleto(formData.id);
+      
+      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
+      
+      // Opcional: Atualizar o movimento para mostrar o novo boleto
+      // Você pode adicionar lógica adicional aqui se precisar recarregar os dados
+    } catch (error) {
+      enqueueSnackbar('Erro ao gerar boleto: ' + error.message, { variant: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ p: 3, maxWidth: 800, margin: '0 auto' }}>
       <Paper elevation={0} sx={{ p: 3, backgroundColor: 'transparent' }}>
@@ -565,6 +585,24 @@ const NewMovement = () => {
               >
                 Salvar
               </Button>
+              {formData.id && !formData.boletos?.length && (
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  size="large"
+                  sx={{
+                    px: 4,
+                    fontWeight: 600,
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                    },
+                    transition: 'transform 0.2s',
+                  }}
+                  onClick={handleGenerateBoleto}
+                >
+                  Gerar Boleto
+                </Button>
+              )}
             </Box>
           </Box>
         </form>

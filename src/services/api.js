@@ -388,6 +388,17 @@ export const movementsService = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // Novo método para emitir boleto para um movimento
+  async generateBoleto(movementId) {
+    try {
+      const response = await api.post(`/movements/${movementId}/boletos`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao gerar boleto:', error);
+      throw error;
+    }
   }
 };
 
