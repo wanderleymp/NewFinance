@@ -74,6 +74,7 @@ import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
 import MovementForm from '../components/MovementForm';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const MovementCard = ({ movement }) => {
   const navigate = useNavigate();
@@ -310,8 +311,31 @@ const MovementRow = ({ movement }) => {
   const isConfirmed = statusId === 2;
   const isCanceled = status.toLowerCase() === 'cancelado';
 
-  const handleNotificationClick = (event) => {
+  const handleNotificationClick = async (event) => {
     event.stopPropagation();
+    try {
+      const response = await axios.post(
+        'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/faturamento', 
+        { movement_id: movement.movement_id },
+        {
+          headers: {
+            'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const successMessage = enqueueSnackbar('Notificação enviada com sucesso!', { 
+        variant: 'success',
+        autoHideDuration: 2000 // Fecha após 2 segundos
+      });
+    } catch (error) {
+      console.error('Erro ao enviar notificação:', error.response?.data || error.message);
+      enqueueSnackbar('Erro ao enviar notificação', { 
+        variant: 'error',
+        autoHideDuration: 3000 // Fecha após 3 segundos
+      });
+    }
   };
 
   const handleGenerateInvoice = async (e) => {
@@ -323,7 +347,7 @@ const MovementRow = ({ movement }) => {
     e.stopPropagation();
     try {
       enqueueSnackbar('Gerando boleto...', { variant: 'info' });
-      const response = await api.post(`/boletos/generate/${installment.installment_id}`);
+      const response = await axios.post(`/boletos/generate/${installment.installment_id}`);
       if (response.data) {
         enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
         // Recarregar os dados da movimentação
@@ -418,24 +442,18 @@ const MovementRow = ({ movement }) => {
                     <PostAddIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-                {movement.payments?.some(payment => 
-                  payment.installments?.some(installment => 
-                    installment.boletos?.some(boleto => boleto.boleto_url)
-                  )
-                ) && (
-                  <Tooltip title="Enviar Notificação">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNotificationClick(e);
-                      }}
-                    >
-                      <NotificationsIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
+                <Tooltip title="Enviar Notificação">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNotificationClick(e);
+                    }}
+                  >
+                    <NotificationsIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </>
             )}
             {!isCanceled && (
