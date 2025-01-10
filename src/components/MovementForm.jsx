@@ -10,6 +10,9 @@ import {
   Autocomplete,
   IconButton,
   InputAdornment,
+  FormControlLabel,
+  Checkbox,
+  Grid
 } from '@mui/material';
 import { format } from 'date-fns';
 import { Search as SearchIcon } from '@mui/icons-material';
@@ -22,6 +25,9 @@ const MovementForm = ({ open, onClose, onSubmit, initialData }) => {
     item: initialData?.item || null,
     amount: initialData?.amount?.toString() || '',
     paymentMethod: initialData?.paymentMethod || null,
+    boleto: initialData?.boleto ?? true,
+    notificar: initialData?.notificar ?? true,
+    nfse: initialData?.nfse ?? false
   });
 
   // Mock data - substituir por chamadas à API
@@ -50,6 +56,9 @@ const MovementForm = ({ open, onClose, onSubmit, initialData }) => {
         item: initialData.item || null,
         amount: initialData.amount?.toString() || '',
         paymentMethod: initialData.paymentMethod || null,
+        boleto: initialData.boleto ?? true,
+        notificar: initialData.notificar ?? true,
+        nfse: initialData.nfse ?? false
       });
     }
   }, [initialData]);
@@ -72,6 +81,13 @@ const MovementForm = ({ open, onClose, onSubmit, initialData }) => {
         amount: newValue.price.toString(),
       }));
     }
+  };
+
+  const handleCheckboxChange = (field) => (event) => {
+    setFormData({
+      ...formData,
+      [field]: event.target.checked,
+    });
   };
 
   return (
@@ -178,6 +194,50 @@ const MovementForm = ({ open, onClose, onSubmit, initialData }) => {
                 />
               )}
             />
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.boleto}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        boleto: e.target.checked
+                      }))}
+                      color="primary"
+                    />
+                  }
+                  label="Gerar Boleto"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.notificar}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        notificar: e.target.checked
+                      }))}
+                      color="primary"
+                    />
+                  }
+                  label="Notificar"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.nfse}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        nfse: e.target.checked
+                      }))}
+                      color="primary"
+                    />
+                  }
+                  label="Emitir NFS-e"
+                />
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions>

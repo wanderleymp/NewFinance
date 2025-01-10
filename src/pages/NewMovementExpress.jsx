@@ -12,6 +12,9 @@ import {
   IconButton,
   Card,
   CardContent,
+  Checkbox,
+  FormControlLabel,
+  MenuItem
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -26,10 +29,13 @@ import {
 import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { personsService, itemsService, movementsService, paymentMethodService } from '../services/api';
+import { useSnackbar } from 'notistack';
 
 const NewMovement = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { enqueueSnackbar } = useSnackbar();
+
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     description: '',
@@ -37,7 +43,47 @@ const NewMovement = () => {
     item: null,
     amount: '',
     paymentMethod: null,
+    nfse: false,
+    boleto: true,
+    notificar: true,
   });
+
+  const setState = useState(formData)[1];
+
+  const setFormDataCallback = useCallback((updater) => {
+    const newState = typeof updater === 'function' 
+      ? updater(formData) 
+      : updater;
+    
+    console.log('setFormData chamado:', {
+      previousState: formData,
+      newState: newState
+    });
+
+    // Chama o setState original
+    setState(newState);
+  }, [formData]);
+
+  // Log de estado inicial com mais detalhes
+  useEffect(() => {
+    console.log('Estado inicial do formulário:', JSON.stringify(formData, null, 2));
+    
+    // Verificar parâmetros da URL
+    const searchParams = new URLSearchParams(location.search);
+    const itemId = searchParams.get('itemId');
+    const description = searchParams.get('description');
+
+    console.log('Item ID da URL:', itemId);
+    console.log('Descrição da URL:', description);
+
+    // Se houver descrição na URL, atualizar o estado
+    if (description) {
+      setFormData(prev => ({
+        ...prev,
+        description: description
+      }));
+    }
+  }, []);
 
   // Estados para as opções de autocomplete
   const [personOptions, setPersonOptions] = useState([]);
@@ -58,7 +104,7 @@ const NewMovement = () => {
         if (itemId) {
           const response = await itemsService.getById(itemId);
           if (response && response.data) {
-            setFormData(prev => ({
+            setFormDataCallback(prev => ({
               ...prev,
               item: response.data,
               amount: response.data.price.toString()
@@ -67,7 +113,7 @@ const NewMovement = () => {
           }
         } else {
           const defaultItem = await itemsService.getById(3);
-          setFormData(prev => ({
+          setFormDataCallback(prev => ({
             ...prev,
             item: defaultItem,
             amount: defaultItem.price.toString()
@@ -163,33 +209,120 @@ const NewMovement = () => {
     []
   );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
     try {
-      const movementData = {
-        description: formData.description,
-        person_id: formData.person?.id,
-        payment_method_id: formData.paymentMethod?.id,
+      // Validações básicas
+      if (!formData.person) {
+        enqueueSnackbar('Selecione uma pessoa', { variant: 'error' });
+        return;
+      }
+
+      if (!formData.item) {
+        enqueueSnackbar('Selecione um item', { variant: 'error' });
+        return;
+      }
+
+      if (!formData.paymentMethod) {
+        enqueueSnackbar('Selecione um método de pagamento', { variant: 'error' });
+        return;
+      }
+
+      if (!formData.amount || isNaN(parseFloat(formData.amount))) {
+        enqueueSnackbar('Informe um valor válido', { variant: 'error' });
+        return;
+      }
+
+      const payload = {
+        person_id: formData.person.id || formData.person.person_id,
+        item_id: formData.item.id || formData.item.item_id,
+        payment_method_id: formData.paymentMethod.id,
+        description: formData.description || '',
         amount: formData.amount,
-        item_id: formData.item?.item_id || 3, // Usa o item selecionado ou o padrão (3)
+        nfse: formData.nfse,
+        boleto: formData.boleto,
+        notificar: formData.notificar
       };
 
-      await movementsService.create(movementData);
-      navigate('/movements');
+      console.log('🚀 Detalhes da Submissão');
+      console.log('Payload completo:', payload);
+
+      const response = await movementsService.create(payload);
+      
+      enqueueSnackbar('Movimento criado com sucesso!', { variant: 'success' });
+      
+      // Limpar formulário
+      setFormData({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        description: '',
+        person: null,
+        item: null,
+        amount: '',
+        paymentMethod: null,
+        nfse: false,
+        boleto: true,
+        notificar: true,
+      });
     } catch (error) {
-      console.error('Erro ao criar movimentação:', error);
-      // TODO: Adicionar feedback visual do erro
+      console.error('🚨 Erro detalhado:', error);
+      
+      // Tratamento de erro específico
+      let errorMessage = 'Erro desconhecido ao criar movimento';
+      
+      if (error.response) {
+        // O servidor respondeu com um status de erro
+        console.log('Detalhes da resposta de erro:', error.response.data);
+        
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data && error.response.data.errors) {
+          // Caso a API retorne uma lista de erros
+          errorMessage = error.response.data.errors.map(err => err.message).join(', ');
+        } else {
+          errorMessage = `Erro ${error.response.status}: ${error.response.statusText}`;
+        }
+      } else if (error.request) {
+        // A requisição foi feita, mas não houve resposta
+        errorMessage = 'Sem resposta do servidor. Verifique sua conexão.';
+      } else {
+        // Algo aconteceu ao configurar a requisição
+        errorMessage = error.message || 'Erro ao processar a requisição';
+      }
+      
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
 
   const handleChange = (field) => (event, newValue) => {
-    console.log(`Mudança no campo ${field}:`, newValue);
-    setFormData(prev => ({
-      ...prev,
-      [field]: newValue,
-      // Se selecionou um item, atualiza o valor automaticamente
-      ...(field === 'item' && newValue ? { amount: newValue.price.toString() } : {})
-    }));
+    console.log(`Mudança no campo ${field}:`, {
+      event: event,
+      newValue: newValue,
+      currentValue: formData[field],
+      eventType: event?.type,
+      eventTarget: event?.target
+    });
+
+    // Log específico para inputs de texto
+    if (event?.target && (event.target.type === 'text' || event.target.type === 'textarea')) {
+      console.log(`Input de texto ${field}:`, {
+        value: event.target.value,
+        name: event.target.name
+      });
+    }
+
+    setFormData(prev => {
+      const updatedState = {
+        ...prev,
+        [field]: newValue !== undefined ? newValue : 
+                 (event?.target?.value !== undefined ? event.target.value : prev[field]),
+        // Se selecionou um item, atualiza o valor automaticamente
+        ...(field === 'item' && newValue ? { amount: newValue.price.toString() } : {})
+      };
+
+      console.log(`Estado atualizado após mudança em ${field}:`, updatedState);
+      return updatedState;
+    });
   };
 
   const renderSearchField = (
@@ -295,35 +428,19 @@ const NewMovement = () => {
                   />
 
                   <TextField
-                    label="Valor"
-                    type="number"
-                    value={formData.amount}
-                    onChange={handleChange('amount')}
+                    label="Descrição"
+                    value={formData.description}
+                    onChange={handleChange('description')}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <MoneyIcon color="action" sx={{ mr: 1 }} />
-                          R$
+                          <DescriptionIcon color="action" />
                         </InputAdornment>
                       ),
                     }}
                     fullWidth
                   />
                 </Box>
-
-                <TextField
-                  label="Descrição"
-                  value={formData.description}
-                  onChange={handleChange('description')}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <DescriptionIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  fullWidth
-                />
 
                 {renderSearchField(
                   'person',
@@ -343,12 +460,84 @@ const NewMovement = () => {
                   loading.items
                 )}
                 
-                {renderSearchField(
-                  'paymentMethod',
-                  'Forma de Pagamento',
-                  paymentMethodOptions,
-                  <PaymentIcon color="action" />
-                )}
+                <TextField
+                  fullWidth
+                  label="Valor"
+                  variant="outlined"
+                  type="number"
+                  value={formData.amount}
+                  onChange={handleChange('amount')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MoneyIcon color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  inputProps={{
+                    min: 0,
+                    step: 0.01,
+                  }}
+                />
+                
+                <Autocomplete
+                  value={formData.paymentMethod}
+                  onChange={handleChange('paymentMethod')}
+                  options={paymentMethodOptions}
+                  getOptionLabel={(option) => option.name || 'Sem nome'}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Forma de Pagamento"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PaymentIcon color="action" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={`payment-method-${option.id}`}>
+                      {option.name}
+                    </li>
+                  )}
+                  noOptionsText="Nenhuma opção encontrada"
+                  clearOnBlur
+                  handleHomeEndKeys
+                />
+                
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.nfse}
+                        onChange={handleChange('nfse')}
+                      />
+                    }
+                    label="NFSE"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.boleto}
+                        onChange={handleChange('boleto')}
+                      />
+                    }
+                    label="Boleto"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.notificar}
+                        onChange={handleChange('notificar')}
+                      />
+                    }
+                    label="Notificar"
+                  />
+                </Box>
               </CardContent>
             </Card>
 

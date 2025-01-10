@@ -308,27 +308,59 @@ export const movementsService = {
   },
 
   create(data) {
-    return api.post('/movements', {
+    // Log detalhado do payload de entrada
+    console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
+
+    // Validações mais robustas e flexíveis
+    const requiredFields = ['person_id', 'item_id', 'payment_method_id', 'amount'];
+    const invalidFields = requiredFields.filter(field => !data[field] || (field === 'amount' && isNaN(parseFloat(data[field]))));
+    
+    if (invalidFields.length > 0) {
+      const errorMessage = `Campos obrigatórios ausentes ou inválidos: ${invalidFields.join(', ')}`;
+      console.error('❌ Erro de Validação:', errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    // Calcular total_amount e unit_price com mais segurança
+    const totalAmount = parseFloat(data.amount);
+    const unitPrice = parseFloat(data.amount);
+
+    // Payload completo para log
+    const fullPayload = {
       movement_type_id: 1,
-      description: data.description,
+      description: data.description || '',
       person_id: data.person_id,
       license_id: 1,
       payment_method_id: data.payment_method_id,
+      total_amount: totalAmount,
       items: [
         {
-          item_id: 3, // Item default como solicitado
+          item_id: data.item_id,
           quantity: 1,
-          unit_price: parseFloat(data.amount)
+          unit_price: unitPrice
         }
       ],
       seller_id: null,
       technician_id: null,
       discount: 0.00,
       addition: 0.00,
-      nfse: false,
-      boleto: false,
-      notificar: false
-    });
+      nfse: data.nfse || false,
+      boleto: data.boleto || false,
+      notificar: data.notificar || false
+    };
+
+    console.log('📦 Payload Completo para Envio:', JSON.stringify(fullPayload, null, 2));
+
+    // Adicionar tratamento de erro mais detalhado
+    return api.post('/movements', fullPayload)
+      .catch(error => {
+        console.error('🚨 Erro Detalhado na Criação de Movimento:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        throw error;
+      });
   },
 
   async update(id, data) {
