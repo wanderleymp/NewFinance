@@ -454,8 +454,8 @@ export const installmentsService = {
       throw error;
     });
   },
-  confirmPayment(id, paymentData) {
-    return api.put(`/installments/${id}/payment`, paymentData).then(response => response.data);
+  confirmPayment(paymentData) {
+    return api.put(`/installments/${paymentData.installment_id}/payment`, paymentData).then(response => response.data);
   },
   // Novo método para geração de boleto
   generateBoleto(installmentId) {

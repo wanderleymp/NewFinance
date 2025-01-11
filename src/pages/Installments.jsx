@@ -116,11 +116,15 @@ export default function Installments() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInstallmentForPayment, setSelectedInstallmentForPayment] = useState(null);
   const [paymentValue, setPaymentValue] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date()); // Adicionar novo estado para data de pagamento
   const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
   const [selectedInstallments, setSelectedInstallments] = useState([]);
   const [isNotifyingSelected, setIsNotifyingSelected] = useState(false);
   const [updateBoletoWithFees, setUpdateBoletoWithFees] = useState(false);
   const [updateBoletoOnly, setUpdateBoletoOnly] = useState(false);
+  const [bankId, setBankId] = useState('');
+  const [juros, setJuros] = useState('0');
+  const [descontos, setDescontos] = useState('0');
 
   const statusOptions = [
     { value: '', label: 'Nenhum' },
@@ -462,20 +466,25 @@ export default function Installments() {
     if (!selectedInstallmentForPayment) return;
 
     try {
-      // Converter valor de volta para formato numérico
+      // Converter valores para numéricos
       const numericValue = parseFloat(paymentValue.replace(',', '.'));
+      const numericJuros = parseFloat(juros.replace(',', '.') || '0');
+      const numericDescontos = parseFloat(descontos.replace(',', '.') || '0');
       
       // Preparar dados para pagamento
       const paymentData = {
-        value: numericValue,
-        payment_date: formatISO(new Date(), { representation: 'date' })
+        installment_id: selectedInstallmentForPayment.installment_id,
+        bank_id: bankId ? parseInt(bankId) : 2, // Default para 2 se não informado
+        valor: numericValue,
+        juros: numericJuros,
+        descontos: numericDescontos,
+        date: formatISO(paymentDate, { representation: 'date' })
       };
 
-      // Chamar serviço de pagamento (você precisará adicionar este método)
-      await installmentsService.confirmPayment(
-        selectedInstallmentForPayment.installment_id, 
-        paymentData
-      );
+      console.log('Payload de pagamento:', paymentData);
+
+      // Chamar serviço de pagamento
+      await installmentsService.confirmPayment(paymentData);
       
       enqueueSnackbar('Pagamento confirmado com sucesso!', { variant: 'success' });
       loadInstallments();
@@ -483,6 +492,11 @@ export default function Installments() {
     } catch (error) {
       console.error('Erro ao confirmar pagamento:', error);
       enqueueSnackbar('Erro ao confirmar pagamento', { variant: 'error' });
+    } finally {
+      // Limpar estados
+      setBankId('');
+      setJuros('0');
+      setDescontos('0');
     }
   };
 
@@ -1328,16 +1342,14 @@ export default function Installments() {
                     console.log('Nova data selecionada:', newValue);
                     setNewDueDate(newValue);
                   }}
-                  slots={{
-                    textField: (params) => (
-                      <TextField 
-                        {...params} 
-                        fullWidth 
-                        margin="normal" 
-                        variant="outlined"
-                      />
-                    )
-                  }}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      fullWidth 
+                      margin="normal" 
+                      variant="outlined"
+                    />
+                  )}
                   format="dd/MM/yyyy"
                 />
               </LocalizationProvider>
@@ -1437,6 +1449,126 @@ export default function Installments() {
             variant="contained"
           >
             Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={paymentDialogOpen}
+        onClose={() => {
+          setPaymentDialogOpen(false);
+          setSelectedInstallmentForPayment(null);
+          setPaymentValue('');
+          setBankId('');
+          setJuros('0');
+          setDescontos('0');
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center">
+              <PaymentIcon sx={{ mr: 2 }} />
+              <Typography variant="h6">Liquidar Título</Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedInstallmentForPayment && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                Parcela: {selectedInstallmentForPayment.full_name}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Valor Original: R$ {formatCurrency(selectedInstallmentForPayment.amount)}
+              </Typography>
+              <TextField
+                label="Valor a Pagar"
+                fullWidth
+                value={paymentValue}
+                onChange={(e) => {
+                  const cleanedValue = cleanCurrencyValue(e.target.value);
+                  setPaymentValue(formatCurrency(cleanedValue));
+                }}
+                margin="normal"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+              />
+              <TextField
+                label="Banco (ID)"
+                fullWidth
+                value={bankId || '2'}
+                onChange={(e) => setBankId(e.target.value)}
+                margin="normal"
+                type="number"
+              />
+              <TextField
+                label="Juros"
+                fullWidth
+                value={juros}
+                onChange={(e) => {
+                  const cleanedValue = cleanCurrencyValue(e.target.value);
+                  setJuros(formatCurrency(cleanedValue));
+                }}
+                margin="normal"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+              />
+              <TextField
+                label="Descontos"
+                fullWidth
+                value={descontos}
+                onChange={(e) => {
+                  const cleanedValue = cleanCurrencyValue(e.target.value);
+                  setDescontos(formatCurrency(cleanedValue));
+                }}
+                margin="normal"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+              />
+              <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
+                <DatePicker
+                  label="Data de Pagamento"
+                  value={paymentDate}
+                  onChange={(newValue) => setPaymentDate(newValue)}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      fullWidth 
+                      margin="normal" 
+                      variant="outlined"
+                    />
+                  )}
+                  format="dd/MM/yyyy"
+                />
+              </LocalizationProvider>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setPaymentDialogOpen(false);
+              setSelectedInstallmentForPayment(null);
+              setPaymentValue('');
+              setBankId('');
+              setJuros('0');
+              setDescontos('0');
+            }} 
+            color="secondary"
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleConfirmPayment} 
+            color="primary" 
+            variant="contained"
+            disabled={!paymentValue}
+          >
+            Confirmar Pagamento
           </Button>
         </DialogActions>
       </Dialog>
