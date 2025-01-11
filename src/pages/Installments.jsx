@@ -40,7 +40,8 @@ import {
   Share as ShareIcon,
   Edit as EditIcon,
   CalendarToday as CalendarTodayIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
+  Payment as PaymentIcon
 } from '@mui/icons-material';
 import { 
   AttachMoney as MoneyIcon, 
@@ -1030,9 +1031,15 @@ export default function Installments() {
                       <NotificationsIcon />
                     )}
                   </IconButton>
-                  <IconButton onClick={() => handleOpenPaymentDialog(installment)}>
-                    <EditIcon />
-                  </IconButton>
+                  {installment.status === 'Pendente' && (
+                    <IconButton 
+                      color="success"
+                      onClick={() => handleOpenPaymentDialog(installment)}
+                      title="Confirmar Pagamento"
+                    >
+                      <PaymentIcon />
+                    </IconButton>
+                  )}
                   <IconButton 
                     size="small"
                     color="primary"

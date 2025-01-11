@@ -43,7 +43,8 @@ import {
   LightMode as LightModeIcon,
   Receipt as ReceiptIcon,
   CreditCard as CreditCardIcon,
-  Payment as PaymentIcon
+  Payment as PaymentIcon,
+  TaskAlt as TaskIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService } from '../services/api';
@@ -202,6 +203,12 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           icon: <CategoryIcon />,
         },
       ],
+    },
+    {
+      id: 'tasks',
+      title: 'Tasks',
+      path: '/tasks',
+      icon: <TaskIcon />,
     },
     {
       id: 'system',

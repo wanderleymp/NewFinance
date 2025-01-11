@@ -21,6 +21,7 @@ const Contacts = lazy(() => import('./pages/Contacts'));
 const SystemStatus = lazy(() => import('./pages/SystemStatus'));
 const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
 const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
+const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
 
 const PrivateRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -83,6 +84,7 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="payment-methods" element={<Suspense fallback={<Loading />}><PaymentMethods /></Suspense>} />
         <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
+        <Route path="tasks" element={<Suspense fallback={<Loading />}><TaskMonitoring /></Suspense>} />
       </Route>
     </Routes>
   );
