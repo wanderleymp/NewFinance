@@ -393,11 +393,18 @@ export const movementsService = {
   // Novo método para emitir boleto para um movimento
   async generateBoleto(movementId) {
     try {
+      console.log('Tentando gerar boleto para movementId:', movementId);
       const response = await api.post(`/movements/${movementId}/boletos`);
+      console.log('Resposta da API de boletos:', response);
       return response.data;
     } catch (error) {
-      console.error('Erro ao gerar boleto:', error);
-      throw error;
+      console.error('Erro na API de boletos:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+      throw error; // Propaga o erro para o chamador
     }
   }
 };
@@ -452,7 +459,21 @@ export const installmentsService = {
   },
   // Novo método para geração de boleto
   generateBoleto(installmentId) {
-    return api.post('/boletos', { installment_id: installmentId });
+    console.log('Tentando gerar boleto para installment_id:', installmentId);
+    return api.post('/boletos', { installment_id: installmentId })
+      .then(response => {
+        console.log('Resposta da API de boletos:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('Erro na API de boletos:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          headers: error.response?.headers
+        });
+        throw error; // Propaga o erro para o chamador
+      });
   }
 };
 

@@ -679,13 +679,37 @@ export default function Installments() {
       // Chamar serviço de geração de boleto
       const response = await installmentsService.generateBoleto(installment.installment_id);
       
+      // Log detalhado da resposta
+      console.log('Resposta da geração de boleto:', {
+        status: response.status,
+        data: response.data,
+        headers: response.headers
+      });
+      
       enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
       
       // Recarregar a lista de installments para atualizar os boletos
       loadInstallments();
     } catch (error) {
-      console.error('Erro ao gerar boleto:', error);
-      enqueueSnackbar('Erro ao gerar boleto', { variant: 'error' });
+      // Log detalhado do erro
+      console.error('Erro completo ao gerar boleto:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        config: error.config
+      });
+
+      // Tentar extrair mensagem de erro mais detalhada
+      const errorMessage = 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        'Erro ao gerar boleto';
+
+      enqueueSnackbar(errorMessage, { 
+        variant: 'error',
+        persist: true  // Manter notificação visível
+      });
     }
   }, [enqueueSnackbar, loadInstallments]);
 
@@ -1122,7 +1146,100 @@ export default function Installments() {
                   ))}
                 </TableCell>
                 <TableCell align="right">
-                  {renderActionColumn(installment)}
+                  {/* Botão de Notificação */}
+                  {installment.status === 'Pendente' && 
+                   installment.boletos && 
+                   installment.boletos.some(boleto => boleto.status === 'A_RECEBER') && (
+                    <IconButton 
+                      color="warning"
+                      onClick={() => handleNotifyInstallment(installment)} 
+                      disabled={installment.isNotifying}
+                      title="Notificar Boleto Pendente"
+                      sx={{ 
+                        border: '1px solid', 
+                        borderColor: 'warning.light',
+                        '&:hover': { 
+                          bgcolor: 'warning.light', 
+                          color: 'warning.contrastText' 
+                        }
+                      }}
+                    >
+                      {installment.isNotifying ? (
+                        <CircularProgress size={24} color="warning" />
+                      ) : (
+                        <NotificationsIcon />
+                      )}
+                    </IconButton>
+                  )}
+
+                  {/* Botão para gerar boleto */}
+                  {installment.status === 'Pendente' && 
+                   (!installment.boletos || 
+                    installment.boletos.length === 0 || 
+                    (installment.boletos.length > 0 && 
+                     installment.boletos.every(boleto => 
+                       boleto.status === 'A_RECEBER' && 
+                       !boleto.boleto_number
+                     )
+                    )
+                   ) && (
+                    <IconButton 
+                      color="primary"
+                      onClick={() => handleGenerateBoleto(installment)}
+                      title="Gerar Boleto"
+                      sx={{ 
+                        border: '1px solid', 
+                        borderColor: 'primary.light',
+                        '&:hover': { 
+                          bgcolor: 'primary.light', 
+                          color: 'primary.contrastText' 
+                        }
+                      }}
+                    >
+                      <ReceiptIcon />
+                    </IconButton>
+                  )}
+
+                  {/* Botão de Liquidação de Título */}
+                  {installment.status === 'Pendente' && (
+                    <IconButton 
+                      color="success"
+                      onClick={() => handleOpenPaymentDialog(installment)}
+                      title="Liquidar Título"
+                      sx={{ 
+                        border: '1px solid', 
+                        borderColor: 'success.light',
+                        '&:hover': { 
+                          bgcolor: 'success.light', 
+                          color: 'success.contrastText' 
+                        }
+                      }}
+                    >
+                      <PaymentIcon />
+                    </IconButton>
+                  )}
+
+                  {/* Botão de Edição de Data de Vencimento */}
+                  <IconButton 
+                    size="small"
+                    color="secondary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      console.log('Botão de edição clicado:', installment);
+                      handleEditDueDate(installment);
+                    }}
+                    title="Editar Data de Vencimento"
+                    sx={{ 
+                      border: '1px solid', 
+                      borderColor: 'secondary.light',
+                      '&:hover': { 
+                        bgcolor: 'secondary.light', 
+                        color: 'secondary.contrastText' 
+                      }
+                    }}
+                  >
+                    <CalendarMonthIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
