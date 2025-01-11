@@ -42,6 +42,7 @@ import {
   CalendarToday as CalendarTodayIcon,
   Notifications as NotificationsIcon,
   Payment as PaymentIcon,
+  Add, // Corrigir import do ícone Add
   Receipt as ReceiptIcon
 } from '@mui/icons-material';
 import { 
@@ -781,7 +782,7 @@ export default function Installments() {
               }
             }}
           >
-            <ReceiptIcon />
+            <Add />
           </IconButton>
         )}
 
@@ -1156,8 +1157,16 @@ export default function Installments() {
                 </TableCell>
                 <TableCell>
                   {installment.boletos.map((boleto) => (
-                    <Box key={boleto.boleto_id} sx={{ mb: 1 }}>
-                      {renderBoletoStatus(boleto.status)}
+                    <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                      {boleto.status === 'A_RECEBER' && (
+                        <IconButton 
+                          size="small" 
+                          onClick={() => window.open(boleto.boleto_url, '_blank')}
+                          title="Visualizar Boleto"
+                        >
+                          <ReceiptIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   ))}
                 </TableCell>
@@ -1212,7 +1221,7 @@ export default function Installments() {
                         }
                       }}
                     >
-                      <ReceiptIcon />
+                      <Add />
                     </IconButton>
                   )}
 
