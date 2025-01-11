@@ -450,6 +450,10 @@ export const installmentsService = {
   confirmPayment(id, paymentData) {
     return api.put(`/installments/${id}/payment`, paymentData).then(response => response.data);
   },
+  // Novo método para geração de boleto
+  generateBoleto(installmentId) {
+    return api.post('/boletos', { installment_id: installmentId });
+  }
 };
 
 export const personsService = {

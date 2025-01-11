@@ -94,6 +94,7 @@ const safeFormatDate = (date) => {
 };
 
 export default function Installments() {
+  const { enqueueSnackbar } = useSnackbar();
   const [installments, setInstallments] = useState({
     data: [],
     total: 0
@@ -120,7 +121,6 @@ export default function Installments() {
   const [isNotifyingSelected, setIsNotifyingSelected] = useState(false);
   const [updateBoletoWithFees, setUpdateBoletoWithFees] = useState(false);
   const [updateBoletoOnly, setUpdateBoletoOnly] = useState(false);
-  const { enqueueSnackbar } = useSnackbar();
 
   const statusOptions = [
     { value: '', label: 'Nenhum' },
@@ -674,22 +674,122 @@ export default function Installments() {
     }
   };
 
+  const handleGenerateBoleto = useCallback(async (installment) => {
+    try {
+      // Chamar serviço de geração de boleto
+      const response = await installmentsService.generateBoleto(installment.installment_id);
+      
+      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
+      
+      // Recarregar a lista de installments para atualizar os boletos
+      loadInstallments();
+    } catch (error) {
+      console.error('Erro ao gerar boleto:', error);
+      enqueueSnackbar('Erro ao gerar boleto', { variant: 'error' });
+    }
+  }, [enqueueSnackbar, loadInstallments]);
+
   const renderActionColumn = useCallback((installment) => {
     console.log('Renderizando coluna de ações:', installment);
     return (
-      <IconButton 
-        size="small"
-        color="primary"
-        onClick={(event) => {
-          event.stopPropagation(); // Previne eventos indesejados
-          console.log('Botão de edição clicado:', installment);
-          handleEditDueDate(installment);
-        }}
-      >
-        <CalendarMonthIcon />
-      </IconButton>
+      <TableCell align="right" sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+        {/* Botão de Notificação */}
+        {installment.status === 'Pendente' && 
+         installment.boletos && 
+         installment.boletos.some(boleto => boleto.status === 'A_RECEBER') && (
+          <IconButton 
+            color="warning"
+            onClick={() => handleNotifyInstallment(installment)} 
+            disabled={installment.isNotifying}
+            title="Notificar Boleto Pendente"
+            sx={{ 
+              border: '1px solid', 
+              borderColor: 'warning.light',
+              '&:hover': { 
+                bgcolor: 'warning.light', 
+                color: 'warning.contrastText' 
+              }
+            }}
+          >
+            {installment.isNotifying ? (
+              <CircularProgress size={24} color="warning" />
+            ) : (
+              <NotificationsIcon />
+            )}
+          </IconButton>
+        )}
+
+        {/* Botão para gerar boleto */}
+        {installment.status === 'Pendente' && 
+         (!installment.boletos || 
+          installment.boletos.length === 0 || 
+          (installment.boletos.length > 0 && 
+           installment.boletos.every(boleto => 
+             boleto.status === 'A_RECEBER' && 
+             !boleto.boleto_number
+           )
+          )
+         ) && (
+          <IconButton 
+            color="primary"
+            onClick={() => handleGenerateBoleto(installment)}
+            title="Gerar Boleto"
+            sx={{ 
+              border: '1px solid', 
+              borderColor: 'primary.light',
+              '&:hover': { 
+                bgcolor: 'primary.light', 
+                color: 'primary.contrastText' 
+              }
+            }}
+          >
+            <ReceiptIcon />
+          </IconButton>
+        )}
+
+        {/* Botão de Liquidação de Título */}
+        {installment.status === 'Pendente' && (
+          <IconButton 
+            color="success"
+            onClick={() => handleOpenPaymentDialog(installment)}
+            title="Liquidar Título"
+            sx={{ 
+              border: '1px solid', 
+              borderColor: 'success.light',
+              '&:hover': { 
+                bgcolor: 'success.light', 
+                color: 'success.contrastText' 
+              }
+            }}
+          >
+            <PaymentIcon />
+          </IconButton>
+        )}
+
+        {/* Botão de Edição de Data de Vencimento */}
+        <IconButton 
+          size="small"
+          color="secondary"
+          onClick={(event) => {
+            event.stopPropagation();
+            console.log('Botão de edição clicado:', installment);
+            handleEditDueDate(installment);
+          }}
+          title="Editar Data de Vencimento"
+          sx={{ 
+            border: '1px solid', 
+            borderColor: 'secondary.light',
+            '&:hover': { 
+              bgcolor: 'secondary.light', 
+              color: 'secondary.contrastText' 
+            }
+          }}
+        >
+          <CalendarMonthIcon />
+        </IconButton>
+      </TableCell>
     );
-  }, [handleEditDueDate]);
+  }, [handleEditDueDate, handleGenerateBoleto, handleNotifyInstallment, handleOpenPaymentDialog]);
 
   const isOverdueDate = selectedInstallmentForDueDateEdit?.due_date && newDueDate && 
     (
@@ -750,19 +850,6 @@ export default function Installments() {
     } finally {
       // Desativa o estado de carregamento
       setIsUpdatingDueDate(false);
-    }
-  };
-
-  const handleGenerateBoleto = async (installment) => {
-    try {
-      // Chamar serviço de geração de boleto (você precisará adicionar este método)
-      await installmentsService.generateBoleto(installment.installment_id);
-      
-      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
-      loadInstallments();
-    } catch (error) {
-      console.error('Erro ao gerar boleto:', error);
-      enqueueSnackbar('Erro ao gerar boleto', { variant: 'error' });
     }
   };
 
@@ -1035,54 +1122,7 @@ export default function Installments() {
                   ))}
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton 
-                    onClick={() => handleNotifyInstallment(installment)} 
-                    disabled={installment.isNotifying}
-                  >
-                    {installment.isNotifying ? (
-                      <CircularProgress size={24} />
-                    ) : (
-                      <NotificationsIcon />
-                    )}
-                  </IconButton>
-                  {installment.status === 'Pendente' && 
-                   (!installment.boletos || 
-                    installment.boletos.length === 0 || 
-                    (installment.boletos.length > 0 && 
-                     installment.boletos.every(boleto => 
-                       boleto.status === 'A_RECEBER' && 
-                       !boleto.boleto_number
-                     )
-                    )
-                   ) && (
-                    <IconButton 
-                      color="primary"
-                      onClick={() => handleGenerateBoleto(installment)}
-                      title="Gerar Boleto"
-                    >
-                      <ReceiptIcon />
-                    </IconButton>
-                  )}
-                  {installment.status === 'Pendente' && (
-                    <IconButton 
-                      color="success"
-                      onClick={() => handleOpenPaymentDialog(installment)}
-                      title="Liquidar Título"
-                    >
-                      <PaymentIcon />
-                    </IconButton>
-                  )}
-                  <IconButton 
-                    size="small"
-                    color="primary"
-                    onClick={(event) => {
-                      event.stopPropagation(); // Previne eventos indesejados
-                      console.log('Botão de edição clicado:', installment);
-                      handleEditDueDate(installment);
-                    }}
-                  >
-                    <CalendarMonthIcon />
-                  </IconButton>
+                  {renderActionColumn(installment)}
                 </TableCell>
               </TableRow>
             ))}
