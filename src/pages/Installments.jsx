@@ -41,7 +41,8 @@ import {
   Edit as EditIcon,
   CalendarToday as CalendarTodayIcon,
   Notifications as NotificationsIcon,
-  Payment as PaymentIcon
+  Payment as PaymentIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
 import { 
   AttachMoney as MoneyIcon, 
@@ -752,6 +753,19 @@ export default function Installments() {
     }
   };
 
+  const handleGenerateBoleto = async (installment) => {
+    try {
+      // Chamar serviço de geração de boleto (você precisará adicionar este método)
+      await installmentsService.generateBoleto(installment.installment_id);
+      
+      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
+      loadInstallments();
+    } catch (error) {
+      console.error('Erro ao gerar boleto:', error);
+      enqueueSnackbar('Erro ao gerar boleto', { variant: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', p: 2 }}>
       {selectedInstallments.length > 0 && (
@@ -1031,11 +1045,29 @@ export default function Installments() {
                       <NotificationsIcon />
                     )}
                   </IconButton>
+                  {installment.status === 'Pendente' && 
+                   (!installment.boletos || 
+                    installment.boletos.length === 0 || 
+                    (installment.boletos.length > 0 && 
+                     installment.boletos.every(boleto => 
+                       boleto.status === 'A_RECEBER' && 
+                       !boleto.boleto_number
+                     )
+                    )
+                   ) && (
+                    <IconButton 
+                      color="primary"
+                      onClick={() => handleGenerateBoleto(installment)}
+                      title="Gerar Boleto"
+                    >
+                      <ReceiptIcon />
+                    </IconButton>
+                  )}
                   {installment.status === 'Pendente' && (
                     <IconButton 
                       color="success"
                       onClick={() => handleOpenPaymentDialog(installment)}
-                      title="Confirmar Pagamento"
+                      title="Liquidar Título"
                     >
                       <PaymentIcon />
                     </IconButton>
