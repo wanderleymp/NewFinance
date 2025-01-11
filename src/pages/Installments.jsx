@@ -1126,6 +1126,7 @@ export default function Installments() {
                 />
               </TableCell>
               <TableCell>ID Parcela</TableCell>
+              <TableCell>ID Movimento</TableCell>
               <TableCell>Nome</TableCell>
               <TableCell>Data Vencimento</TableCell>
               <TableCell>Valor</TableCell>
@@ -1144,6 +1145,7 @@ export default function Installments() {
                   />
                 </TableCell>
                 <TableCell>{installment.installment_id}</TableCell>
+                <TableCell>{installment.movement_id}</TableCell>
                 <TableCell>{installment.full_name}</TableCell>
                 <TableCell>
                   {safeFormatDate(installment.due_date)}

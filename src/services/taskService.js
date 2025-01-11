@@ -82,17 +82,27 @@ export const taskService = {
     params.append('limit', limit);
 
     try {
+      console.log('Fetching tasks with params:', Object.fromEntries(params));
+      const token = getToken();
+      console.log('Current authentication token:', token ? 'Present' : 'Missing');
+      
       const response = await api.get(`/api/tasks`, { params });
+      console.log('Tasks response:', response.data);
+      
       return {
         data: response.data.tasks || [],
         total: response.data.total || 0
       };
     } catch (error) {
-      console.error('Erro ao buscar tasks:', error);
+      console.error('Detailed error while fetching tasks:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       
       // Tratamento específico para erros de rede
       if (error.code === 'ERR_NETWORK') {
-        // Pode adicionar lógica para mostrar mensagem de erro ao usuário
         return {
           data: [],
           total: 0,
