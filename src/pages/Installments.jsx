@@ -1157,7 +1157,7 @@ export default function Installments() {
                 <TableCell>
                   {installment.boletos.map((boleto) => (
                     <Box key={boleto.boleto_id} sx={{ mb: 1 }}>
-                      {renderBoletoStatus(boleto.status)} {boleto.boleto_number}
+                      {renderBoletoStatus(boleto.status)}
                     </Box>
                   ))}
                 </TableCell>
