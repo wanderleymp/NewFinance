@@ -340,6 +340,10 @@ export const movementsService = {
   },
 
   create(data) {
+    // Obter o usuário atual
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    const userId = currentUser?.id;
+
     // Log detalhado do payload de entrada
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
 
@@ -378,7 +382,8 @@ export const movementsService = {
       addition: 0.00,
       nfse: data.nfse || false,
       boleto: data.boleto || false,
-      notificar: data.notificar || false
+      notificar: data.notificar || false,
+      user_id: userId // Adicionar user_id ao payload
     };
 
     console.log('📦 Payload Completo para Envio:', JSON.stringify(fullPayload, null, 2));
