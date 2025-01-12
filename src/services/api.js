@@ -174,8 +174,9 @@ export const authService = {
       }
 
       // Verifica se os tokens estão na resposta
-      const accessToken = response.data.access_token || response.data.accessToken;
-      const refreshToken = response.data.refresh_token || response.data.refreshToken;
+      const accessToken = response.data.accessToken;
+      const refreshToken = response.data.refreshToken;
+      const userData = response.data.user || {};
 
       console.log('Tokens encontrados:', { 
         accessToken: accessToken ? 'presente' : 'ausente',
@@ -187,12 +188,21 @@ export const authService = {
         throw new Error('Token de acesso não encontrado na resposta');
       }
 
+      // Padronizar dados do usuário
+      const formattedUserData = {
+        id: userData.id,
+        username: userData.username,
+        name: userData.name || userData.username,
+        email: userData.email,
+        roles: userData.roles || [],
+        permissions: userData.permissions || []
+      };
+
       localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
-      
-      return response.data;
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('userData', JSON.stringify(formattedUserData));
+
+      return formattedUserData;
     } catch (error) {
       console.error('[POST] /auth/login - Erro detalhado:', {
         message: error.message,
@@ -203,11 +213,21 @@ export const authService = {
     }
   },
 
-  async logout() {
+  logout() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
   },
+
+  getCurrentUser() {
+    const userData = localStorage.getItem('userData');
+    return userData ? JSON.parse(userData) : null;
+  },
+
+  isAuthenticated() {
+    const accessToken = localStorage.getItem('accessToken');
+    return !!accessToken;
+  }
 };
 
 export const movementsService = {

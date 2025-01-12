@@ -14,22 +14,37 @@ import {
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 import axios from 'axios';
+import { getUserData } from '../utils/auth'; // Importar método correto
+import { authService } from '../services/api'; // Importar serviço de autenticação
 
 // Função para obter dados do usuário diretamente do localStorage
 const getUserDataFromStorage = () => {
   try {
-    const userDataString = localStorage.getItem('userData');
-    if (userDataString) {
-      const userData = JSON.parse(userDataString);
+    // Primeiro, tentar obter do serviço de autenticação
+    const currentUser = authService.getCurrentUser();
+    
+    if (currentUser) {
+      return {
+        id: currentUser.id || 'unknown',
+        username: currentUser.name || currentUser.username || 'Usuário',
+        email: currentUser.email
+      };
+    }
+
+    // Fallback para o método do auth.js
+    const userData = getUserData(); 
+    
+    if (userData) {
       return {
         id: userData.id || 'unknown',
-        username: userData.username || 'Usuário',
+        username: userData.name || userData.username || 'Usuário',
         email: userData.email
       };
     }
   } catch (error) {
     console.error('Erro ao recuperar dados do usuário:', error);
   }
+  
   return { 
     id: 'unknown', 
     username: 'Usuário' 
@@ -60,7 +75,7 @@ const ChatHeader = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   padding: theme.spacing(2),
   backgroundColor: theme.palette.primary.main,
-  color: 'white'
+  color: theme.palette.primary.contrastText,
 }));
 
 const ChatMessages = styled(Box)(({ theme }) => ({
@@ -68,32 +83,35 @@ const ChatMessages = styled(Box)(({ theme }) => ({
   overflowY: 'auto',
   padding: theme.spacing(2),
   display: 'flex',
-  flexDirection: 'column'
-}));
-
-const MessageBubble = styled(Box, { 
-  shouldForwardProp: (prop) => prop !== 'variant' 
-})(({ theme, variant }) => ({
-  alignSelf: variant === 'user' ? 'flex-end' : 'flex-start',
-  backgroundColor: variant === 'user' 
-    ? theme.palette.primary.main 
-    : theme.palette.grey[300],
-  color: variant === 'user' ? 'white' : 'black',
-  borderRadius: '16px',
-  padding: theme.spacing(1.5),
-  maxWidth: '70%',
-  marginBottom: theme.spacing(1),
-  wordBreak: 'break-word'
+  flexDirection: 'column',
+  gap: theme.spacing(1),
 }));
 
 const ChatInputContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   padding: theme.spacing(2),
-  borderTop: `1px solid ${theme.palette.divider}`
+  borderTop: `1px solid ${theme.palette.divider}`,
 }));
 
-export const AIChat = ({ onClose }) => {
+const MessageBubble = styled(Typography, {
+  shouldForwardProp: (prop) => prop !== 'variant',
+})(({ theme, variant }) => ({
+  alignSelf: variant === 'user' ? 'flex-end' : 'flex-start',
+  backgroundColor: variant === 'user' 
+    ? theme.palette.primary.main 
+    : theme.palette.grey[300],
+  color: variant === 'user' 
+    ? theme.palette.primary.contrastText 
+    : theme.palette.text.primary,
+  padding: theme.spacing(1, 2),
+  borderRadius: theme.spacing(2),
+  maxWidth: '70%',
+  wordBreak: 'break-word',
+  marginBottom: theme.spacing(1),
+}));
+
+const AIChat = ({ onClose }) => {
   const theme = useTheme();
   const [messages, setMessages] = useState([
     { 
@@ -201,6 +219,11 @@ export const AIChat = ({ onClose }) => {
     }
   };
 
+  const handleLogout = () => {
+    authService.logout();
+    window.location.href = '/login';
+  };
+
   return (
     <ChatContainer elevation={6}>
       <ChatHeader>
@@ -209,14 +232,26 @@ export const AIChat = ({ onClose }) => {
         </Avatar>
         <Box>
           <Typography variant="h6">Assistente Financeiro</Typography>
-          <Typography variant="caption">IA em tempo real</Typography>
+          <Typography variant="caption">
+            {userData.username || 'Usuário'}
+          </Typography>
         </Box>
-        <IconButton 
-          onClick={onClose} 
-          sx={{ ml: 'auto', color: 'white' }}
-        >
-          ✕
-        </IconButton>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            color="error" 
+            onClick={handleLogout}
+            title="Sair"
+            sx={{ mr: 1 }}
+          >
+            ⏻
+          </IconButton>
+          <IconButton 
+            onClick={onClose} 
+            sx={{ color: 'white' }}
+          >
+            ✕
+          </IconButton>
+        </Box>
       </ChatHeader>
 
       <ChatMessages>
@@ -253,3 +288,5 @@ export const AIChat = ({ onClose }) => {
     </ChatContainer>
   );
 };
+
+export default AIChat;

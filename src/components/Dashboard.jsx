@@ -47,7 +47,7 @@ import {
   TaskAlt as TaskIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { healthService } from '../services/api';
+import { healthService, authService } from '../services/api';
 import Logo from './Logo';
 
 const drawerWidth = 240;
@@ -86,7 +86,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [openDrawer, setOpenDrawer] = useState(true);
   const [openSubMenus, setOpenSubMenus] = useState({});
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+  const [user, setUser] = useState(authService.getCurrentUser() || {});
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -122,7 +122,7 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    authService.logout();
     navigate('/login');
   };
 
@@ -329,77 +329,79 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             aria-label="open drawer"
             onClick={handleDrawerToggle}
             edge="start"
-            sx={{ mr: 2 }}
+            sx={{
+              marginRight: 5,
+              ...(openDrawer && { display: 'none' }),
+            }}
           >
             <MenuIcon />
           </IconButton>
-          
-          {/* Logo */}
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
-            <Logo size="small" />
-          </Box>
-          
-          {/* Botão Dark Mode */}
-          <Tooltip title={darkMode ? "Modo claro" : "Modo escuro"}>
-            <IconButton color="inherit" onClick={toggleDarkMode}>
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Notificações */}
-          <Tooltip title="Notificações">
-            <IconButton
-              color="inherit"
-              onClick={handleNotificationsOpen}
-            >
-              <Badge badgeContent={notifications.length} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
-          <Menu
-            anchorEl={notificationsAnchorEl}
-            open={Boolean(notificationsAnchorEl)}
-            onClose={handleNotificationsClose}
-          >
-            {notifications.length > 0 ? (
-              notifications.map((notification, index) => (
-                <MenuItem key={index} onClick={handleNotificationsClose}>
-                  {notification.message}
-                </MenuItem>
-              ))
-            ) : (
-              <MenuItem onClick={handleNotificationsClose}>
-                Nenhuma notificação
-              </MenuItem>
-            )}
-          </Menu>
-
-          {/* Menu do Usuário */}
-          {user && (
-            <div>
+          <Logo size="small" />
+          <Box sx={{ flexGrow: 1 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Modo Escuro">
+              <IconButton onClick={toggleDarkMode} color="inherit">
+                {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="Notificações">
               <IconButton
                 size="large"
+                aria-label="show new notifications"
+                color="inherit"
+                onClick={handleNotificationsOpen}
+              >
+                <Badge badgeContent={notifications.length} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title={user.name || user.username || 'Usuário'}>
+              <IconButton
+                size="large"
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
                 onClick={handleMenu}
                 color="inherit"
               >
-                <AccountCircle />
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                  {(user.name || user.username || 'U')[0].toUpperCase()}
+                </Avatar>
               </IconButton>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-              >
-                <MenuItem disabled>
-                  {user.username}
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <ExitToApp sx={{ mr: 1 }} />
-                  Sair
-                </MenuItem>
-              </Menu>
-            </div>
-          )}
+            </Tooltip>
+            
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorEl}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+            >
+              <MenuItem disabled>
+                <Typography variant="body2">
+                  {user.name || user.username || 'Usuário'}
+                </Typography>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <ExitToApp fontSize="small" />
+                </ListItemIcon>
+                Sair
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
       <Drawer

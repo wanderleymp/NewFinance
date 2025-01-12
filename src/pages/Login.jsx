@@ -41,23 +41,22 @@ const Login = () => {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
 
     try {
-      await authService.login(formData.username, formData.password);
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Login error:', err);
-      let errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
+      const userData = await authService.login(formData.username, formData.password);
       
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
+      console.log('Usuário logado:', userData);
+      
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Erro no login:', error);
+      
+      const errorMessage = error.response?.data?.message || 
+        error.message || 
+        'Erro ao fazer login. Tente novamente.';
       
       setError(errorMessage);
     } finally {
@@ -166,7 +165,7 @@ const Login = () => {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleLogin}>
               <TextField
                 fullWidth
                 label="Nome de usuário"

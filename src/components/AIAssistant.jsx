@@ -5,7 +5,7 @@ import {
 import { 
   RocketLaunch as AIIcon 
 } from '@mui/icons-material';
-import { AIChat } from './AIChat';
+import AIChat from './AIChat';
 
 export const AIAssistant = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
