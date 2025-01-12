@@ -11,6 +11,7 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { AIAssistant } from './components/AIAssistant';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -54,6 +55,7 @@ export default function App() {
             draggable
             pauseOnHover
           />
+          <AIAssistant />
         </SnackbarProvider>
       </ThemeProvider>
     </BrowserRouter>

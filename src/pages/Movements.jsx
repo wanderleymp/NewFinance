@@ -35,7 +35,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Fab
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -65,7 +66,9 @@ import {
   RequestQuote as RequestQuoteIcon,
   Cancel as CancelIcon,
   Speed as SpeedIcon,
-  ListAlt as ListAltIcon
+  ListAlt as ListAltIcon,
+  RocketLaunch as AIIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
@@ -909,6 +912,7 @@ const Movements = () => {
   const [searchTimeout, setSearchTimeout] = useState(null);
   const [movementTypeDialogOpen, setMovementTypeDialogOpen] = useState(false);
   const [movementTypeOptions, setMovementTypeOptions] = useState([]);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   const fetchMovements = async () => {
     try {
@@ -1018,6 +1022,10 @@ const Movements = () => {
 
     setMovementTypeDialogOpen(true);
     setMovementTypeOptions(options);
+  };
+
+  const toggleAIAssistant = () => {
+    setIsAIModalOpen(!isAIModalOpen);
   };
 
   return (
@@ -1257,6 +1265,71 @@ const Movements = () => {
           }
         />
       </Box>
+
+      <Fab 
+        color="primary" 
+        onClick={toggleAIAssistant}
+        sx={{ 
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          background: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)',
+          boxShadow: '0 10px 25px rgba(37, 117, 252, 0.3)',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'scale(1.1)',
+            boxShadow: '0 15px 35px rgba(37, 117, 252, 0.4)',
+          },
+          '@keyframes pulse': {
+            '0%': {
+              transform: 'scale(0.95)',
+              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0.7)',
+            },
+            '70%': {
+              transform: 'scale(1)',
+              boxShadow: '0 0 0 20px rgba(37, 117, 252, 0)',
+            },
+            '100%': {
+              transform: 'scale(0.95)',
+              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0)',
+            },
+          },
+          '&:not(:hover)': {
+            animation: 'pulse 2s infinite',
+          },
+        }}
+      >
+        <AIIcon />
+      </Fab>
+
+      <Dialog
+        open={isAIModalOpen}
+        onClose={toggleAIAssistant}
+        aria-labelledby="ai-assistant-dialog"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="ai-assistant-dialog">
+          AI Financial Assistant
+          <Button 
+            onClick={toggleAIAssistant} 
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </Button>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            How can I help you with your finances today? Ask me anything about your financial data, transactions, or insights.
+          </DialogContentText>
+          {/* Future: Add AI chat interface or input */}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={toggleAIAssistant} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog 
         open={movementTypeDialogOpen} 
