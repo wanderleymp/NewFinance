@@ -170,11 +170,18 @@ export const authService = {
         throw new Error('Token de acesso não encontrado');
       }
 
+      // Padronizar dados do usuário
+      const userData = {
+        id: user.user_id || user.id,
+        username: user.username,
+        email: user.email
+      };
+
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(userData));
 
-      return user;
+      return userData;
     } catch (error) {
       console.error('Erro no login:', error.response?.data || error.message);
       throw error;
@@ -194,7 +201,13 @@ export const authService = {
       try {
         const userData = JSON.parse(userString);
         console.log('Dados do usuário recuperados:', userData);
-        return userData;
+        
+        // Padronizar o retorno
+        return {
+          id: userData.user_id || userData.id || 'unknown',
+          username: userData.username || 'Usuário',
+          email: userData.email
+        };
       } catch (error) {
         console.error('Erro ao parsear dados do usuário:', error);
         return null;
@@ -344,8 +357,10 @@ export const movementsService = {
     const currentUser = JSON.parse(localStorage.getItem('user'));
     const userId = currentUser?.id;
 
-    // Log detalhado do payload de entrada
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
+
+    console.log('🕵️ Usuário atual:', currentUser);
+    console.log('🆔 User ID:', userId);
 
     // Validações mais robustas e flexíveis
     const requiredFields = ['person_id', 'item_id', 'payment_method_id', 'amount'];
@@ -355,6 +370,12 @@ export const movementsService = {
       const errorMessage = `Campos obrigatórios ausentes ou inválidos: ${invalidFields.join(', ')}`;
       console.error('❌ Erro de Validação:', errorMessage);
       throw new Error(errorMessage);
+    }
+
+    // Validação adicional para garantir user_id
+    if (!userId) {
+      console.error('❌ Erro: user_id não encontrado');
+      throw new Error('Usuário não autenticado ou ID não encontrado');
     }
 
     // Calcular total_amount e unit_price com mais segurança
@@ -369,6 +390,7 @@ export const movementsService = {
       license_id: 1,
       payment_method_id: data.payment_method_id,
       total_amount: totalAmount,
+      user_id: userId, // Adicionando user_id de forma explícita
       items: [
         {
           item_id: data.item_id,
@@ -382,8 +404,7 @@ export const movementsService = {
       addition: 0.00,
       nfse: data.nfse || false,
       boleto: data.boleto || false,
-      notificar: data.notificar || false,
-      user_id: userId // Adicionar user_id ao payload
+      notificar: data.notificar || false
     };
 
     console.log('📦 Payload Completo para Envio:', JSON.stringify(fullPayload, null, 2));
