@@ -1,0 +1,178 @@
+{
+  "hash": "dca71e23",
+  "configHash": "e6f11fb6",
+  "lockfileHash": "27dbd4ee",
+  "browserHash": "7a6d57b0",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "57f73642",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "863e5894",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "9de8dcd4",
+      "needsInterop": false
+    },
+    "@mui/material/styles": {
+      "src": "../../node_modules/@mui/material/styles/index.js",
+      "file": "@mui_material_styles.js",
+      "fileHash": "acf5b1b5",
+      "needsInterop": false
+    },
+    "@mui/material/CssBaseline": {
+      "src": "../../node_modules/@mui/material/CssBaseline/index.js",
+      "file": "@mui_material_CssBaseline.js",
+      "fileHash": "b9173c46",
+      "needsInterop": false
+    },
+    "notistack": {
+      "src": "../../node_modules/notistack/notistack.esm.js",
+      "file": "notistack.js",
+      "fileHash": "1c38176f",
+      "needsInterop": false
+    },
+    "react-toastify": {
+      "src": "../../node_modules/react-toastify/dist/index.mjs",
+      "file": "react-toastify.js",
+      "fileHash": "1e73ef1b",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "726e8114",
+      "needsInterop": false
+    },
+    "date-fns": {
+      "src": "../../node_modules/date-fns/esm/index.js",
+      "file": "date-fns.js",
+      "fileHash": "c95d6a9f",
+      "needsInterop": false
+    },
+    "jwt-decode": {
+      "src": "../../node_modules/jwt-decode/build/esm/index.js",
+      "file": "jwt-decode.js",
+      "fileHash": "60db239a",
+      "needsInterop": false
+    },
+    "@mui/material": {
+      "src": "../../node_modules/@mui/material/index.js",
+      "file": "@mui_material.js",
+      "fileHash": "af4352ce",
+      "needsInterop": false
+    },
+    "@mui/icons-material": {
+      "src": "../../node_modules/@mui/icons-material/esm/index.js",
+      "file": "@mui_icons-material.js",
+      "fileHash": "491ec9db",
+      "needsInterop": false
+    },
+    "date-fns/locale": {
+      "src": "../../node_modules/date-fns/esm/locale/index.js",
+      "file": "date-fns_locale.js",
+      "fileHash": "6383327b",
+      "needsInterop": false
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "fd563753",
+      "needsInterop": false
+    },
+    "@mui/system": {
+      "src": "../../node_modules/@mui/system/esm/index.js",
+      "file": "@mui_system.js",
+      "fileHash": "ffed5c67",
+      "needsInterop": false
+    },
+    "@mui/x-data-grid": {
+      "src": "../../node_modules/@mui/x-data-grid/index.js",
+      "file": "@mui_x-data-grid.js",
+      "fileHash": "98f4558e",
+      "needsInterop": false
+    },
+    "@mui/x-date-pickers": {
+      "src": "../../node_modules/@mui/x-date-pickers/index.js",
+      "file": "@mui_x-date-pickers.js",
+      "fileHash": "badb818a",
+      "needsInterop": false
+    },
+    "@mui/x-date-pickers/AdapterDateFns": {
+      "src": "../../node_modules/@mui/x-date-pickers/AdapterDateFns/index.js",
+      "file": "@mui_x-date-pickers_AdapterDateFns.js",
+      "fileHash": "1787f582",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-HXMIAGY7": {
+      "file": "chunk-HXMIAGY7.js"
+    },
+    "chunk-RSAN63EH": {
+      "file": "chunk-RSAN63EH.js"
+    },
+    "chunk-PJGHSSSA": {
+      "file": "chunk-PJGHSSSA.js"
+    },
+    "chunk-3BYY2MJD": {
+      "file": "chunk-3BYY2MJD.js"
+    },
+    "chunk-Z6AZXXYO": {
+      "file": "chunk-Z6AZXXYO.js"
+    },
+    "chunk-NAA7VW22": {
+      "file": "chunk-NAA7VW22.js"
+    },
+    "chunk-WX5Z3QDG": {
+      "file": "chunk-WX5Z3QDG.js"
+    },
+    "chunk-6XSFH6HP": {
+      "file": "chunk-6XSFH6HP.js"
+    },
+    "chunk-KY7LCLZO": {
+      "file": "chunk-KY7LCLZO.js"
+    },
+    "chunk-4UIFK25Q": {
+      "file": "chunk-4UIFK25Q.js"
+    },
+    "chunk-F7JABANE": {
+      "file": "chunk-F7JABANE.js"
+    },
+    "chunk-LKUPRJBC": {
+      "file": "chunk-LKUPRJBC.js"
+    },
+    "chunk-4UYFH4V2": {
+      "file": "chunk-4UYFH4V2.js"
+    },
+    "chunk-NOIN3K2N": {
+      "file": "chunk-NOIN3K2N.js"
+    },
+    "chunk-MCMOV7PY": {
+      "file": "chunk-MCMOV7PY.js"
+    },
+    "chunk-HQ6ZTAWL": {
+      "file": "chunk-HQ6ZTAWL.js"
+    },
+    "chunk-UP6LQVYV": {
+      "file": "chunk-UP6LQVYV.js"
+    },
+    "chunk-2KHBIA62": {
+      "file": "chunk-2KHBIA62.js"
+    },
+    "chunk-TWJRYSII": {
+      "file": "chunk-TWJRYSII.js"
+    },
+    "chunk-DC5AMYBS": {
+      "file": "chunk-DC5AMYBS.js"
+    }
+  }
+}
