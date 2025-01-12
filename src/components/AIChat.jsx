@@ -14,8 +14,29 @@ import {
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 import axios from 'axios';
-import { getUserData } from '../utils/auth';
 
+// Função para obter dados do usuário diretamente do localStorage
+const getUserDataFromStorage = () => {
+  try {
+    const userDataString = localStorage.getItem('userData');
+    if (userDataString) {
+      const userData = JSON.parse(userDataString);
+      return {
+        id: userData.id || 'unknown',
+        username: userData.username || 'Usuário',
+        email: userData.email
+      };
+    }
+  } catch (error) {
+    console.error('Erro ao recuperar dados do usuário:', error);
+  }
+  return { 
+    id: 'unknown', 
+    username: 'Usuário' 
+  };
+};
+
+// Função para gerar ID único
 const generateUniqueId = () => {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
 };
@@ -39,36 +60,37 @@ const ChatHeader = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   padding: theme.spacing(2),
   backgroundColor: theme.palette.primary.main,
-  color: theme.palette.primary.contrastText,
+  color: 'white'
 }));
 
-const ChatMessages = styled(Box)({
+const ChatMessages = styled(Box)(({ theme }) => ({
   flexGrow: 1,
   overflowY: 'auto',
-  padding: '16px',
+  padding: theme.spacing(2),
   display: 'flex',
-  flexDirection: 'column',
-});
+  flexDirection: 'column'
+}));
 
-const MessageBubble = styled(Box)(({ theme, variant }) => ({
-  maxWidth: '80%',
-  padding: '10px 15px',
-  borderRadius: '12px',
-  marginBottom: '10px',
+const MessageBubble = styled(Box, { 
+  shouldForwardProp: (prop) => prop !== 'variant' 
+})(({ theme, variant }) => ({
   alignSelf: variant === 'user' ? 'flex-end' : 'flex-start',
   backgroundColor: variant === 'user' 
-    ? theme.palette.primary.light 
-    : theme.palette.grey[200],
-  color: variant === 'user' 
-    ? theme.palette.primary.contrastText 
-    : theme.palette.text.primary,
+    ? theme.palette.primary.main 
+    : theme.palette.grey[300],
+  color: variant === 'user' ? 'white' : 'black',
+  borderRadius: '16px',
+  padding: theme.spacing(1.5),
+  maxWidth: '70%',
+  marginBottom: theme.spacing(1),
+  wordBreak: 'break-word'
 }));
 
 const ChatInputContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   padding: theme.spacing(2),
-  borderTop: `1px solid ${theme.palette.divider}`,
+  borderTop: `1px solid ${theme.palette.divider}`
 }));
 
 export const AIChat = ({ onClose }) => {
@@ -84,49 +106,8 @@ export const AIChat = ({ onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const userData = getUserData();
-
-  // Configuração de WebSocket para receber respostas
-  useEffect(() => {
-    // Criando um canal de comunicação único para este usuário
-    const channelId = `ai-chat-${userData?.id || 'anonymous'}`;
-    
-    const eventSource = new EventSource(`https://n8n.webhook.agilefinance.com.br/sse/${channelId}`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Verificar se a mensagem é para este chat
-        if (data.requestId === window.lastAIRequestId) {
-          const aiResponse = { 
-            id: messages.length + 1, 
-            text: data.response, 
-            variant: 'ai' 
-          };
-
-          setMessages(prev => {
-            // Remover mensagem de carregamento
-            const filteredMessages = prev.filter(msg => !msg.isLoading);
-            return [...filteredMessages, aiResponse];
-          });
-          
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Erro ao processar resposta da IA:', error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('Erro no EventSource:', error);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [messages.length, userData]);
+  // Usar função personalizada para buscar dados do usuário
+  const userData = getUserDataFromStorage();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -139,17 +120,19 @@ export const AIChat = ({ onClose }) => {
   const handleSendMessage = async () => {
     if (inputMessage.trim() === '') return;
 
+    console.log('Dados do usuário:', userData);
+    console.log('Mensagem a ser enviada:', inputMessage);
+
     const requestId = generateUniqueId(); // ID único para rastrear a conversa
-    window.lastAIRequestId = requestId; // Armazenar globalmente para referência
 
     const userMessage = { 
-      id: messages.length, 
+      id: `user_${messages.length}`, // Prefixo único para mensagens do usuário
       text: inputMessage, 
       variant: 'user' 
     };
 
     const aiLoadingMessage = { 
-      id: messages.length + 1, 
+      id: `loading_${messages.length}`, // Prefixo único para mensagem de carregamento
       text: 'Processando...',
       variant: 'ai',
       isLoading: true
@@ -160,26 +143,56 @@ export const AIChat = ({ onClose }) => {
     setIsLoading(true);
 
     try {
-      // Criando um canal de comunicação único para este usuário
-      const channelId = `ai-chat-${userData?.id || 'anonymous'}`;
+      console.log('Iniciando requisição para o n8n');
+      
+      const response = await axios.post('https://n8n.webhook.agilefinance.com.br/webhook/ia/chat', 
+        {
+          mensage: inputMessage,
+          user_id: userData.id,
+          username: userData.username,
+          requestId: requestId
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'ffcaa89a3e19bd98e911475c7974309b'
+          },
+          // Adicionar timeout para evitar espera infinita
+          timeout: 10000
+        }
+      );
 
-      await axios.post('https://n8n.webhook.agilefinance.com.br/webhook/ia/chat', {
-        message: inputMessage,
-        user_id: userData?.id || 'unknown',
-        username: userData?.username || 'Usuário',
-        requestId: requestId,
-        channelId: channelId
-      });
+      console.log('Resposta completa do n8n:', response);
+      console.log('Dados da resposta:', response.data);
+
+      // Remover a mensagem de carregamento
+      setMessages(prev => prev.filter(msg => !msg.isLoading));
+
+      // Adicionar resposta da IA
+      const aiResponse = { 
+        id: `ai_${messages.length + 1}`, // Prefixo único para mensagens da IA
+        text: response.data?.output || response.data?.response || 'Desculpe, não consegui processar sua solicitação.',
+        variant: 'ai' 
+      };
+
+      setMessages(prev => [...prev, aiResponse]);
+      setIsLoading(false);
 
     } catch (error) {
-      console.error('Erro na comunicação com o assistente de IA:', error);
+      console.error('Erro COMPLETO na comunicação com o assistente de IA:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       
       // Remover a mensagem de carregamento
       setMessages(prev => prev.filter(msg => !msg.isLoading));
 
       const errorMessage = { 
-        id: messages.length + 2, 
-        text: 'Ops! Houve um problema ao processar sua solicitação.',
+        id: `error_${messages.length + 1}`, // Prefixo único para mensagens de erro
+        text: error.response?.data?.message || 'Ops! Houve um problema ao processar sua solicitação.',
         variant: 'ai' 
       };
 
