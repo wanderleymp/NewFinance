@@ -21,6 +21,9 @@ const Home = () => {
   const theme = useTheme();
   const user = JSON.parse(localStorage.getItem('user'));
 
+  console.log('Home - Usuário:', user);
+  console.log('Home - Tema:', theme.palette.mode);
+
   return (
     <Box sx={{ p: 3 }}>
       <Grid container spacing={3}>

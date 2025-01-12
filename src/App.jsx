@@ -29,6 +29,7 @@ import Persons from './pages/Persons';
 import Contacts from './pages/Contacts';
 import Users from './pages/Users';
 import SystemStatus from './pages/SystemStatus';
+import Installments from './pages/Installments';
 
 // Componentes
 import AIChat from './components/AIChat';
@@ -38,24 +39,15 @@ import { AIAssistant } from './components/AIAssistant';
 const PrivateRoute = () => {
   const isAuthenticated = authService.isAuthenticated();
   
+  console.log('PrivateRoute - Autenticado:', isAuthenticated);
+  
   return isAuthenticated 
     ? <Outlet /> 
     : <Navigate to="/login" replace />;
 };
 
 function AppRoutes({ darkMode, setDarkMode }) {
-  return (
-    <Dashboard darkMode={darkMode} setDarkMode={setDarkMode}>
-      <Routes>
-        <Route index element={<Home />} />
-        <Route path="movements" element={<Movements />} />
-        <Route path="persons" element={<Persons />} />
-        <Route path="contacts" element={<Contacts />} />
-        <Route path="users" element={<Users />} />
-        <Route path="system-status" element={<SystemStatus />} />
-      </Routes>
-    </Dashboard>
-  );
+  return <Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />;
 }
 
 function App() {
@@ -66,25 +58,35 @@ function App() {
 
   const theme = darkMode ? darkTheme : lightTheme;
 
+  console.log('Renderizando App - Autenticado:', authService.isAuthenticated());
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SnackbarProvider 
         maxSnack={3} 
         anchorOrigin={{
-          vertical: 'bottom',
+          vertical: 'top',
           horizontal: 'right',
         }}
-        autoHideDuration={5000}
       >
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<PrivateRoute />}>
-              <Route path="/*" element={<AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />} />
+              <Route element={<AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />}>
+                <Route path="/" element={<Navigate to="/home" replace />} />
+                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+                <Route index path="home" element={<Home />} />
+                <Route path="movements" element={<Movements />} />
+                <Route path="persons" element={<Persons />} />
+                <Route path="contacts" element={<Contacts />} />
+                <Route path="users" element={<Users />} />
+                <Route path="system-status" element={<SystemStatus />} />
+                <Route path="installments" element={<Installments />} />
+              </Route>
             </Route>
           </Routes>
-          
           <AIAssistant />
           <ToastContainer 
             position="top-right"

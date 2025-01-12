@@ -77,7 +77,12 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="persons/new" element={<Suspense fallback={<Loading />}><PersonForm /></Suspense>} />
         <Route path="persons/import-cnpj" element={<Suspense fallback={<Loading />}><ImportCNPJ /></Suspense>} />
         <Route path="users" element={<Suspense fallback={<Loading />}><Users /></Suspense>} />
-        <Route path="installments" element={<Suspense fallback={<Loading />}><Installments /></Suspense>} />
+        <Route path="installments" element={
+          <Suspense fallback={<Loading />}>
+            {console.log('🚨 ROUTES: Renderizando Installments')}
+            <Installments />
+          </Suspense>
+        } />
         <Route path="receivables" element={<Suspense fallback={<Loading />}><Receivables /></Suspense>} />
         <Route path="system/status" element={<Suspense fallback={<Loading />}><SystemStatus /></Suspense>} />
         <Route path="contacts" element={<Suspense fallback={<Loading />}><Contacts /></Suspense>} />

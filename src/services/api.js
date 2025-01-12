@@ -162,53 +162,21 @@ api.interceptors.response.use(
 export const authService = {
   async login(username, password) {
     try {
-      console.log('Tentando login com:', { username });
       const response = await api.post('/auth/login', { username, password });
       
-      console.log('Resposta completa:', response);
-      console.log('Dados da resposta:', response.data);
-      
-      if (!response.data) {
-        console.error('Resposta sem dados:', response);
-        throw new Error('Resposta inválida do servidor');
-      }
-
-      // Verifica se os tokens estão na resposta
-      const accessToken = response.data.accessToken;
-      const refreshToken = response.data.refreshToken;
-      const userData = response.data.user || {};
-
-      console.log('Tokens encontrados:', { 
-        accessToken: accessToken ? 'presente' : 'ausente',
-        refreshToken: refreshToken ? 'presente' : 'ausente'
-      });
+      const { accessToken, refreshToken, user } = response.data;
 
       if (!accessToken) {
-        console.error('Estrutura da resposta:', response.data);
-        throw new Error('Token de acesso não encontrado na resposta');
+        throw new Error('Token de acesso não encontrado');
       }
-
-      // Padronizar dados do usuário
-      const formattedUserData = {
-        id: userData.id,
-        username: userData.username,
-        name: userData.name || userData.username,
-        email: userData.email,
-        roles: userData.roles || [],
-        permissions: userData.permissions || []
-      };
 
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('userData', JSON.stringify(formattedUserData));
+      localStorage.setItem('user', JSON.stringify(user));
 
-      return formattedUserData;
+      return user;
     } catch (error) {
-      console.error('[POST] /auth/login - Erro detalhado:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      console.error('Erro no login:', error.response?.data || error.message);
       throw error;
     }
   },
@@ -220,14 +188,58 @@ export const authService = {
   },
 
   getCurrentUser() {
-    const userData = localStorage.getItem('userData');
-    return userData ? JSON.parse(userData) : null;
+    const userString = localStorage.getItem('user');
+    
+    if (userString) {
+      try {
+        const userData = JSON.parse(userString);
+        console.log('Dados do usuário recuperados:', userData);
+        return userData;
+      } catch (error) {
+        console.error('Erro ao parsear dados do usuário:', error);
+        return null;
+      }
+    }
+    
+    return null;
   },
 
   isAuthenticated() {
     const accessToken = localStorage.getItem('accessToken');
-    return !!accessToken;
-  }
+    const refreshToken = localStorage.getItem('refreshToken');
+    const user = localStorage.getItem('user');
+
+    console.log('Verificando autenticação:', {
+      accessToken: !!accessToken,
+      refreshToken: !!refreshToken,
+      user: !!user
+    });
+
+    if (!accessToken || !refreshToken || !user) {
+      console.log('Não autenticado: tokens ou usuário ausentes');
+      return false;
+    }
+
+    try {
+      const decodedToken = jwtDecode(accessToken);
+      const currentTime = Date.now() / 1000; // Converter para segundos
+
+      console.log('Token info:', {
+        expiration: decodedToken.exp,
+        currentTime: currentTime
+      });
+
+      if (decodedToken.exp < currentTime) {
+        console.log('Token expirado');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar token:', error);
+      return false;
+    }
+  },
 };
 
 export const movementsService = {
@@ -440,71 +452,30 @@ export const movementsService = {
 };
 
 export const installmentsService = {
-  list(params = {}) {
-    return api.get('/installments/details', { params })
-      .then(response => {
-        console.log('Resposta completa do serviço de installments:', response);
-        console.log('Dados da resposta:', response.data);
-        return response.data;
-      })
+  list: async (params = {}) => {
+    const defaultParams = {
+      page: 1,
+      limit: 10,
+      include: 'boletos'
+    };
+    
+    const mergedParams = { ...defaultParams, ...params };
+    
+    return api.get('/installments', { params: mergedParams })
+      .then(response => response.data)
       .catch(error => {
-        console.error('Erro ao buscar installments:', error);
-        console.error('Detalhes do erro:', {
+        console.error('🚨 INSTALLMENTS SERVICE: ERRO DETALHADO', {
           message: error.message,
-          status: error.response?.status,
-          data: error.response?.data
+          response: error.response?.data,
+          status: error.response?.status
         });
         throw error;
       });
   },
-  get(id) {
-    return api.get(`/installments/details/${id}`).then(response => response.data);
-  },
-  updateDueDate(id, { due_date, amount }) {
-    console.log('Payload para atualização de data:', { 
-      id, 
-      due_date, 
-      amount 
-    });
-    return api.patch(`/installments/${id}/due-date`, { 
-      due_date: due_date,
-      amount: amount
-    })
-    .then(response => {
-      console.log('Resposta da atualização de data:', response);
-      return response.data;
-    })
-    .catch(error => {
-      console.error('Erro ao atualizar data de vencimento:', error);
-      console.error('Detalhes do erro:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      throw error;
-    });
-  },
-  confirmPayment(paymentData) {
-    return api.put(`/installments/${paymentData.installment_id}/payment`, paymentData).then(response => response.data);
-  },
-  // Novo método para geração de boleto
-  generateBoleto(installmentId) {
-    console.log('Tentando gerar boleto para installment_id:', installmentId);
-    return api.post('/boletos', { installment_id: installmentId })
-      .then(response => {
-        console.log('Resposta da API de boletos:', response);
-        return response;
-      })
-      .catch(error => {
-        console.error('Erro na API de boletos:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-          headers: error.response?.headers
-        });
-        throw error; // Propaga o erro para o chamador
-      });
-  }
+  get: (id) => api.get(`/installments/${id}`).then(response => response.data),
+  updateDueDate: (id, { due_date, amount }) => api.patch(`/installments/${id}/due-date`, { due_date, amount }),
+  confirmPayment: (paymentData) => api.post('/installments/confirm-payment', paymentData),
+  generateBoleto: (installmentId) => api.post(`/installments/${installmentId}/generate-boleto`),
 };
 
 export const personsService = {

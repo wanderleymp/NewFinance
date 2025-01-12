@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { styled, useTheme } from '@mui/material/styles';
 import {
@@ -19,7 +19,8 @@ import {
   Collapse,
   Badge,
   Tooltip,
-  Avatar
+  Avatar,
+  CssBaseline,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -50,6 +51,15 @@ import { useSnackbar } from 'notistack';
 import { healthService, authService } from '../services/api';
 import Logo from './Logo';
 
+console.error('🚨 DIAGNÓSTICO CRÍTICO: VERIFICANDO RENDERIZAÇÃO DO DASHBOARD');
+console.error('🚨 PATHNAME ATUAL:', window.location.pathname);
+console.error('🚨 ROTA ATUAL:', window.location.href);
+
+window.debugDashboard = {
+  log: (message) => console.error(`🚨 DEBUG DASHBOARD: ${message}`),
+  outletProps: null
+};
+
 const drawerWidth = 240;
 
 const AppBar = styled(MuiAppBar, {
@@ -78,7 +88,26 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-export default function Dashboard({ darkMode, setDarkMode }) {
+const Main = styled('main', {
+  shouldForwardProp: (prop) => prop !== 'open',
+})(({ theme, open }) => ({
+  flexGrow: 1,
+  p: 3,
+  transition: theme.transitions.create('margin', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  marginLeft: `-${drawerWidth}px`,
+  ...(open && {
+    transition: theme.transitions.create('margin', {
+      easing: theme.transitions.easing.easeOut,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+    marginLeft: 0,
+  }),
+}));
+
+export default function Dashboard({ darkMode, setDarkMode, children }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,6 +119,25 @@ export default function Dashboard({ darkMode, setDarkMode }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
+
+  console.log('Dashboard - Usuário:', user);
+  console.log('Dashboard - Filhos recebidos:', children);
+
+  useEffect(() => {
+    console.log('Dashboard - Efeito inicial');
+    console.log('Dashboard - Localização atual:', location);
+    console.log('Dashboard - Usuário atual:', user);
+    
+    // Verificar autenticação e navegação
+    if (!authService.isAuthenticated()) {
+      console.warn('Usuário não autenticado, redirecionando para login');
+      navigate('/login');
+      return;
+    }
+
+    // Log de navegação
+    console.log('Dashboard - Rota atual:', location.pathname);
+  }, [location, navigate, user]);
 
   const handleDrawerToggle = () => {
     setOpenDrawer(!openDrawer);
@@ -320,8 +368,17 @@ export default function Dashboard({ darkMode, setDarkMode }) {
     );
   };
 
+  const renderOutlet = () => {
+    console.log('🚨 DASHBOARD: Renderizando Outlet');
+    return children || <Outlet />;
+  };
+
+  window.debugDashboard.outletProps = children;
+  console.error('🚨 DEBUG DASHBOARD: OUTLET PROPS', window.debugDashboard.outletProps);
+
   return (
-    <Box sx={{ display: 'flex' }}>
+    <div className={`dashboard ${darkMode ? 'dark-mode' : ''}`}>
+      <CssBaseline />
       <AppBar position="fixed" open={openDrawer}>
         <Toolbar>
           <IconButton
@@ -404,9 +461,8 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           </Box>
         </Toolbar>
       </AppBar>
+      
       <Drawer
-        variant="permanent"
-        open={openDrawer}
         sx={{
           width: drawerWidth,
           flexShrink: 0,
@@ -415,6 +471,9 @@ export default function Dashboard({ darkMode, setDarkMode }) {
             boxSizing: 'border-box',
           },
         }}
+        variant="persistent"
+        anchor="left"
+        open={openDrawer}
       >
         <DrawerHeader>
           <IconButton onClick={handleDrawerToggle}>
@@ -426,6 +485,13 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           {menuItems.map(renderMenuItem)}
         </List>
       </Drawer>
+      
+      <div className="dashboard-content">
+        <DrawerHeader />
+        {console.log('🚨 Dashboard Outlet Children:', children)}
+        {renderOutlet()}
+        {console.log('🚨 Dashboard Outlet Renderizado')}
+      </div>
 
       <Menu
         anchorEl={menuAnchorEl}
@@ -439,18 +505,6 @@ export default function Dashboard({ darkMode, setDarkMode }) {
           <ListItemText>Limpar Cache</ListItemText>
         </MenuItem>
       </Menu>
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-        }}
-      >
-        <DrawerHeader />
-        <Outlet />
-      </Box>
-    </Box>
+    </div>
   );
 }
