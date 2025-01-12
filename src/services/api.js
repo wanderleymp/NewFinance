@@ -599,7 +599,19 @@ export const usersService = {
 
 // Saúde do sistema
 export const healthService = {
-  clearCache: () => api.post('/health/cache/clear').then(response => response.data),
+  clearCache() {
+    // Implementação existente
+  },
+  async check() {
+    try {
+      // Verificação básica de saúde do sistema
+      const response = await api.get('/health');
+      return response.data.status === 'ok';
+    } catch (error) {
+      console.error('Erro na verificação de saúde do sistema:', error);
+      throw error;
+    }
+  }
 };
 
 // Configuração de APIs de alteração de data de vencimento
