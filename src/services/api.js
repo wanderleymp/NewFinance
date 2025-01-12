@@ -390,6 +390,16 @@ export const movementsService = {
     }
   },
 
+  // Método para cancelar um movimento
+  async cancel(movementId) {
+    return api.post(`/movements/${movementId}/cancel`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Erro ao cancelar movimento ${movementId}:`, error);
+        throw error;
+      });
+  },
+
   // Novo método para emitir boleto para um movimento
   async generateBoleto(movementId) {
     try {

@@ -305,6 +305,7 @@ const MovementRow = ({ movement }) => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [open, setOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   const status = movement.status_name || 'Rascunho';
   const statusId = movement.movement_status_id || 1;
@@ -371,6 +372,20 @@ const MovementRow = ({ movement }) => {
     } catch (error) {
       console.error('Erro ao excluir movimento:', error);
       enqueueSnackbar('Erro ao excluir movimento', { variant: 'error' });
+    }
+  };
+
+  const handleCancelMovement = async () => {
+    try {
+      await movementsService.cancel(movement.movement_id);
+      enqueueSnackbar('Movimento cancelado com sucesso!', { variant: 'success' });
+      setConfirmCancelOpen(false);
+      // Recarregar a página ou atualizar a lista de movimentos
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao cancelar movimento:', error);
+      enqueueSnackbar('Erro ao cancelar movimento: ' + error.message, { variant: 'error' });
+      setConfirmCancelOpen(false);
     }
   };
 
@@ -463,6 +478,7 @@ const MovementRow = ({ movement }) => {
                   color="error"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setConfirmCancelOpen(true);
                   }}
                 >
                   <CancelIcon fontSize="small" />
@@ -573,130 +589,9 @@ const MovementRow = ({ movement }) => {
         </TableCell>
       </TableRow>
 
-      {/* Diálogo de Compartilhamento */}
-      {/* <Dialog 
-        open={shareDialogOpen} 
-        onClose={() => setShareDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Compartilhar Boleto</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Selecione os contatos</InputLabel>
-            <Select
-              multiple
-              value={selectedContacts}
-              onChange={(e) => setSelectedContacts(e.target.value)}
-              input={<OutlinedInput label="Selecione os contatos" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip 
-                      key={value} 
-                      label={contacts.find(c => c.person_id === value)?.name} 
-                      size="small" 
-                    />
-                  ))}
-                </Box>
-              )}
-            >
-              {contacts.map((contact) => (
-                <MenuItem key={contact.person_id} value={contact.person_id}>
-                  {contact.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShareDialogOpen(false)}>Cancelar</Button>
-          <Button 
-            onClick={handleShare} 
-            variant="contained"
-            disabled={!selectedContacts?.length}
-          >
-            Compartilhar
-          </Button>
-        </DialogActions>
-      </Dialog> */}
-
-      {/* Diálogo de Detalhes do Boleto */}
-      {/* <Dialog 
-        open={boletoDialogOpen} 
-        onClose={() => setBoletoDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Detalhes do Boleto</DialogTitle>
-        <DialogContent>
-          {selectedBoleto && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="subtitle2">Linha Digitável:</Typography>
-                <Typography>{selectedBoleto.linha_digitavel}</Typography>
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleCopyToClipboard(
-                    selectedBoleto.linha_digitavel,
-                    'Linha digitável copiada!'
-                  )}
-                >
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="subtitle2">Código de Barras:</Typography>
-                <Typography>{selectedBoleto.codigo_barras}</Typography>
-                <IconButton 
-                  size="small"
-                  onClick={() => handleCopyToClipboard(
-                    selectedBoleto.codigo_barras,
-                    'Código de barras copiado!'
-                  )}
-                >
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton>
-              </Box>
-
-              {selectedBoleto.pix_copia_e_cola && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="subtitle2">PIX Copia e Cola:</Typography>
-                  <Typography noWrap sx={{ flex: 1 }}>
-                    {selectedBoleto.pix_copia_e_cola}
-                  </Typography>
-                  <IconButton 
-                    size="small"
-                    onClick={() => handleCopyToClipboard(
-                      selectedBoleto.pix_copia_e_cola,
-                      'Código PIX copiado!'
-                    )}
-                  >
-                    <ContentCopyIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBoletoDialogOpen(false)}>Fechar</Button>
-          {selectedBoleto?.boleto_url && (
-            <Button 
-              variant="contained"
-              onClick={() => window.open(selectedBoleto.boleto_url, '_blank')}
-              startIcon={<DescriptionIcon />}
-            >
-              Abrir PDF
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog> */}
-
-      {/* Diálogo de Confirmação de Cancelamento */}
-      {/* <Dialog 
-        open={confirmCancelOpen} 
+      {/* Diálogo de confirmação de cancelamento */}
+      <Dialog
+        open={confirmCancelOpen}
         onClose={() => setConfirmCancelOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -714,10 +609,10 @@ const MovementRow = ({ movement }) => {
             variant="contained"
             color="error"
           >
-            Cancelar Movimentação
+            Confirmar Cancelamento
           </Button>
         </DialogActions>
-      </Dialog> */}
+      </Dialog>
     </>
   );
 };
