@@ -1,5 +1,5 @@
 // DIAGNÓSTICO CRÍTICO
-console.error('🚨 DIAGNÓSTICO CRÍTICO: MÓDULO INSTALLMENTS CARREGADO');
+// console.error('🚨 DIAGNÓSTICO CRÍTICO: MÓDULO INSTALLMENTS CARREGADO');
 window.debugInstallments = {
   log: (message) => console.error(`🚨 DEBUG INSTALLMENTS: ${message}`),
   state: {}
@@ -70,7 +70,7 @@ import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay } 
 import axios from 'axios';
 
 // Adicionar log de diagnóstico global
-console.error('🚨 INSTALLMENTS MODULE LOADED GLOBALLY');
+// console.error('🚨 INSTALLMENTS MODULE LOADED GLOBALLY');
 
 // Forçar log de diagnóstico
 window.debugInstallments.log('Importações carregadas');
@@ -109,7 +109,7 @@ const safeFormatDate = (date) => {
 
 export default function Installments() {
   // Logs de diagnóstico crítico
-  console.error('🚨 INSTALLMENTS: COMPONENTE INICIADO');
+  // console.error('🚨 INSTALLMENTS: COMPONENTE INICIADO');
   window.debugInstallments.log('Componente iniciado');
   
   const { enqueueSnackbar } = useSnackbar();
@@ -145,42 +145,42 @@ export default function Installments() {
   const [juros, setJuros] = useState('0');
   const [descontos, setDescontos] = useState('0');
 
-  console.group('Installments - Inicialização');
-  console.log('Estado inicial:', {
-    installments,
-    page,
-    rowsPerPage,
-    startDate,
-    endDate,
-    status,
-    fullNameFilter,
-    loading,
-    error,
-    filtersVisible,
-    shareAnchorEl,
-    selectedInstallment,
-    selectedInstallments,
-    editDueDateDialogOpen,
-    selectedInstallmentForDueDateEdit,
-    newDueDate,
-    newAmount,
-    paymentDialogOpen,
-    selectedInstallmentForPayment,
-    paymentValue,
-    paymentDate,
-    isUpdatingDueDate,
-    isNotifyingSelected,
-    updateBoletoWithFees,
-    updateBoletoOnly,
-    bankId,
-    juros,
-    descontos
-  });
-  console.groupEnd();
+  // console.group('Installments - Inicialização');
+  // console.log('Estado inicial:', {
+  //   installments,
+  //   page,
+  //   rowsPerPage,
+  //   startDate,
+  //   endDate,
+  //   status,
+  //   fullNameFilter,
+  //   loading,
+  //   error,
+  //   filtersVisible,
+  //   shareAnchorEl,
+  //   selectedInstallment,
+  //   selectedInstallments,
+  //   editDueDateDialogOpen,
+  //   selectedInstallmentForDueDateEdit,
+  //   newDueDate,
+  //   newAmount,
+  //   paymentDialogOpen,
+  //   selectedInstallmentForPayment,
+  //   paymentValue,
+  //   paymentDate,
+  //   isUpdatingDueDate,
+  //   isNotifyingSelected,
+  //   updateBoletoWithFees,
+  //   updateBoletoOnly,
+  //   bankId,
+  //   juros,
+  //   descontos
+  // });
+  // console.groupEnd();
 
   // Log de diagnóstico adicional
   useEffect(() => {
-    console.error('🚨 INSTALLMENTS COMPONENT MOUNTED');
+    // console.error('🚨 INSTALLMENTS COMPONENT MOUNTED');
   }, []);
 
   const statusOptions = [
@@ -191,11 +191,11 @@ export default function Installments() {
 
   // Função de cálculo de juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
-    console.log('Calculando juros e multa:', {
-      originalDueDate,
-      newDueDate,
-      originalBalance
-    });
+    // console.log('Calculando juros e multa:', {
+    //   originalDueDate,
+    //   newDueDate,
+    //   originalBalance
+    // });
     // Calcular dias de atraso
     const daysOverdue = differenceInDays(newDueDate, originalDueDate);
 
@@ -215,27 +215,27 @@ export default function Installments() {
     // Calcular novo valor
     const newBalance = originalBalance + interest + penalty;
 
-    console.log('Resultado do cálculo:', {
-      daysOverdue,
-      monthsOverdue,
-      interest,
-      penalty,
-      newBalance
-    });
+    // console.log('Resultado do cálculo:', {
+    //   daysOverdue,
+    //   monthsOverdue,
+    //   interest,
+    //   penalty,
+    //   newBalance
+    // });
 
     return newBalance;
   }, []);
 
   const loadInstallments = useCallback(async () => {
-    console.group('Installments - Carregamento de Parcelas');
-    console.log('Parâmetros da busca:', {
-      page: page + 1,
-      limit: rowsPerPage,
-      ...(startDate && { startDate: formatISO(startDate, { representation: 'date' }) }),
-      ...(endDate && { endDate: formatISO(endDate, { representation: 'date' }) }),
-      ...(status && { status }),
-      ...(fullNameFilter && { fullName: fullNameFilter }),
-    });
+    // console.group('Installments - Carregamento de Parcelas');
+    // console.log('Parâmetros da busca:', {
+    //   page: page + 1,
+    //   limit: rowsPerPage,
+    //   ...(startDate && { startDate: formatISO(startDate, { representation: 'date' }) }),
+    //   ...(endDate && { endDate: formatISO(endDate, { representation: 'date' }) }),
+    //   ...(status && { status }),
+    //   ...(fullNameFilter && { fullName: fullNameFilter }),
+    // });
 
     try {
       setLoading(true);
@@ -250,48 +250,48 @@ export default function Installments() {
         ...(fullNameFilter && { fullName: fullNameFilter }),
       };
 
-      console.log('Enviando parâmetros para a API:', params);
+      // console.log('Enviando parâmetros para a API:', params);
 
       const installmentsData = await installmentsService.list(params);
 
-      console.log('Dados de installments recebidos:', installmentsData);
+      // console.log('Dados de installments recebidos:', installmentsData);
 
       if (installmentsData && installmentsData.items && installmentsData.items.length > 0) {
         setInstallments(installmentsData);
-        console.log('Parcelas carregadas com sucesso:', installmentsData.items.length);
+        // console.log('Parcelas carregadas com sucesso:', installmentsData.items.length);
       } else {
-        console.warn('Nenhuma parcela encontrada ou dados inválidos');
+        // console.warn('Nenhuma parcela encontrada ou dados inválidos');
         setInstallments({ items: [], total: 0 });
       }
     } catch (error) {
-      console.error('Erro ao carregar parcelas:', error);
+      // console.error('Erro ao carregar parcelas:', error);
       setError(error);
       setInstallments({ items: [], total: 0 });
       enqueueSnackbar('Erro ao carregar parcelas', { variant: 'error' });
     } finally {
       setLoading(false);
-      console.groupEnd();
+      // console.groupEnd();
     }
   }, [page, rowsPerPage, startDate, endDate, status, fullNameFilter, enqueueSnackbar]);
 
   useEffect(() => {
-    console.log('Efeito de busca de parcelas disparado');
+    // console.log('Efeito de busca de parcelas disparado');
     loadInstallments();
   }, [loadInstallments]);
 
   const handleChangePage = (event, newPage) => {
-    console.log('Mudança de página:', newPage);
+    // console.log('Mudança de página:', newPage);
     setPage(newPage);
   };
 
   const handleChangeRowsPerPage = (event) => {
-    console.log('Mudança de quantidade de linhas por página:', event.target.value);
+    // console.log('Mudança de quantidade de linhas por página:', event.target.value);
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
   const calculateInstallmentsSummary = useCallback((installmentsData) => {
-    console.log('Calculando resumo de parcelas:', installmentsData);
+    // console.log('Calculando resumo de parcelas:', installmentsData);
     let totalReceivable = 0;
     let totalReceived = 0;
     let totalOverdue = 0;
@@ -311,11 +311,11 @@ export default function Installments() {
       }
     });
 
-    console.log('Resultado do resumo:', {
-      totalReceivable,
-      totalReceived,
-      totalOverdue
-    });
+    // console.log('Resultado do resumo:', {
+    //   totalReceivable,
+    //   totalReceived,
+    //   totalOverdue
+    // });
 
     return {
       totalReceivable,
@@ -325,12 +325,12 @@ export default function Installments() {
   }, []);
 
   const installmentsSummary = useMemo(() => {
-    console.log('Calculando resumo de parcelas:', installments.items);
+    // console.log('Calculando resumo de parcelas:', installments.items);
     return calculateInstallmentsSummary(installments.items);
   }, [installments.items]);
 
   const handleSelectAllInstallments = (event) => {
-    console.log('Seleção de todas as parcelas:', event.target.checked);
+    // console.log('Seleção de todas as parcelas:', event.target.checked);
     if (event.target.checked) {
       const allInstallmentIds = installments.items.map(item => item.installment_id);
       setSelectedInstallments(allInstallmentIds);
@@ -340,7 +340,7 @@ export default function Installments() {
   };
 
   const handleSelectInstallment = (installmentId) => {
-    console.log('Seleção de parcela:', installmentId);
+    // console.log('Seleção de parcela:', installmentId);
     setSelectedInstallments(prev => 
       prev.includes(installmentId)
         ? prev.filter(id => id !== installmentId)
@@ -349,7 +349,7 @@ export default function Installments() {
   };
 
   const handleNotifySelectedInstallments = async () => {
-    console.log('Notificação de parcelas selecionadas:', selectedInstallments);
+    // console.log('Notificação de parcelas selecionadas:', selectedInstallments);
     if (selectedInstallments.length === 0) {
       enqueueSnackbar('Nenhuma parcela selecionada', { variant: 'warning' });
       return;
@@ -383,7 +383,7 @@ export default function Installments() {
       
       setSelectedInstallments([]); // Limpa seleção após notificação
     } catch (error) {
-      console.error('Erro ao enviar notificações:', error);
+      // console.error('Erro ao enviar notificações:', error);
       enqueueSnackbar('Erro ao enviar notificações', { variant: 'error' });
     } finally {
       setIsNotifyingSelected(false);
@@ -391,17 +391,17 @@ export default function Installments() {
   };
 
   const handleGenerateBoleto = useCallback(async (installment) => {
-    console.log('Geração de boleto:', installment);
+    // console.log('Geração de boleto:', installment);
     try {
       // Chamar serviço de geração de boleto
       const response = await installmentsService.generateBoleto(installment.installment_id);
       
       // Log detalhado da resposta
-      console.log('Resposta da geração de boleto:', {
-        status: response.status,
-        data: response.data,
-        headers: response.headers
-      });
+      // console.log('Resposta da geração de boleto:', {
+      //   status: response.status,
+      //   data: response.data,
+      //   headers: response.headers
+      // });
       
       enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
       
@@ -409,13 +409,13 @@ export default function Installments() {
       loadInstallments();
     } catch (error) {
       // Log detalhado do erro
-      console.error('Erro completo ao gerar boleto:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-        config: error.config
-      });
+      // console.error('Erro completo ao gerar boleto:', {
+      //   message: error.message,
+      //   response: error.response?.data,
+      //   status: error.response?.status,
+      //   headers: error.response?.headers,
+      //   config: error.config
+      // });
 
       // Tentar extrair mensagem de erro mais detalhada
       const errorMessage = 
@@ -431,7 +431,7 @@ export default function Installments() {
   }, [enqueueSnackbar, loadInstallments]);
 
   const handleEditDueDate = useCallback((installment) => {
-    console.log('Edição de data de vencimento:', installment);
+    // console.log('Edição de data de vencimento:', installment);
     if (installment) {
       // Definir estados iniciais
       setSelectedInstallmentForDueDateEdit(installment);
@@ -462,13 +462,13 @@ export default function Installments() {
   }, [calculateInterestAndPenalty]);
 
   const handleUpdateDueDate = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
-    console.log('Atualização de data de vencimento:', {
-      installmentId,
-      newDueDate,
-      newAmount,
-      updateBoletoWithFees,
-      updateBoletoOnly
-    });
+    // console.log('Atualização de data de vencimento:', {
+    //   installmentId,
+    //   newDueDate,
+    //   newAmount,
+    //   updateBoletoWithFees,
+    //   updateBoletoOnly
+    // });
     try {
       // Ativa o estado de carregamento
       setIsUpdatingDueDate(true);
@@ -476,19 +476,19 @@ export default function Installments() {
       // Converte a data para o formato ISO
       const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
 
-      console.log('Iniciando atualização de data de vencimento:', { 
-        installmentId, 
-        newDueDate: formattedDueDate, 
-        newAmount,
-        updateBoletoWithFees,
-        updateBoletoOnly,
-        apiSource: 'N8N' 
-      });
+      // console.log('Iniciando atualização de data de vencimento:', { 
+      //   installmentId, 
+      //   newDueDate: formattedDueDate, 
+      //   newAmount,
+      //   updateBoletoWithFees,
+      //   updateBoletoOnly,
+      //   apiSource: 'N8N' 
+      // });
 
       // Usa N8N como API principal para este submite específico
       const result = await updateInstallmentDueDate(installmentId, formattedDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly, 'N8N');
       
-      console.log('Resultado da atualização de data de vencimento:', result);
+      // console.log('Resultado da atualização de data de vencimento:', result);
 
       // Atualiza o estado local ou mostra feedback
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
@@ -499,11 +499,11 @@ export default function Installments() {
       // Fecha o modal de edição de data
       setEditDueDateDialogOpen(false);
     } catch (error) {
-      console.error('Erro detalhado ao atualizar data de vencimento:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      // console.error('Erro detalhado ao atualizar data de vencimento:', {
+      //   message: error.message,
+      //   response: error.response?.data,
+      //   status: error.response?.status
+      // });
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
     } finally {
       // Desativa o estado de carregamento
@@ -512,7 +512,7 @@ export default function Installments() {
   };
 
   const handleOpenPaymentDialog = (installment) => {
-    console.log('Abertura de diálogo de pagamento:', installment);
+    // console.log('Abertura de diálogo de pagamento:', installment);
     // Só abre para status Pendente
     if (installment.status !== 'Pendente') return;
 
@@ -522,11 +522,11 @@ export default function Installments() {
   };
 
   const handleConfirmPayment = async () => {
-    console.log('Confirmação de pagamento:', {
-      selectedInstallmentForPayment,
-      paymentValue,
-      paymentDate
-    });
+    // console.log('Confirmação de pagamento:', {
+    //   selectedInstallmentForPayment,
+    //   paymentValue,
+    //   paymentDate
+    // });
     if (!selectedInstallmentForPayment) return;
 
     try {
@@ -545,7 +545,7 @@ export default function Installments() {
         date: formatISO(paymentDate, { representation: 'date' })
       };
 
-      console.log('Payload de pagamento:', paymentData);
+      // console.log('Payload de pagamento:', paymentData);
 
       // Chamar serviço de pagamento
       await installmentsService.confirmPayment(paymentData);
@@ -554,7 +554,7 @@ export default function Installments() {
       loadInstallments();
       setPaymentDialogOpen(false);
     } catch (error) {
-      console.error('Erro ao confirmar pagamento:', error);
+      // console.error('Erro ao confirmar pagamento:', error);
       enqueueSnackbar('Erro ao confirmar pagamento', { variant: 'error' });
     } finally {
       // Limpar estados
@@ -565,7 +565,7 @@ export default function Installments() {
   };
 
   const getQuickDateRanges = () => {
-    console.log('Obtendo faixas de datas rápidas');
+    // console.log('Obtendo faixas de datas rápidas');
     const today = new Date();
     return [
       {
@@ -597,13 +597,13 @@ export default function Installments() {
   };
 
   const handleQuickDateFilter = (range) => {
-    console.log('Aplicando filtro de data rápida:', range);
+    // console.log('Aplicando filtro de data rápida:', range);
     setStartDate(range.startDate);
     setEndDate(range.endDate);
   };
 
   const renderBoletoStatus = (status) => {
-    console.log('Renderizando status de boleto:', status);
+    // console.log('Renderizando status de boleto:', status);
     const statusColors = {
       'A_RECEBER': 'info',
       'EXPIRADO': 'error',
@@ -617,7 +617,7 @@ export default function Installments() {
   };
 
   const formatDateDisplay = (dateString) => {
-    console.log('Formatando data para exibição:', dateString);
+    // console.log('Formatando data para exibição:', dateString);
     if (!dateString) return '';
     
     // Extrai apenas a parte da data sem conversão
@@ -635,7 +635,7 @@ export default function Installments() {
   };
 
   const renderInstallmentStatus = (status) => {
-    console.log('Renderizando status de parcela:', status);
+    // console.log('Renderizando status de parcela:', status);
     const statusColors = {
       'Pendente': 'warning',
       'Pago': 'success'
@@ -648,7 +648,7 @@ export default function Installments() {
   };
 
   const handleNotifyInstallment = async (installment) => {
-    console.log('Notificando parcela:', installment);
+    // console.log('Notificando parcela:', installment);
     // Cria um estado de processamento específico para este installment
     const updatedInstallments = installments.items.map(item => 
       item.installment_id === installment.installment_id 
@@ -678,7 +678,7 @@ export default function Installments() {
 
       enqueueSnackbar('Notificação enviada com sucesso!', { variant: 'success' });
     } catch (error) {
-      console.error('Erro ao enviar notificação:', error);
+      // console.error('Erro ao enviar notificação:', error);
       enqueueSnackbar('Erro ao enviar notificação', { variant: 'error' });
     } finally {
       // Remove o estado de processamento
@@ -696,29 +696,29 @@ export default function Installments() {
   };
 
   const handleShareClick = (event, installment = null) => {
-    console.log('Clicando no botão de compartilhamento:', event, installment);
+    // console.log('Clicando no botão de compartilhamento:', event, installment);
     setShareAnchorEl(event.currentTarget);
     setSelectedInstallment(installment);
   };
 
   const handleShareClose = () => {
-    console.log('Fechando o menu de compartilhamento');
+    // console.log('Fechando o menu de compartilhamento');
     setShareAnchorEl(null);
     setSelectedInstallment(null);
   };
 
   const handleWhatsAppShare = () => {
-    console.log('Compartilhando via WhatsApp');
+    // console.log('Compartilhando via WhatsApp');
     handleShareClose();
   };
 
   const handleEmailShare = () => {
-    console.log('Compartilhando via Email');
+    // console.log('Compartilhando via Email');
     handleShareClose();
   };
 
   const normalizeCurrencyValue = (value) => {
-    console.log('Normalizando valor de moeda:', value);
+    // console.log('Normalizando valor de moeda:', value);
     // Se já for um número com casas decimais, retorna como está
     if (typeof value === 'number') {
       return value;
@@ -737,7 +737,7 @@ export default function Installments() {
   };
 
   const formatCurrency = (value) => {
-    console.log('Formatando valor de moeda:', value);
+    // console.log('Formatando valor de moeda:', value);
     // Normaliza o valor primeiro
     const normalizedValue = normalizeCurrencyValue(value);
     
@@ -749,7 +749,7 @@ export default function Installments() {
   };
 
   const convertBRLToNumber = (value) => {
-    console.log('Convertendo valor de BRL para número:', value);
+    // console.log('Convertendo valor de BRL para número:', value);
     // Remove pontos de milhar
     const cleanValue = value.replace(/\./g, '')
       // Substitui vírgula por ponto
@@ -759,11 +759,11 @@ export default function Installments() {
     const result = parseFloat(parseFloat(cleanValue).toFixed(2));
     
     // Log detalhado
-    console.log('Conversão de valor:', {
-      original: value,
-      cleaned: cleanValue,
-      result: result
-    });
+    // console.log('Conversão de valor:', {
+    //   original: value,
+    //   cleaned: cleanValue,
+    //   result: result
+    // });
 
     return result;
   };
@@ -777,13 +777,13 @@ export default function Installments() {
     );
 
   const handleUpdateDueDateWithInterestAndPenalty = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
-    console.log('Atualizando data de vencimento com juros e multa:', {
-      installmentId,
-      newDueDate,
-      newAmount,
-      updateBoletoWithFees,
-      updateBoletoOnly
-    });
+    // console.log('Atualizando data de vencimento com juros e multa:', {
+    //   installmentId,
+    //   newDueDate,
+    //   newAmount,
+    //   updateBoletoWithFees,
+    //   updateBoletoOnly
+    // });
     try {
       // Ativa o estado de carregamento
       setIsUpdatingDueDate(true);
@@ -791,14 +791,14 @@ export default function Installments() {
       // Converte a data para o formato ISO
       const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
 
-      console.log('Iniciando atualização de data de vencimento:', { 
-        installmentId, 
-        newDueDate: formattedDueDate, 
-        newAmount,
-        updateBoletoWithFees,
-        updateBoletoOnly,
-        apiSource: 'N8N' 
-      });
+      // console.log('Iniciando atualização de data de vencimento:', { 
+      //   installmentId, 
+      //   newDueDate: formattedDueDate, 
+      //   newAmount,
+      //   updateBoletoWithFees,
+      //   updateBoletoOnly,
+      //   apiSource: 'N8N' 
+      // });
 
       // Usa N8N como API principal para este submite específico
       const result = await updateInstallmentDueDate(
@@ -814,7 +814,7 @@ export default function Installments() {
         }
       );
       
-      console.log('Resultado da atualização de data de vencimento:', result);
+      // console.log('Resultado da atualização de data de vencimento:', result);
 
       // Atualiza o estado local ou mostra feedback
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
@@ -825,11 +825,11 @@ export default function Installments() {
       // Fecha o modal de edição de data
       setEditDueDateDialogOpen(false);
     } catch (error) {
-      console.error('Erro detalhado ao atualizar data de vencimento:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      // console.error('Erro detalhado ao atualizar data de vencimento:', {
+      //   message: error.message,
+      //   response: error.response?.data,
+      //   status: error.response?.status
+      // });
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
     } finally {
       // Desativa o estado de carregamento
@@ -1269,7 +1269,7 @@ export default function Installments() {
       <Dialog
         open={editDueDateDialogOpen}
         onClose={() => {
-          console.log('Fechando modal de edição de data de vencimento');
+          // console.log('Fechando modal de edição de data de vencimento');
           setEditDueDateDialogOpen(false);
         }}
         fullWidth
@@ -1317,7 +1317,7 @@ export default function Installments() {
                   label="Nova Data de Vencimento"
                   value={newDueDate}
                   onChange={(newValue) => {
-                    console.log('Nova data selecionada:', newValue);
+                    // console.log('Nova data selecionada:', newValue);
                     setNewDueDate(newValue);
                   }}
                   renderInput={(params) => <TextField {...params} fullWidth margin="normal" variant="outlined" />}
@@ -1401,13 +1401,13 @@ export default function Installments() {
           </Button>
           <Button 
             onClick={() => {
-              console.log('Confirmando alteração de data de vencimento', {
-                installmentId: selectedInstallmentForDueDateEdit?.installment_id,
-                newDueDate,
-                newAmount: cleanCurrencyValue(newAmount),
-                updateBoletoWithFees,
-                updateBoletoOnly
-              });
+              // console.log('Confirmando alteração de data de vencimento', {
+              //   installmentId: selectedInstallmentForDueDateEdit?.installment_id,
+              //   newDueDate,
+              //   newAmount: cleanCurrencyValue(newAmount),
+              //   updateBoletoWithFees,
+              //   updateBoletoOnly
+              // });
               handleUpdateDueDateWithInterestAndPenalty(
                 selectedInstallmentForDueDateEdit.installment_id, 
                 newDueDate,

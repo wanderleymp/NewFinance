@@ -478,25 +478,51 @@ export const movementsService = {
 };
 
 export const installmentsService = {
-  list: async (params = {}) => {
-    const defaultParams = {
-      page: 1,
-      limit: 10,
-      include: 'boletos'
-    };
-    
-    const mergedParams = { ...defaultParams, ...params };
-    
-    return api.get('/installments', { params: mergedParams })
-      .then(response => response.data)
-      .catch(error => {
-        console.error('🚨 INSTALLMENTS SERVICE: ERRO DETALHADO', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
-        throw error;
+  async list(params = {}) {
+    try {
+      // Remover parâmetros inválidos e garantir formato correto
+      const cleanParams = {
+        page: params.page || 1,
+        limit: params.limit || 10,
+        ...(params.include && { include: params.include }),
+        ...(params.startDate && { startDate: format(new Date(params.startDate), 'yyyy-MM-dd') }),
+        ...(params.endDate && { endDate: format(new Date(params.endDate), 'yyyy-MM-dd') }),
+        ...(params.search && { search: params.search })
+      };
+
+      console.log(`[GET] /installments: Params (limpos):`, JSON.stringify(cleanParams, null, 2));
+      
+      const response = await api.get('/installments', { params: cleanParams });
+      
+      return response.data;
+    } catch (error) {
+      console.error('🚨 INSTALLMENTS SERVICE: ERRO DETALHADO', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        params: params
       });
+
+      // Tratamento de erro específico
+      if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            throw new Error('Parâmetros inválidos. Verifique as datas e filtros.');
+          case 401:
+            throw new Error('Não autorizado. Faça login novamente.');
+          case 404:
+            throw new Error('Recurso não encontrado.');
+          case 500:
+            throw new Error('Erro interno do servidor. Tente novamente mais tarde.');
+          default:
+            throw new Error('Erro ao buscar parcelas. Tente novamente.');
+        }
+      } else if (error.request) {
+        throw new Error('Sem resposta do servidor. Verifique sua conexão.');
+      } else {
+        throw new Error('Erro ao processar a solicitação.');
+      }
+    }
   },
   get: (id) => api.get(`/installments/${id}`).then(response => response.data),
   updateDueDate: (id, { due_date, amount }) => api.patch(`/installments/${id}/due-date`, { due_date, amount }),

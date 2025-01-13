@@ -47,6 +47,13 @@ import { format } from 'date-fns';
 import personsService from '../services/personsService';
 
 const PersonForm = () => {
+  console.log('🚨 DEBUG: PersonForm - Parâmetros de rota', {
+    id: useParams().id,
+    pathname: useLocation().pathname,
+    search: useLocation().search,
+    state: useLocation().state
+  });
+
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();

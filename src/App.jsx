@@ -30,6 +30,7 @@ import Contacts from './pages/Contacts';
 import Users from './pages/Users';
 import SystemStatus from './pages/SystemStatus';
 import Installments from './pages/Installments';
+import PersonForm from './pages/PersonForm';
 
 // Componentes
 import AIChat from './components/AIChat';
@@ -80,6 +81,8 @@ function App() {
                 <Route index path="home" element={<Home />} />
                 <Route path="movements" element={<Movements />} />
                 <Route path="persons" element={<Persons />} />
+                <Route path="persons/new" element={<PersonForm />} />
+                <Route path="persons/:id/edit" element={<PersonForm />} />
                 <Route path="contacts" element={<Contacts />} />
                 <Route path="users" element={<Users />} />
                 <Route path="system-status" element={<SystemStatus />} />
