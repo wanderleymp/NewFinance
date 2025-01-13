@@ -75,18 +75,18 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="movements/new-detailed" element={<Suspense fallback={<Loading />}><NewMovementDetailed /></Suspense>} />
         <Route path="persons" element={<Suspense fallback={<Loading />}><Persons /></Suspense>} />
         <Route path="persons/new" element={<Suspense fallback={<Loading />}><PersonForm /></Suspense>} />
-        <Route path="persons/import-cnpj" element={<Suspense fallback={<Loading />}><ImportCNPJ /></Suspense>} />
-        <Route path="persons/:id/edit" element={
+        <Route path="persons/import-cnpj" element={
           <PrivateRoute>
             <Suspense fallback={<Loading />}>
-              {console.log('🚨 DEBUG: Renderizando rota de edição de pessoa', window.location.pathname)}
-              <PersonForm />
+              {console.log('🚨 ROUTES: Renderizando ImportCNPJ', window.location.pathname)}
+              <ImportCNPJ />
             </Suspense>
           </PrivateRoute>
         } />
         <Route path="persons/:id/edit" element={
           <PrivateRoute>
             <Suspense fallback={<Loading />}>
+              {console.log('🚨 DEBUG: Renderizando rota de edição de pessoa', window.location.pathname)}
               <PersonForm />
             </Suspense>
           </PrivateRoute>

@@ -31,6 +31,7 @@ import Users from './pages/Users';
 import SystemStatus from './pages/SystemStatus';
 import Installments from './pages/Installments';
 import PersonForm from './pages/PersonForm';
+import ImportCNPJ from './pages/ImportCNPJ';
 
 // Componentes
 import AIChat from './components/AIChat';
@@ -83,6 +84,7 @@ function App() {
                 <Route path="persons" element={<Persons />} />
                 <Route path="persons/new" element={<PersonForm />} />
                 <Route path="persons/:id/edit" element={<PersonForm />} />
+                <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
                 <Route path="contacts" element={<Contacts />} />
                 <Route path="users" element={<Users />} />
                 <Route path="system-status" element={<SystemStatus />} />
