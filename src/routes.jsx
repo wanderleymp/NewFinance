@@ -84,10 +84,22 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
             </Suspense>
           </PrivateRoute>
         } />
+        <Route path="persons/:id/edit" element={
+          <PrivateRoute>
+            <Suspense fallback={<Loading />}>
+              <PersonForm />
+            </Suspense>
+          </PrivateRoute>
+        } />
         <Route path="users" element={<Suspense fallback={<Loading />}><Users /></Suspense>} />
         <Route path="installments" element={
           <Suspense fallback={<Loading />}>
             {console.log('🚨 ROUTES: Renderizando Installments')}
+            {console.log('🚨 ROUTES: Contexto de renderização', {
+              pathname: window.location.pathname,
+              href: window.location.href,
+              search: window.location.search
+            })}
             <Installments />
           </Suspense>
         } />

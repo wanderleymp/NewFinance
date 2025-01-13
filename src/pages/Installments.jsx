@@ -58,6 +58,11 @@ import {
   PendingActions as PendingIcon 
 } from '@mui/icons-material';
 import { 
+  SentimentDissatisfied as SentimentDissatisfiedIcon, 
+  ErrorOutline as ErrorOutlineIcon, 
+  Refresh as RefreshIcon 
+} from '@mui/icons-material';
+import { 
   DatePicker, 
   LocalizationProvider 
 } from '@mui/x-date-pickers';
@@ -73,7 +78,7 @@ import axios from 'axios';
 // console.error('🚨 INSTALLMENTS MODULE LOADED GLOBALLY');
 
 // Forçar log de diagnóstico
-window.debugInstallments.log('Importações carregadas');
+// window.debugInstallments.log('Importações carregadas');
 
 // Função para limpar valor de moeda
 const cleanCurrencyValue = (value) => {
@@ -107,191 +112,437 @@ const safeFormatDate = (date) => {
   }
 };
 
-export default function Installments() {
-  // Logs de diagnóstico crítico
-  // console.error('🚨 INSTALLMENTS: COMPONENTE INICIADO');
-  window.debugInstallments.log('Componente iniciado');
+// Função para formatar valor monetário
+const formatCurrency = (value) => {
+  if (!value) return '0,00';
   
-  const { enqueueSnackbar } = useSnackbar();
-  const [installments, setInstallments] = useState({
-    items: [],
-    total: 0
+  // Converte para número se for string
+  const numericValue = typeof value === 'string' 
+    ? parseFloat(value.replace(',', '.')) 
+    : value;
+  
+  // Verifica se é um número válido
+  if (isNaN(numericValue)) return '0,00';
+  
+  // Formata com duas casas decimais
+  return numericValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [status, setStatus] = useState('');
-  const [fullNameFilter, setFullNameFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filtersVisible, setFiltersVisible] = useState(false);
-  const [shareAnchorEl, setShareAnchorEl] = useState(null);
-  const [selectedInstallment, setSelectedInstallment] = useState(null);
-  const [selectedInstallments, setSelectedInstallments] = useState([]);
+};
+
+export default function Installments() {
+  // Estados para diálogos e edições
   const [editDueDateDialogOpen, setEditDueDateDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInstallmentForDueDateEdit, setSelectedInstallmentForDueDateEdit] = useState(null);
+  const [selectedInstallmentForPayment, setSelectedInstallmentForPayment] = useState(null);
   const [newDueDate, setNewDueDate] = useState(null);
   const [newAmount, setNewAmount] = useState('');
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [selectedInstallmentForPayment, setSelectedInstallmentForPayment] = useState(null);
-  const [paymentValue, setPaymentValue] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date()); // Adicionar novo estado para data de pagamento
-  const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
-  const [isNotifyingSelected, setIsNotifyingSelected] = useState(false);
   const [updateBoletoWithFees, setUpdateBoletoWithFees] = useState(false);
   const [updateBoletoOnly, setUpdateBoletoOnly] = useState(false);
-  const [bankId, setBankId] = useState('');
+  
+  // Estados para pagamento
+  const [paymentValue, setPaymentValue] = useState('');
+  const [bankId, setBankId] = useState('2');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentObservation, setPaymentObservation] = useState('');
+  const [paymentDate, setPaymentDate] = useState(null);
   const [juros, setJuros] = useState('0');
   const [descontos, setDescontos] = useState('0');
 
-  // console.group('Installments - Inicialização');
-  // console.log('Estado inicial:', {
-  //   installments,
-  //   page,
-  //   rowsPerPage,
-  //   startDate,
-  //   endDate,
-  //   status,
-  //   fullNameFilter,
-  //   loading,
-  //   error,
-  //   filtersVisible,
-  //   shareAnchorEl,
-  //   selectedInstallment,
-  //   selectedInstallments,
-  //   editDueDateDialogOpen,
-  //   selectedInstallmentForDueDateEdit,
-  //   newDueDate,
-  //   newAmount,
-  //   paymentDialogOpen,
-  //   selectedInstallmentForPayment,
-  //   paymentValue,
-  //   paymentDate,
-  //   isUpdatingDueDate,
-  //   isNotifyingSelected,
-  //   updateBoletoWithFees,
-  //   updateBoletoOnly,
-  //   bankId,
-  //   juros,
-  //   descontos
-  // });
-  // console.groupEnd();
+  // Logs de diagnóstico crítico
+  // console.error('🚨 INSTALLMENTS: COMPONENTE INICIADO');
+  // window.debugInstallments.log('Componente iniciado');
+  
+  const { enqueueSnackbar } = useSnackbar();
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [installments, setInstallments] = useState({
+    items: [],
+    total: 0,
+    page: 0,
+    limit: 10
+  });
 
-  // Log de diagnóstico adicional
-  useEffect(() => {
-    // console.error('🚨 INSTALLMENTS COMPONENT MOUNTED');
+  // Memoize complex states and calculations
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Optimize filter states
+  const [filters, setFilters] = useState({
+    startDate: null,
+    endDate: null,
+    status: '',
+    fullName: ''
+  });
+
+  // Estados de carregamento e erro
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Função para renderizar o status da parcela
+  const renderInstallmentStatus = useCallback((status, daysOverdue) => {
+    let chipProps = {
+      size: "small",
+      variant: "outlined"
+    };
+
+    if (status === 'Pendente') {
+      if (daysOverdue > 0) {
+        chipProps = {
+          ...chipProps,
+          label: 'Atrasado',
+          color: 'error',
+          icon: <ErrorOutlineIcon />
+        };
+      } else {
+        chipProps = {
+          ...chipProps,
+          label: 'Pendente',
+          color: 'warning',
+          icon: <PendingIcon />
+        };
+      }
+    } else if (status === 'Pago') {
+      chipProps = {
+        ...chipProps,
+        label: 'Pago',
+        color: 'success',
+        icon: <PaidIcon />
+      };
+    } else {
+      chipProps = {
+        ...chipProps,
+        label: status || 'Não definido',
+        color: 'default'
+      };
+    }
+
+    return <Chip {...chipProps} />;
   }, []);
 
-  const statusOptions = [
-    { value: '', label: 'Nenhum' },
-    { value: 'Pendente', label: 'Pendente' },
-    { value: 'Pago', label: 'Pago' }
-  ];
+  // Memoize filtered installments
+  const filteredInstallments = useMemo(() => {
+    return installments.items.filter(installment => {
+      const matchStatus = !filters.status || installment.status === filters.status;
+      const matchFullName = !filters.fullName || 
+        installment.full_name.toLowerCase().includes(filters.fullName.toLowerCase());
+      
+      return matchStatus && matchFullName;
+    });
+  }, [installments.items, filters]);
 
-  // Função de cálculo de juros e multa
-  const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
-    // console.log('Calculando juros e multa:', {
-    //   originalDueDate,
-    //   newDueDate,
-    //   originalBalance
-    // });
-    // Calcular dias de atraso
-    const daysOverdue = differenceInDays(newDueDate, originalDueDate);
-
-    // Calcular meses de atraso
-    const monthsOverdue = Math.ceil(daysOverdue / 30);
-
-    // Taxa de juros mensal
-    const monthlyInterestRate = 0.07; // 7% ao mês
-
-    // Taxa de multa
-    const penaltyRate = 0.02; // 2% de multa
-
-    // Calcular juros e multa
-    const interest = originalBalance * (monthlyInterestRate * monthsOverdue);
-    const penalty = originalBalance * penaltyRate;
-
-    // Calcular novo valor
-    const newBalance = originalBalance + interest + penalty;
-
-    // console.log('Resultado do cálculo:', {
-    //   daysOverdue,
-    //   monthsOverdue,
-    //   interest,
-    //   penalty,
-    //   newBalance
-    // });
-
-    return newBalance;
-  }, []);
-
-  const loadInstallments = useCallback(async () => {
-    // console.group('Installments - Carregamento de Parcelas');
-    // console.log('Parâmetros da busca:', {
-    //   page: page + 1,
-    //   limit: rowsPerPage,
-    //   ...(startDate && { startDate: formatISO(startDate, { representation: 'date' }) }),
-    //   ...(endDate && { endDate: formatISO(endDate, { representation: 'date' }) }),
-    //   ...(status && { status }),
-    //   ...(fullNameFilter && { fullName: fullNameFilter }),
-    // });
+  // Optimize data fetching with useCallback
+  const fetchInstallments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      setError(null);
-
-      const params = {
-        page: page + 1,
+      const response = await installmentsService.list({
+        page: page + 1,  
         limit: rowsPerPage,
-        ...(startDate && { startDate: formatISO(startDate, { representation: 'date' }) }),
-        ...(endDate && { endDate: formatISO(endDate, { representation: 'date' }) }),
-        ...(status && { status }),
-        ...(fullNameFilter && { fullName: fullNameFilter }),
-      };
+        ...Object.fromEntries(
+          Object.entries(filters).filter(([_, v]) => v != null && v !== '')
+        )
+      });
 
-      // console.log('Enviando parâmetros para a API:', params);
+      console.log('🔍 DIAGNÓSTICO PAGINAÇÃO DETALHADO:', {
+        apiResponse: response,
+        localPage: page,
+        apiPage: response.page,
+        apiTotal: response.total,
+        apiTotalPages: response.meta?.totalPages || Math.ceil(response.total / rowsPerPage),
+        localRowsPerPage: rowsPerPage
+      });
 
-      const installmentsData = await installmentsService.list(params);
+      setInstallments({
+        items: response.items,
+        total: response.total,
+        page: response.page,
+        limit: response.limit || rowsPerPage
+      });
 
-      // console.log('Dados de installments recebidos:', installmentsData);
+      // Sincronizar estados de paginação
+      setPage(response.page - 1);
+      setRowsPerPage(response.limit || rowsPerPage);
 
-      if (installmentsData && installmentsData.items && installmentsData.items.length > 0) {
-        setInstallments(installmentsData);
-        // console.log('Parcelas carregadas com sucesso:', installmentsData.items.length);
-      } else {
-        // console.warn('Nenhuma parcela encontrada ou dados inválidos');
-        setInstallments({ items: [], total: 0 });
-      }
-    } catch (error) {
-      // console.error('Erro ao carregar parcelas:', error);
-      setError(error);
-      setInstallments({ items: [], total: 0 });
+    } catch (err) {
+      console.error('🚨 Erro ao buscar parcelas:', err);
+      setError(err);
+      setInstallments({
+        items: [],
+        total: 0,
+        page: 0,
+        limit: rowsPerPage
+      });
       enqueueSnackbar('Erro ao carregar parcelas', { variant: 'error' });
     } finally {
       setLoading(false);
-      // console.groupEnd();
     }
-  }, [page, rowsPerPage, startDate, endDate, status, fullNameFilter, enqueueSnackbar]);
+  }, [page, rowsPerPage, filters, enqueueSnackbar]);
 
+  // Controlled effect for data fetching
   useEffect(() => {
-    // console.log('Efeito de busca de parcelas disparado');
-    loadInstallments();
-  }, [loadInstallments]);
+    console.log('🚨 INSTALLMENTS: Dados de paginação', {
+      items: installments.items.length,
+      total: installments.total,
+      page,
+      rowsPerPage,
+      filters
+    });
+    fetchInstallments();
+  }, [fetchInstallments, filters, page, rowsPerPage]);
 
-  const handleChangePage = (event, newPage) => {
-    // console.log('Mudança de página:', newPage);
+  // Renderização condicional da tabela
+  const renderInstallmentsTable = useMemo(() => {
+    if (isLoading) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height={400}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (fetchError) {
+      return (
+        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height={400}>
+          <ErrorOutlineIcon color="error" sx={{ fontSize: 80, mb: 2 }} />
+          <Typography variant="h6" color="error" gutterBottom>
+            Erro ao carregar parcelas
+          </Typography>
+          <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 2 }}>
+            {fetchError}
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={fetchInstallments}
+            startIcon={<RefreshIcon />}
+          >
+            Tentar Novamente
+          </Button>
+        </Box>
+      );
+    }
+
+    if (installments.items.length === 0) {
+      return (
+        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height={400}>
+          <SentimentDissatisfiedIcon color="disabled" sx={{ fontSize: 80, mb: 2 }} />
+          <Typography variant="h6" color="textSecondary" gutterBottom>
+            Nenhuma parcela encontrada
+          </Typography>
+          <Typography variant="body2" color="textSecondary" align="center">
+            Não há parcelas que correspondam aos filtros selecionados.
+          </Typography>
+        </Box>
+      );
+    }
+
+    return filteredInstallments.map(installment => (
+      // Render logic here
+      <TableRow key={installment.installment_id} hover>
+        <TableCell padding="checkbox">
+          <Checkbox 
+            checked={false} 
+            onChange={() => {}}
+          />
+        </TableCell>
+        <TableCell>{installment.installment_id}</TableCell>
+        <TableCell>{installment.movement_id}</TableCell>
+        <TableCell>{installment.full_name}</TableCell>
+        <TableCell>
+          {safeFormatDate(installment.due_date)}
+        </TableCell>
+        <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
+        <TableCell>
+          {renderInstallmentStatus(installment.status)}
+        </TableCell>
+        <TableCell>
+          {installment.boletos.map((boleto) => (
+            <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+              {boleto.status === 'A_RECEBER' && (
+                <IconButton 
+                  size="small" 
+                  onClick={() => window.open(boleto.boleto_url, '_blank')}
+                  title="Visualizar Boleto"
+                >
+                  <ReceiptIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+          ))}
+        </TableCell>
+        <TableCell align="right">
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1,
+            alignItems: 'center',
+            justifyContent: 'flex-end' 
+          }}>
+            {/* Botão de Notificação */}
+            {installment.status === 'Pendente' && 
+             installment.boletos && 
+             installment.boletos.some(boleto => boleto.status === 'A_RECEBER') && (
+              <IconButton 
+                size="small"
+                color="warning"
+                onClick={() => handleNotifyInstallment(installment)} 
+                disabled={false}
+                title="Notificar Boleto Pendente"
+                sx={{ 
+                  border: '1px solid', 
+                  borderColor: 'warning.light',
+                  '&:hover': { 
+                    bgcolor: 'warning.light', 
+                    color: 'warning.contrastText' 
+                  }
+                }}
+              >
+                <NotificationsIcon fontSize="small" />
+              </IconButton>
+            )}
+
+            {/* Botão para gerar boleto */}
+            {installment.status === 'Pendente' && 
+             (!installment.boletos || 
+              installment.boletos.length === 0 || 
+              (installment.boletos.length > 0 && 
+               installment.boletos.every(boleto => 
+                 boleto.status === 'A_RECEBER' && 
+                 !boleto.boleto_number
+               )
+              )
+             ) && (
+              <IconButton 
+                size="small"
+                color="primary"
+                onClick={() => handleGenerateBoleto(installment)}
+                title="Gerar Boleto"
+                sx={{ 
+                  border: '1px solid', 
+                  borderColor: 'primary.light',
+                  '&:hover': { 
+                    bgcolor: 'primary.light', 
+                    color: 'primary.contrastText' 
+                  }
+                }}
+              >
+                <Add fontSize="small" />
+              </IconButton>
+            )}
+
+            {/* Botão de Liquidação de Título */}
+            {installment.status === 'Pendente' && (
+              <IconButton 
+                size="small"
+                color="success"
+                onClick={() => handleOpenPaymentDialog(installment)}
+                title="Liquidar Título"
+                sx={{ 
+                  border: '1px solid', 
+                  borderColor: 'success.light',
+                  '&:hover': { 
+                    bgcolor: 'success.light', 
+                    color: 'success.contrastText' 
+                  }
+                }}
+              >
+                <PaymentIcon fontSize="small" />
+              </IconButton>
+            )}
+
+            {/* Botão de Edição de Data de Vencimento */}
+            <IconButton 
+              size="small"
+              color="secondary"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleEditDueDate(installment);
+              }}
+              title="Editar Data de Vencimento"
+              sx={{ 
+                border: '1px solid', 
+                borderColor: 'secondary.light',
+                '&:hover': { 
+                  bgcolor: 'secondary.light', 
+                  color: 'secondary.contrastText' 
+                }
+              }}
+            >
+              <CalendarTodayIcon fontSize="small" />
+            </IconButton>
+
+            {/* Botão de Compartilhamento */}
+            <IconButton
+              size="small"
+              onClick={(event) => handleShareClick(event, installment)}
+              title="Compartilhar"
+              sx={{ 
+                border: '1px solid', 
+                borderColor: 'info.light',
+                '&:hover': { 
+                  bgcolor: 'info.light', 
+                  color: 'info.contrastText' 
+                }
+              }}
+            >
+              <ShareIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </TableCell>
+      </TableRow>
+    ));
+  }, [filteredInstallments, isLoading, fetchError, installments]);
+
+  // Função de cálculo de juros e multa
+  const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
+    if (!originalDueDate || !newDueDate) return originalBalance;
+
+    const originalDate = parseISO(originalDueDate);
+    const newDate = parseISO(newDueDate);
+    const daysOverdue = differenceInDays(newDate, originalDate);
+
+    if (daysOverdue <= 0) return originalBalance;
+
+    // Configurações de juros e multa (ajuste conforme necessário)
+    const dailyInterestRate = 0.033 / 100; // 0.033% ao dia
+    const penaltyRate = 2 / 100; // 2% de multa
+
+    const interest = originalBalance * dailyInterestRate * daysOverdue;
+    const penalty = originalBalance * penaltyRate;
+    const totalNewBalance = originalBalance + interest + penalty;
+
+    return totalNewBalance;
+  }, []);
+
+  // Função auxiliar para calcular e formatar novo valor com juros
+  const handleCalculateNewAmount = useCallback((installment, newDueDate, updateWithFees) => {
+    if (!updateWithFees) return formatCurrency(installment.balance);
+
+    const newBalance = calculateInterestAndPenalty(
+      installment.due_date, 
+      newDueDate, 
+      parseFloat(cleanCurrencyValue(installment.balance))
+    );
+
+    return formatCurrency(newBalance);
+  }, [calculateInterestAndPenalty]);
+
+  const handleChangePage = useCallback((event, newPage) => {
+    console.log('🚨 PAGINAÇÃO: Nova página', newPage);
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event) => {
-    // console.log('Mudança de quantidade de linhas por página:', event.target.value);
-    setRowsPerPage(parseInt(event.target.value, 10));
+  const handleChangeRowsPerPage = useCallback((event) => {
+    const newRowsPerPage = parseInt(event.target.value, 10);
+    console.log('🚨 PAGINAÇÃO: Linhas por página', newRowsPerPage);
+    setRowsPerPage(newRowsPerPage);
     setPage(0);
-  };
+  }, []);
 
   const calculateInstallmentsSummary = useCallback((installmentsData) => {
-    // console.log('Calculando resumo de parcelas:', installmentsData);
     let totalReceivable = 0;
     let totalReceived = 0;
     let totalOverdue = 0;
@@ -311,12 +562,6 @@ export default function Installments() {
       }
     });
 
-    // console.log('Resultado do resumo:', {
-    //   totalReceivable,
-    //   totalReceived,
-    //   totalOverdue
-    // });
-
     return {
       totalReceivable,
       totalReceived,
@@ -325,7 +570,6 @@ export default function Installments() {
   }, []);
 
   const installmentsSummary = useMemo(() => {
-    // console.log('Calculando resumo de parcelas:', installments.items);
     return calculateInstallmentsSummary(installments.items);
   }, [installments.items]);
 
@@ -333,61 +577,61 @@ export default function Installments() {
     // console.log('Seleção de todas as parcelas:', event.target.checked);
     if (event.target.checked) {
       const allInstallmentIds = installments.items.map(item => item.installment_id);
-      setSelectedInstallments(allInstallmentIds);
+      // setSelectedInstallments(allInstallmentIds);
     } else {
-      setSelectedInstallments([]);
+      // setSelectedInstallments([]);
     }
   };
 
   const handleSelectInstallment = (installmentId) => {
     // console.log('Seleção de parcela:', installmentId);
-    setSelectedInstallments(prev => 
-      prev.includes(installmentId)
-        ? prev.filter(id => id !== installmentId)
-        : [...prev, installmentId]
-    );
+    // setSelectedInstallments(prev => 
+    //   prev.includes(installmentId)
+    //     ? prev.filter(id => id !== installmentId)
+    //     : [...prev, installmentId]
+    // );
   };
 
   const handleNotifySelectedInstallments = async () => {
     // console.log('Notificação de parcelas selecionadas:', selectedInstallments);
-    if (selectedInstallments.length === 0) {
-      enqueueSnackbar('Nenhuma parcela selecionada', { variant: 'warning' });
-      return;
-    }
+    // if (selectedInstallments.length === 0) {
+    //   enqueueSnackbar('Nenhuma parcela selecionada', { variant: 'warning' });
+    //   return;
+    // }
 
-    setIsNotifyingSelected(true);
+    // setIsNotifyingSelected(true);
 
-    try {
-      const notificationPromises = selectedInstallments.map(installmentId => 
-        axios.post(
-          'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
-          { installment_id: installmentId },
-          {
-            headers: {
-              'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
-              'Content-Type': 'application/json'
-            }
-          }
-        )
-      );
+    // try {
+    //   const notificationPromises = selectedInstallments.map(installmentId => 
+    //     axios.post(
+    //       'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
+    //       { installment_id: installmentId },
+    //       {
+    //         headers: {
+    //           'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+    //           'Content-Type': 'application/json'
+    //         }
+    //       }
+    //     )
+    //   );
 
-      // Simula um tempo de processamento
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    //   // Simula um tempo de processamento
+    //   await new Promise(resolve => setTimeout(resolve, 1500));
 
-      await Promise.all(notificationPromises);
+    //   await Promise.all(notificationPromises);
       
-      enqueueSnackbar(`Notificação enviada para ${selectedInstallments.length} parcela(s)`, { 
-        variant: 'success',
-        autoHideDuration: 2000 // Tempo específico para auto-hide
-      });
+    //   enqueueSnackbar(`Notificação enviada para ${selectedInstallments.length} parcela(s)`, { 
+    //     variant: 'success',
+    //     autoHideDuration: 2000 // Tempo específico para auto-hide
+    //   });
       
-      setSelectedInstallments([]); // Limpa seleção após notificação
-    } catch (error) {
-      // console.error('Erro ao enviar notificações:', error);
-      enqueueSnackbar('Erro ao enviar notificações', { variant: 'error' });
-    } finally {
-      setIsNotifyingSelected(false);
-    }
+    //   // setSelectedInstallments([]); // Limpa seleção após notificação
+    // } catch (error) {
+    //   // console.error('Erro ao enviar notificações:', error);
+    //   enqueueSnackbar('Erro ao enviar notificações', { variant: 'error' });
+    // } finally {
+    //   setIsNotifyingSelected(false);
+    // }
   };
 
   const handleGenerateBoleto = useCallback(async (installment) => {
@@ -406,7 +650,7 @@ export default function Installments() {
       enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
       
       // Recarregar a lista de installments para atualizar os boletos
-      loadInstallments();
+      fetchInstallments();
     } catch (error) {
       // Log detalhado do erro
       // console.error('Erro completo ao gerar boleto:', {
@@ -428,7 +672,7 @@ export default function Installments() {
         persist: true  // Manter notificação visível
       });
     }
-  }, [enqueueSnackbar, loadInstallments]);
+  }, [enqueueSnackbar, fetchInstallments]);
 
   const handleEditDueDate = useCallback((installment) => {
     // console.log('Edição de data de vencimento:', installment);
@@ -471,7 +715,7 @@ export default function Installments() {
     // });
     try {
       // Ativa o estado de carregamento
-      setIsUpdatingDueDate(true);
+      // setIsUpdatingDueDate(true);
 
       // Converte a data para o formato ISO
       const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
@@ -494,7 +738,7 @@ export default function Installments() {
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
       
       // Recarrega os dados de installments
-      await loadInstallments();
+      await fetchInstallments();
 
       // Fecha o modal de edição de data
       setEditDueDateDialogOpen(false);
@@ -507,60 +751,62 @@ export default function Installments() {
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
     } finally {
       // Desativa o estado de carregamento
-      setIsUpdatingDueDate(false);
+      // setIsUpdatingDueDate(false);
     }
   };
 
   const handleOpenPaymentDialog = (installment) => {
-    // console.log('Abertura de diálogo de pagamento:', installment);
     // Só abre para status Pendente
     if (installment.status !== 'Pendente') return;
 
     setSelectedInstallmentForPayment(installment);
-    setPaymentValue(installment.amount.toString().replace('.', ','));
+    setPaymentValue(formatCurrency(installment.amount));
+    setPaymentMethod('');
+    setPaymentObservation('');
+    setBankId('2');
+    setPaymentDate(new Date());
+    setJuros('0');
+    setDescontos('0');
     setPaymentDialogOpen(true);
   };
 
   const handleConfirmPayment = async () => {
-    // console.log('Confirmação de pagamento:', {
-    //   selectedInstallmentForPayment,
-    //   paymentValue,
-    //   paymentDate
-    // });
-    if (!selectedInstallmentForPayment) return;
-
     try {
-      // Converter valores para numéricos
-      const numericValue = parseFloat(paymentValue.replace(',', '.'));
-      const numericJuros = parseFloat(juros.replace(',', '.') || '0');
-      const numericDescontos = parseFloat(descontos.replace(',', '.') || '0');
-      
-      // Preparar dados para pagamento
+      // Validar campos obrigatórios
+      if (!selectedInstallmentForPayment || !paymentValue) {
+        enqueueSnackbar('Preencha todos os campos obrigatórios', { variant: 'warning' });
+        return;
+      }
+
+      // Preparar dados de pagamento
       const paymentData = {
-        installment_id: selectedInstallmentForPayment.installment_id,
-        bank_id: bankId ? parseInt(bankId) : 2, // Default para 2 se não informado
-        valor: numericValue,
-        juros: numericJuros,
-        descontos: numericDescontos,
-        date: formatISO(paymentDate, { representation: 'date' })
+        installmentId: selectedInstallmentForPayment.installment_id,
+        paymentValue: cleanCurrencyValue(paymentValue),
+        bankId: bankId || '2',
+        paymentMethod: paymentMethod || 'TRANSFERENCIA',
+        paymentDate: paymentDate || new Date(),
+        observation: paymentObservation,
+        juros: cleanCurrencyValue(juros),
+        descontos: cleanCurrencyValue(descontos)
       };
 
-      // console.log('Payload de pagamento:', paymentData);
-
       // Chamar serviço de pagamento
-      await installmentsService.confirmPayment(paymentData);
+      const result = await installmentsService.confirmPayment(paymentData);
       
       enqueueSnackbar('Pagamento confirmado com sucesso!', { variant: 'success' });
-      loadInstallments();
+      fetchInstallments();
       setPaymentDialogOpen(false);
     } catch (error) {
-      // console.error('Erro ao confirmar pagamento:', error);
       enqueueSnackbar('Erro ao confirmar pagamento', { variant: 'error' });
+      console.error('Erro no pagamento:', error);
     } finally {
       // Limpar estados
-      setBankId('');
+      setBankId('2');
       setJuros('0');
       setDescontos('0');
+      setPaymentMethod('');
+      setPaymentObservation('');
+      setSelectedInstallmentForPayment(null);
     }
   };
 
@@ -596,11 +842,65 @@ export default function Installments() {
     ];
   };
 
-  const handleQuickDateFilter = (range) => {
-    // console.log('Aplicando filtro de data rápida:', range);
-    setStartDate(range.startDate);
-    setEndDate(range.endDate);
-  };
+  const handleQuickDateFilter = useCallback((type) => {
+    console.log('🚨 Filtro de data clicado:', type);  // Adicionar log de diagnóstico
+    const now = new Date();
+    let startDate, endDate;
+
+    // Mapear labels para tipos
+    const typeMap = {
+      'Hoje': 'today',
+      'Semana Atual': 'thisWeek',
+      'Mês Atual': 'thisMonth',
+      'Últimos 7 dias': 'lastWeek',
+      'Últimos 30 dias': 'lastMonth'
+    };
+
+    const mappedType = typeMap[type] || type;
+
+    switch(mappedType) {
+      case 'today':
+        startDate = now;
+        endDate = now;
+        break;
+      case 'thisWeek':
+        startDate = startOfWeek(now, { locale: ptBR });
+        endDate = endOfWeek(now, { locale: ptBR });
+        break;
+      case 'thisMonth':
+        startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
+        break;
+      case 'lastWeek':
+        startDate = startOfWeek(subDays(now, 7), { locale: ptBR });
+        endDate = endOfWeek(subDays(now, 7), { locale: ptBR });
+        break;
+      case 'lastMonth':
+        const lastMonthEnd = subDays(startOfMonth(now), 1);
+        startDate = startOfMonth(lastMonthEnd);
+        endDate = lastMonthEnd;
+        break;
+      default:
+        return;
+    }
+
+    setFilters(prev => ({
+      ...prev,
+      startDate,
+      endDate
+    }));
+
+    // Adicionar chamada para buscar parcelas com o novo filtro
+    fetchInstallments();
+  }, [fetchInstallments]);
+
+  const handleClearDateFilter = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      startDate: null,
+      endDate: null
+    }));
+  }, []);
 
   const renderBoletoStatus = (status) => {
     // console.log('Renderizando status de boleto:', status);
@@ -634,32 +934,19 @@ export default function Installments() {
     return `${day} ${monthAbbreviations[month]} ${year}`;
   };
 
-  const renderInstallmentStatus = (status) => {
-    // console.log('Renderizando status de parcela:', status);
-    const statusColors = {
-      'Pendente': 'warning',
-      'Pago': 'success'
-    };
-    return <Chip 
-      label={status} 
-      color={statusColors[status] || 'default'} 
-      size="small" 
-    />;
-  };
-
   const handleNotifyInstallment = async (installment) => {
     // console.log('Notificando parcela:', installment);
     // Cria um estado de processamento específico para este installment
-    const updatedInstallments = installments.items.map(item => 
-      item.installment_id === installment.installment_id 
-        ? { ...item, isNotifying: true } 
-        : item
-    );
+    // const updatedInstallments = installments.items.map(item => 
+    //   item.installment_id === installment.installment_id 
+    //     ? { ...item, isNotifying: true } 
+    //     : item
+    // );
     
-    setInstallments(prev => ({
-      ...prev,
-      items: updatedInstallments
-    }));
+    // setInstallments(prev => ({
+    //   ...prev,
+    //   items: updatedInstallments
+    // }));
 
     try {
       const response = await axios.post(
@@ -682,29 +969,29 @@ export default function Installments() {
       enqueueSnackbar('Erro ao enviar notificação', { variant: 'error' });
     } finally {
       // Remove o estado de processamento
-      const resetInstallments = installments.items.map(item => 
-        item.installment_id === installment.installment_id 
-          ? { ...item, isNotifying: false } 
-          : item
-      );
+      // const resetInstallments = installments.items.map(item => 
+      //   item.installment_id === installment.installment_id 
+      //     ? { ...item, isNotifying: false } 
+      //     : item
+      // );
       
-      setInstallments(prev => ({
-        ...prev,
-        items: resetInstallments
-      }));
+      // setInstallments(prev => ({
+      //   ...prev,
+      //   items: resetInstallments
+      // }));
     }
   };
 
   const handleShareClick = (event, installment = null) => {
     // console.log('Clicando no botão de compartilhamento:', event, installment);
-    setShareAnchorEl(event.currentTarget);
-    setSelectedInstallment(installment);
+    // setShareAnchorEl(event.currentTarget);
+    // setSelectedInstallment(installment);
   };
 
   const handleShareClose = () => {
     // console.log('Fechando o menu de compartilhamento');
-    setShareAnchorEl(null);
-    setSelectedInstallment(null);
+    // setShareAnchorEl(null);
+    // setSelectedInstallment(null);
   };
 
   const handleWhatsAppShare = () => {
@@ -718,155 +1005,95 @@ export default function Installments() {
   };
 
   const normalizeCurrencyValue = (value) => {
-    // console.log('Normalizando valor de moeda:', value);
-    // Se já for um número com casas decimais, retorna como está
-    if (typeof value === 'number') {
-      return value;
-    }
-
-    // Remove pontos de milhar e substitui vírgula por ponto
-    const cleanValue = typeof value === 'string' 
-      ? value.replace(/\./g, '').replace(',', '.')
-      : value.toString();
-
-    // Converte para número
-    const numericValue = parseFloat(cleanValue);
-
-    // Retorna o valor convertido, dividindo por 100 se for muito grande
+    // Remove caracteres não numéricos
+    const numericValue = parseFloat(
+      (typeof value === 'string' 
+        ? value.replace(/[^\d,\.]/g, '').replace(',', '.')
+        : value
+      )
+    );
+    
     return numericValue >= 1000 ? numericValue / 100 : numericValue;
   };
 
-  const formatCurrency = (value) => {
-    // console.log('Formatando valor de moeda:', value);
-    // Normaliza o valor primeiro
-    const normalizedValue = normalizeCurrencyValue(value);
-    
-    // Formata para string brasileira
-    return normalizedValue.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
   const convertBRLToNumber = (value) => {
-    // console.log('Convertendo valor de BRL para número:', value);
-    // Remove pontos de milhar
-    const cleanValue = value.replace(/\./g, '')
-      // Substitui vírgula por ponto
-      .replace(',', '.');
-    
-    // Converte para número com duas casas decimais
-    const result = parseFloat(parseFloat(cleanValue).toFixed(2));
-    
-    // Log detalhado
-    // console.log('Conversão de valor:', {
-    //   original: value,
-    //   cleaned: cleanValue,
-    //   result: result
-    // });
-
-    return result;
+    // Remove pontos de milhar e substitui vírgula por ponto
+    const cleanedValue = value.replace(/\./g, '').replace(',', '.');
+    return parseFloat(cleanedValue);
   };
 
-  const isOverdueDate = selectedInstallmentForDueDateEdit?.due_date && newDueDate && 
-    (
-      // Nova data posterior à data original
-      differenceInDays(newDueDate, parseISO(selectedInstallmentForDueDateEdit.due_date)) > 0 ||
-      // Parcela já está vencida
-      isPast(parseISO(selectedInstallmentForDueDateEdit.due_date))
-    );
+  const isOverdueDate = false; // selectedInstallmentForDueDateEdit?.due_date && newDueDate && 
+    // (
+    //   // Nova data posterior à data original
+    //   differenceInDays(newDueDate, parseISO(selectedInstallmentForDueDateEdit.due_date)) > 0 ||
+    //   // Parcela já está vencida
+    //   isPast(parseISO(selectedInstallmentForDueDateEdit.due_date))
+    // );
 
-  const handleUpdateDueDateWithInterestAndPenalty = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
-    // console.log('Atualizando data de vencimento com juros e multa:', {
-    //   installmentId,
-    //   newDueDate,
-    //   newAmount,
-    //   updateBoletoWithFees,
-    //   updateBoletoOnly
-    // });
+  const handleUpdateDueDateWithInterestAndPenalty = useCallback(async (
+    installmentId, 
+    newDueDate, 
+    newAmount, 
+    updateBoletoWithFees, 
+    updateBoletoOnly
+  ) => {
     try {
-      // Ativa o estado de carregamento
-      setIsUpdatingDueDate(true);
-
-      // Converte a data para o formato ISO
-      const formattedDueDate = formatISO(newDueDate, { representation: 'date' });
-
-      // console.log('Iniciando atualização de data de vencimento:', { 
-      //   installmentId, 
-      //   newDueDate: formattedDueDate, 
-      //   newAmount,
-      //   updateBoletoWithFees,
-      //   updateBoletoOnly,
-      //   apiSource: 'N8N' 
-      // });
-
       // Usa N8N como API principal para este submite específico
       const result = await updateInstallmentDueDate(
         installmentId, 
-        formattedDueDate, 
+        format(newDueDate, 'yyyy-MM-dd'), 
         newAmount, 
         updateBoletoWithFees, 
         updateBoletoOnly, 
         'N8N',
         { 
           // Garante que apenas a atualização de boleto seja enviada no submit único
-          update_boleto_only: true 
+          update_boleto_only: updateBoletoOnly 
         }
       );
       
-      // console.log('Resultado da atualização de data de vencimento:', result);
-
       // Atualiza o estado local ou mostra feedback
       enqueueSnackbar('Data de vencimento atualizada com sucesso!', { variant: 'success' });
       
       // Recarrega os dados de installments
-      await loadInstallments();
+      await fetchInstallments();
 
       // Fecha o modal de edição de data
       setEditDueDateDialogOpen(false);
     } catch (error) {
-      // console.error('Erro detalhado ao atualizar data de vencimento:', {
-      //   message: error.message,
-      //   response: error.response?.data,
-      //   status: error.response?.status
-      // });
       enqueueSnackbar('Erro ao atualizar data de vencimento', { variant: 'error' });
-    } finally {
-      // Desativa o estado de carregamento
-      setIsUpdatingDueDate(false);
+      console.error('Erro na atualização:', error);
     }
-  };
+  }, [enqueueSnackbar, fetchInstallments, setEditDueDateDialogOpen]);
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
-      {selectedInstallments.length > 0 && (
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
-          backgroundColor: 'rgba(0, 0, 0, 0.1)', 
-          padding: 1, 
-          borderRadius: 1,
-          marginBottom: 2
-        }}>
-          <Typography variant="body2">
-            {selectedInstallments.length} parcela(s) selecionada(s)
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<NotificationsIcon />}
-            onClick={handleNotifySelectedInstallments}
-            disabled={isNotifyingSelected}
-          >
-            {isNotifyingSelected ? (
-              <CircularProgress size={24} />
-            ) : (
-              'Notificar Selecionadas'
-            )}
-          </Button>
-        </Box>
-      )}
+      {/* <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        backgroundColor: 'rgba(0, 0, 0, 0.1)', 
+        padding: 1, 
+        borderRadius: 1,
+        marginBottom: 2
+      }}>
+        <Typography variant="body2">
+          {selectedInstallments.length} parcela(s) selecionada(s)
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<NotificationsIcon />}
+          onClick={handleNotifySelectedInstallments}
+          disabled={isNotifyingSelected}
+        >
+          {isNotifyingSelected ? (
+            <CircularProgress size={24} />
+          ) : (
+            'Notificar Selecionadas'
+          )}
+        </Button>
+      </Box> */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Contas a Receber</Typography>
         <IconButton 
@@ -989,8 +1216,8 @@ export default function Installments() {
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
             <DatePicker
               label="Data Inicial"
-              value={startDate}
-              onChange={(newValue) => setStartDate(newValue)}
+              value={filters.startDate}
+              onChange={(newValue) => setFilters(prev => ({ ...prev, startDate: newValue }))}
               renderInput={(params) => <TextField {...params} size="small" />}
               format="dd/MM/yyyy"
             />
@@ -1000,8 +1227,8 @@ export default function Installments() {
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
             <DatePicker
               label="Data Final"
-              value={endDate}
-              onChange={(newValue) => setEndDate(newValue)}
+              value={filters.endDate}
+              onChange={(newValue) => setFilters(prev => ({ ...prev, endDate: newValue }))}
               renderInput={(params) => <TextField {...params} size="small" />}
               format="dd/MM/yyyy"
             />
@@ -1011,23 +1238,21 @@ export default function Installments() {
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Status</InputLabel>
             <Select
-              value={status}
+              value={filters.status}
               label="Status"
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             >
-              {statusOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
+              <MenuItem value="">Nenhum</MenuItem>
+              <MenuItem value="Pendente">Pendente</MenuItem>
+              <MenuItem value="Pago">Pago</MenuItem>
             </Select>
           </FormControl>
         </Grid>
         <Grid item>
           <TextField
             label="Nome"
-            value={fullNameFilter}
-            onChange={(e) => setFullNameFilter(e.target.value)}
+            value={filters.fullName}
+            onChange={(e) => setFilters(prev => ({ ...prev, fullName: e.target.value }))}
             size="small"
             InputProps={{
               startAdornment: (
@@ -1046,17 +1271,25 @@ export default function Installments() {
                 variant="outlined" 
                 size="small"
                 color={
-                  startDate && endDate && 
-                  isSameDay(startDate, range.startDate) && 
-                  isSameDay(endDate, range.endDate) 
+                  filters.startDate && filters.endDate && 
+                  isSameDay(filters.startDate, range.startDate) && 
+                  isSameDay(filters.endDate, range.endDate) 
                     ? 'primary' 
                     : 'secondary'
                 }
-                onClick={() => handleQuickDateFilter(range)}
+                onClick={() => handleQuickDateFilter(range.label)}
               >
                 {range.label}
               </Button>
             ))}
+            <Button 
+              variant="outlined" 
+              size="small"
+              color="secondary"
+              onClick={handleClearDateFilter}
+            >
+              Limpar
+            </Button>
           </Box>
         </Grid>
       </Grid>
@@ -1068,7 +1301,7 @@ export default function Installments() {
               <TableCell padding="checkbox">
                 <Checkbox 
                   onChange={handleSelectAllInstallments} 
-                  checked={selectedInstallments.length === installments.items.length}
+                  checked={false}
                 />
               </TableCell>
               <TableCell>ID Parcela</TableCell>
@@ -1082,175 +1315,27 @@ export default function Installments() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {installments.items.map((installment) => (
-              <TableRow key={installment.installment_id} hover>
-                <TableCell padding="checkbox">
-                  <Checkbox 
-                    checked={selectedInstallments.includes(installment.installment_id)} 
-                    onChange={() => handleSelectInstallment(installment.installment_id)}
-                  />
-                </TableCell>
-                <TableCell>{installment.installment_id}</TableCell>
-                <TableCell>{installment.movement_id}</TableCell>
-                <TableCell>{installment.full_name}</TableCell>
-                <TableCell>
-                  {safeFormatDate(installment.due_date)}
-                </TableCell>
-                <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
-                <TableCell>
-                  {renderInstallmentStatus(installment.status)}
-                </TableCell>
-                <TableCell>
-                  {installment.boletos.map((boleto) => (
-                    <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                      {boleto.status === 'A_RECEBER' && (
-                        <IconButton 
-                          size="small" 
-                          onClick={() => window.open(boleto.boleto_url, '_blank')}
-                          title="Visualizar Boleto"
-                        >
-                          <ReceiptIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
-                  ))}
-                </TableCell>
-                <TableCell align="right">
-                  <Box sx={{ 
-                    display: 'flex', 
-                    gap: 1,
-                    alignItems: 'center',
-                    justifyContent: 'flex-end' 
-                  }}>
-                    {/* Botão de Notificação */}
-                    {installment.status === 'Pendente' && 
-                     installment.boletos && 
-                     installment.boletos.some(boleto => boleto.status === 'A_RECEBER') && (
-                      <IconButton 
-                        size="small"
-                        color="warning"
-                        onClick={() => handleNotifyInstallment(installment)} 
-                        disabled={installment.isNotifying}
-                        title="Notificar Boleto Pendente"
-                        sx={{ 
-                          border: '1px solid', 
-                          borderColor: 'warning.light',
-                          '&:hover': { 
-                            bgcolor: 'warning.light', 
-                            color: 'warning.contrastText' 
-                          }
-                        }}
-                      >
-                        {installment.isNotifying ? (
-                          <CircularProgress size={20} color="warning" />
-                        ) : (
-                          <NotificationsIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    )}
-
-                    {/* Botão para gerar boleto */}
-                    {installment.status === 'Pendente' && 
-                     (!installment.boletos || 
-                      installment.boletos.length === 0 || 
-                      (installment.boletos.length > 0 && 
-                       installment.boletos.every(boleto => 
-                         boleto.status === 'A_RECEBER' && 
-                         !boleto.boleto_number
-                       )
-                      )
-                     ) && (
-                      <IconButton 
-                        size="small"
-                        color="primary"
-                        onClick={() => handleGenerateBoleto(installment)}
-                        title="Gerar Boleto"
-                        sx={{ 
-                          border: '1px solid', 
-                          borderColor: 'primary.light',
-                          '&:hover': { 
-                            bgcolor: 'primary.light', 
-                            color: 'primary.contrastText' 
-                          }
-                        }}
-                      >
-                        <Add fontSize="small" />
-                      </IconButton>
-                    )}
-
-                    {/* Botão de Liquidação de Título */}
-                    {installment.status === 'Pendente' && (
-                      <IconButton 
-                        size="small"
-                        color="success"
-                        onClick={() => handleOpenPaymentDialog(installment)}
-                        title="Liquidar Título"
-                        sx={{ 
-                          border: '1px solid', 
-                          borderColor: 'success.light',
-                          '&:hover': { 
-                            bgcolor: 'success.light', 
-                            color: 'success.contrastText' 
-                          }
-                        }}
-                      >
-                        <PaymentIcon fontSize="small" />
-                      </IconButton>
-                    )}
-
-                    {/* Botão de Edição de Data de Vencimento */}
-                    <IconButton 
-                      size="small"
-                      color="secondary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleEditDueDate(installment);
-                      }}
-                      title="Editar Data de Vencimento"
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: 'secondary.light',
-                        '&:hover': { 
-                          bgcolor: 'secondary.light', 
-                          color: 'secondary.contrastText' 
-                        }
-                      }}
-                    >
-                      <CalendarTodayIcon fontSize="small" />
-                    </IconButton>
-
-                    {/* Botão de Compartilhamento */}
-                    <IconButton
-                      size="small"
-                      onClick={(event) => handleShareClick(event, installment)}
-                      title="Compartilhar"
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: 'info.light',
-                        '&:hover': { 
-                          bgcolor: 'info.light', 
-                          color: 'info.contrastText' 
-                        }
-                      }}
-                    >
-                      <ShareIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+            {renderInstallmentsTable}
           </TableBody>
         </Table>
       </TableContainer>
 
       <TablePagination
-        rowsPerPageOptions={[10, 25, 50]}
+        rowsPerPageOptions={[5, 10, 25]}
         component="div"
         count={installments.total}
         rowsPerPage={rowsPerPage}
         page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
+        onPageChange={(event, newPage) => {
+          console.log('🚨 PAGINAÇÃO: Nova página', newPage);
+          setPage(newPage);
+        }}
+        onRowsPerPageChange={(event) => {
+          const newRowsPerPage = parseInt(event.target.value, 10);
+          console.log('🚨 PAGINAÇÃO: Linhas por página', newRowsPerPage);
+          setRowsPerPage(newRowsPerPage);
+          setPage(0); // Resetar para primeira página
+        }}
       />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
         <Typography variant="h6">Resumo:</Typography>
@@ -1269,71 +1354,54 @@ export default function Installments() {
       <Dialog
         open={editDueDateDialogOpen}
         onClose={() => {
-          // console.log('Fechando modal de edição de data de vencimento');
           setEditDueDateDialogOpen(false);
         }}
+        maxWidth="md"
         fullWidth
-        maxWidth="sm"
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center">
-              <CalendarMonthIcon sx={{ mr: 2 }} />
-              <Typography variant="h6">Alterar Parcela</Typography>
-            </Box>
-          </Box>
+          Editar Data de Vencimento
+          {selectedInstallmentForDueDateEdit && (
+            <Typography variant="subtitle2" color="textSecondary">
+              Parcela: {selectedInstallmentForDueDateEdit.installment_id}
+            </Typography>
+          )}
         </DialogTitle>
         <DialogContent>
-          {/* Seção de informações da parcela vencida */}
-          {isPast(parseISO(selectedInstallmentForDueDateEdit?.due_date)) && (
-            <Alert 
-              severity="warning" 
-              sx={{ 
-                mb: 2, 
-                '& .MuiAlert-message': { 
-                  display: 'flex', 
-                  flexDirection: 'column' 
-                } 
-              }}
-            >
-              <Box>
-                <Typography variant="subtitle2">
-                  Parcela Vencida
-                </Typography>
-                <Typography variant="body2">
-                  Vencimento Original: {safeFormatDate(selectedInstallmentForDueDateEdit.due_date)}
-                </Typography>
-                <Typography variant="body2">
-                  Valor Original: {formatCurrency(selectedInstallmentForDueDateEdit.balance)}
-                </Typography>
-              </Box>
-            </Alert>
-          )}
-
           <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                <DatePicker
-                  label="Nova Data de Vencimento"
-                  value={newDueDate}
-                  onChange={(newValue) => {
-                    // console.log('Nova data selecionada:', newValue);
-                    setNewDueDate(newValue);
-                  }}
-                  renderInput={(params) => <TextField {...params} fullWidth margin="normal" variant="outlined" />}
-                  format="dd/MM/yyyy"
-                />
-              </LocalizationProvider>
+            <Grid item xs={12} md={6}>
+              <DatePicker
+                label="Nova Data de Vencimento"
+                value={newDueDate}
+                onChange={(date) => {
+                  setNewDueDate(date);
+                  if (selectedInstallmentForDueDateEdit) {
+                    const calculatedAmount = handleCalculateNewAmount(
+                      selectedInstallmentForDueDateEdit, 
+                      date, 
+                      updateBoletoWithFees
+                    );
+                    setNewAmount(calculatedAmount);
+                  }
+                }}
+                slots={{
+                  textField: TextField
+                }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: 'outlined',
+                    margin: 'normal'
+                  }
+                }}
+              />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
                 label="Novo Valor"
-                value={newAmount}
-                onChange={(e) => {
-                  const cleanedValue = cleanCurrencyValue(e.target.value);
-                  setNewAmount(formatCurrency(cleanedValue));
-                }}
                 fullWidth
+                value={newAmount}
+                onChange={(e) => setNewAmount(e.target.value)}
                 margin="normal"
                 InputProps={{
                   startAdornment: <InputAdornment position="start">R$</InputAdornment>,
@@ -1341,37 +1409,35 @@ export default function Installments() {
               />
             </Grid>
             <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: 1, 
-                border: '1px solid rgba(0,0,0,0.12)', 
-                borderRadius: 1, 
-                p: 2, 
-                mt: 1 
-              }}>
-                {isOverdueDate && (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={updateBoletoWithFees}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          setUpdateBoletoWithFees(isChecked);
-                          
-                          if (isChecked && selectedInstallmentForDueDateEdit) {
-                            const originalBalance = parseFloat(cleanCurrencyValue(selectedInstallmentForDueDateEdit.balance));
-                            const newBalance = calculateInterestAndPenalty(parseISO(selectedInstallmentForDueDateEdit.due_date), newDueDate, originalBalance);
-                            setNewAmount(formatCurrency(newBalance));
-                          } else if (!isChecked && selectedInstallmentForDueDateEdit) {
-                            setNewAmount(formatCurrency(selectedInstallmentForDueDateEdit.balance));
-                          }
-                        }}
-                      />
-                    }
-                    label="Atualizar Valor com Juros e Multa"
-                  />
-                )}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={updateBoletoWithFees}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        setUpdateBoletoWithFees(isChecked);
+                        
+                        if (isChecked && selectedInstallmentForDueDateEdit && newDueDate) {
+                          const calculatedAmount = handleCalculateNewAmount(
+                            selectedInstallmentForDueDateEdit, 
+                            newDueDate, 
+                            true
+                          );
+                          setNewAmount(calculatedAmount);
+                          setUpdateBoletoOnly(false);
+                        } else if (!isChecked && selectedInstallmentForDueDateEdit) {
+                          setNewAmount(formatCurrency(selectedInstallmentForDueDateEdit.balance));
+                        }
+                      }}
+                    />
+                  }
+                  label="Atualizar com Juros e Multa"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1394,20 +1460,15 @@ export default function Installments() {
         </DialogContent>
         <DialogActions>
           <Button 
-            onClick={() => setEditDueDateDialogOpen(false)} 
+            onClick={() => {
+              setEditDueDateDialogOpen(false);
+            }} 
             color="secondary"
           >
             Cancelar
           </Button>
           <Button 
             onClick={() => {
-              // console.log('Confirmando alteração de data de vencimento', {
-              //   installmentId: selectedInstallmentForDueDateEdit?.installment_id,
-              //   newDueDate,
-              //   newAmount: cleanCurrencyValue(newAmount),
-              //   updateBoletoWithFees,
-              //   updateBoletoOnly
-              // });
               handleUpdateDueDateWithInterestAndPenalty(
                 selectedInstallmentForDueDateEdit.installment_id, 
                 newDueDate,
@@ -1418,6 +1479,7 @@ export default function Installments() {
             }} 
             color="primary" 
             variant="contained"
+            disabled={!newDueDate}
           >
             Confirmar
           </Button>

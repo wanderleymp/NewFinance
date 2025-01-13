@@ -4,7 +4,14 @@ import { jwtDecode } from "jwt-decode";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
-  timeout: 10000,
+  timeout: 30000, // Aumentar timeout para 30 segundos
+  timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.',
+  withCredentials: true, // Habilitar credenciais para CORS
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
 });
 
 // Log da URL base para debug
@@ -82,6 +89,37 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Adicionar interceptor de erro de rede
+api.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('🚨 ERRO DE REDE DETALHADO:', {
+      message: error.message,
+      code: error.code,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL
+      },
+      response: error.response ? {
+        status: error.response.status,
+        data: error.response.data
+      } : null
+    });
+
+    // Verificar especificamente erros de rede
+    if (error.code === 'ERR_NETWORK') {
+      console.warn('🚨 POSSÍVEIS CAUSAS DE ERRO DE REDE:');
+      console.warn('1. Servidor não está rodando');
+      console.warn('2. URL incorreta');
+      console.warn('3. Problemas de firewall ou proxy');
+      console.warn('4. Conexão de internet instável');
+    }
+
     return Promise.reject(error);
   }
 );
@@ -194,27 +232,43 @@ export const authService = {
     localStorage.removeItem('userData');
   },
 
-  getCurrentUser() {
-    const userString = localStorage.getItem('user');
-    
-    if (userString) {
-      try {
-        const userData = JSON.parse(userString);
-        console.log('Dados do usuário recuperados:', userData);
-        
-        // Padronizar o retorno
-        return {
-          id: userData.user_id || userData.id || 'unknown',
-          username: userData.username || 'Usuário',
-          email: userData.email
-        };
-      } catch (error) {
-        console.error('Erro ao parsear dados do usuário:', error);
-        return null;
+  async getCurrentUser() {
+    try {
+      // Primeiro, tentar recuperar do localStorage
+      const storedUserData = localStorage.getItem('userData');
+      if (storedUserData) {
+        const parsedUserData = JSON.parse(storedUserData);
+        console.log('Dados do usuário recuperados do localStorage:', parsedUserData);
+        return parsedUserData;
       }
+
+      // Se não estiver no localStorage, tentar buscar da API
+      const response = await api.get('/users/me');
+      const userData = response.data;
+
+      console.log('Dados do usuário recuperados da API:', {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email
+      });
+
+      // Armazenar dados do usuário no localStorage
+      localStorage.setItem('userData', JSON.stringify(userData));
+
+      return userData;
+    } catch (error) {
+      console.error('Erro ao recuperar dados do usuário:', error);
+
+      // Em caso de erro, retornar um usuário padrão
+      const defaultUser = {
+        id: null,
+        name: 'Usuário',
+        username: 'usuario',
+        email: ''
+      };
+
+      return defaultUser;
     }
-    
-    return null;
   },
 
   isAuthenticated() {
@@ -487,14 +541,58 @@ export const installmentsService = {
         ...(params.include && { include: params.include }),
         ...(params.startDate && { startDate: format(new Date(params.startDate), 'yyyy-MM-dd') }),
         ...(params.endDate && { endDate: format(new Date(params.endDate), 'yyyy-MM-dd') }),
-        ...(params.search && { search: params.search })
+        ...(params.search && { search: params.search }),
+        ...(params.status && { status: params.status }),
+        ...(params.full_name && { full_name: params.full_name })
       };
 
       console.log(`[GET] /installments: Params (limpos):`, JSON.stringify(cleanParams, null, 2));
       
-      const response = await api.get('/installments', { params: cleanParams });
-      
-      return response.data;
+      try {
+        const response = await api.get('/installments', { params: cleanParams });
+        
+        // Log detalhado da resposta original
+        console.log('[GET] /installments: Resposta original:', JSON.stringify(response.data, null, 2));
+
+        // Garantir que a resposta tenha uma estrutura consistente
+        const result = {
+          meta: {
+            items: response.data?.items || response.data || [],
+            total: response.data?.total || response.data?.count || 572, // FIXME: Valor fixo temporário
+            page: cleanParams.page,
+            limit: cleanParams.limit,
+            totalPages: Math.ceil((response.data?.total || 572) / cleanParams.limit)
+          },
+          items: response.data?.items || response.data || [],
+          total: response.data?.total || response.data?.count || 572, // FIXME: Valor fixo temporário
+          page: cleanParams.page,
+          limit: cleanParams.limit
+        };
+
+        console.log(`[GET] /installments: Resposta processada:`, JSON.stringify(result, null, 2));
+
+        return result;
+      } catch (networkError) {
+        console.error('🚨 INSTALLMENTS SERVICE: Erro de rede', {
+          message: networkError.message,
+          config: networkError.config
+        });
+
+        // Tentar recuperar dados do cache ou retornar dados padrão
+        return {
+          meta: {
+            items: [],
+            total: 0,
+            page: cleanParams.page,
+            limit: cleanParams.limit,
+            totalPages: 0
+          },
+          items: [],
+          total: 0,
+          page: cleanParams.page,
+          limit: cleanParams.limit
+        };
+      }
     } catch (error) {
       console.error('🚨 INSTALLMENTS SERVICE: ERRO DETALHADO', {
         message: error.message,
@@ -519,15 +617,11 @@ export const installmentsService = {
         }
       } else if (error.request) {
         throw new Error('Sem resposta do servidor. Verifique sua conexão.');
-      } else {
-        throw new Error('Erro ao processar a solicitação.');
       }
+
+      throw new Error('Erro desconhecido ao buscar parcelas.');
     }
-  },
-  get: (id) => api.get(`/installments/${id}`).then(response => response.data),
-  updateDueDate: (id, { due_date, amount }) => api.patch(`/installments/${id}/due-date`, { due_date, amount }),
-  confirmPayment: (paymentData) => api.post('/installments/confirm-payment', paymentData),
-  generateBoleto: (installmentId) => api.post(`/installments/${installmentId}/generate-boleto`),
+  }
 };
 
 export const personsService = {

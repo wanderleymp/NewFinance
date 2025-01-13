@@ -130,9 +130,11 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
   const [openDrawer, setOpenDrawer] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const [user, setUser] = useState({
-    name: '',
-    username: '',
+  const [userData, setUserData] = useState({
+    id: null,
+    name: 'Usuário',
+    username: 'usuario',
+    email: ''
   });
 
   const menuItemStyles = {
@@ -161,13 +163,13 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
-  console.log('Dashboard - Usuário:', user);
+  console.log('Dashboard - Usuário:', userData);
   console.log('Dashboard - Filhos recebidos:', children);
 
   useEffect(() => {
     console.log('Dashboard - Efeito inicial');
     console.log('Dashboard - Localização atual:', location);
-    console.log('Dashboard - Usuário atual:', user);
+    console.log('Dashboard - Usuário atual:', userData);
     
     // Verificar autenticação e navegação
     if (!authService.isAuthenticated()) {
@@ -178,13 +180,59 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
 
     // Log de navegação
     console.log('Dashboard - Rota atual:', location.pathname);
-  }, [location, navigate, user]);
+  }, [location, navigate, userData]);
+
+  useEffect(() => {
+    console.error('🚨 DIAGNÓSTICO CRÍTICO: Dashboard - Verificando contexto de Outlet', {
+      location: location,
+      pathname: location.pathname,
+      children: children,
+      outlet: <Outlet />,
+      outletContext: outlet,
+      outletProps: outlet?.props
+    });
+
+    // Log detalhado de children
+    if (children) {
+      console.error('🚨 DIAGNÓSTICO CRÍTICO: Detalhes de children', {
+        type: children.type?.name,
+        props: children.props
+      });
+    }
+  }, [location, children, outlet]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        console.log('Dashboard - Dados do usuário recuperados:', user);
+        
+        setUserData({
+          id: user.id || null,
+          name: user.name || 'Usuário',
+          username: user.username || 'usuario',
+          email: user.email || ''
+        });
+      } catch (error) {
+        console.error('Dashboard - Erro ao recuperar dados do usuário:', error);
+        // Usar dados padrão em caso de erro
+        setUserData({
+          id: null,
+          name: 'Usuário',
+          username: 'usuario',
+          email: ''
+        });
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   useEffect(() => {
     // Verificar usuário autenticado
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
-      setUser(currentUser);
+      setUserData(currentUser);
     } else {
       // Redirecionar para login se não estiver autenticado
       navigate('/login');
@@ -522,7 +570,7 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
               color="primary"
             >
               <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                {userData.username ? userData.username.charAt(0).toUpperCase() : 'U'}
               </Avatar>
             </IconButton>
           </Box>
@@ -594,7 +642,7 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
       >
         <MenuItem disabled>
           <Typography variant="body2">
-            {user.name || user.username || 'Usuário'}
+            {userData.name || userData.username || 'Usuário'}
           </Typography>
         </MenuItem>
         <Divider />
