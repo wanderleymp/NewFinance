@@ -1,26 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Outlet, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { styled, useTheme } from '@mui/material/styles';
 import { 
   Box, 
-  Drawer as MuiDrawer, 
-  AppBar as MuiAppBar,
+  Drawer, 
+  CssBaseline, 
   Toolbar,
   List,
-  CssBaseline,
   Typography,
   Divider,
   IconButton,
-  Badge,
-  Avatar,
-  Menu,
-  MenuItem,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Collapse,
-  Tooltip,
-  SvgIcon
+  Avatar,
+  Menu,
+  MenuItem,
+  Collapse
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -46,90 +43,27 @@ import {
   Category as CategoryIcon,
   Cached as CachedIcon,
   Receipt as ReceiptIcon,
-  AccountCircle as AccountCircleIcon
+  AccountCircle as AccountCircleIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  Assessment as AssessmentIcon,
+  BarChart as BarChartIcon,
+  Person as PersonIcon,
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { useNavigate, useLocation, useOutlet, Outlet } from 'react-router-dom';
 import { healthService, authService } from '../services/api';
 import Logo from './Logo';
 
-const drawerWidth = 240;
-
-const AppBar = styled(MuiAppBar, {
-  shouldForwardProp: (prop) => prop !== 'open',
-})(({ theme, open }) => ({
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: 'none',
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  transition: theme.transitions.create(['width', 'margin'], {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-  ...(open && {
-    width: `calc(100% - ${drawerWidth}px)`,
-    marginLeft: `${drawerWidth}px`,
-    transition: theme.transitions.create(['width', 'margin'], {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-  }),
-}));
-
-const StyledDrawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' })(
-  ({ theme, open }) => ({
-    width: drawerWidth,
-    flexShrink: 0,
-    '& .MuiDrawer-paper': {
-      width: drawerWidth,
-      boxSizing: 'border-box',
-      borderRight: `1px solid ${theme.palette.divider}`,
-      backgroundColor: theme.palette.background.paper,
-    },
-  })
-);
-
-const DrawerHeader = styled('div')(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  padding: theme.spacing(0, 1),
-  // necessary for content to be below app bar
-  ...theme.mixins.toolbar,
-  justifyContent: 'space-between',
-}));
-
-const Main = styled('main', {
-  shouldForwardProp: (prop) => prop !== 'open',
-})(({ theme, open }) => ({
-  flexGrow: 1,
-  padding: theme.spacing(3),
-  transition: theme.transitions.create('margin', {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-  marginLeft: `-${drawerWidth}px`,
-  ...(open && {
-    transition: theme.transitions.create('margin', {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-    marginLeft: 0,
-  }),
-}));
-
-export default function Dashboard({ darkMode, setDarkMode, children }) {
+const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-  const outlet = useOutlet();
-
-  console.log('🚨 DIAGNÓSTICO CRÍTICO: VERIFICANDO RENDERIZAÇÃO DO DASHBOARD');
-  console.log(`🚨 PATHNAME ATUAL: ${location.pathname}`);
-  console.log(`🚨 ROTA ATUAL: ${window.location.href}`);
+  const outletContext = useOutletContext();
 
   const [openDrawer, setOpenDrawer] = useState(true);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [notifications, setNotifications] = useState([]);
+  const [openSubMenus, setOpenSubMenus] = useState({});
   const [userData, setUserData] = useState({
     id: null,
     name: 'Usuário',
@@ -137,199 +71,16 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
     email: ''
   });
 
-  const menuItemStyles = {
-    '&:hover': {
-      backgroundColor: theme.palette.mode === 'dark' 
-        ? theme.palette.grey[700] 
-        : theme.palette.primary.light,
-      color: theme.palette.mode === 'dark' 
-        ? theme.palette.common.white 
-        : theme.palette.primary.contrastText,
-    },
-    '&.Mui-selected': {
-      backgroundColor: theme.palette.mode === 'dark' 
-        ? theme.palette.grey[700] 
-        : theme.palette.primary.light,
-      color: theme.palette.mode === 'dark' 
-        ? theme.palette.common.white 
-        : theme.palette.primary.contrastText,
-    },
-    borderRadius: theme.shape.borderRadius,
-    margin: theme.spacing(0.5, 1),
-    transition: 'all 0.3s ease',
-  };
-
-  const [openSubMenus, setOpenSubMenus] = useState({});
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
-  console.log('Dashboard - Usuário:', userData);
-  console.log('Dashboard - Filhos recebidos:', children);
-
-  useEffect(() => {
-    console.log('Dashboard - Efeito inicial');
-    console.log('Dashboard - Localização atual:', location);
-    console.log('Dashboard - Usuário atual:', userData);
-    
-    // Verificar autenticação e navegação
-    if (!authService.isAuthenticated()) {
-      console.warn('Usuário não autenticado, redirecionando para login');
-      navigate('/login');
-      return;
-    }
-
-    // Log de navegação
-    console.log('Dashboard - Rota atual:', location.pathname);
-  }, [location, navigate, userData]);
-
-  useEffect(() => {
-    console.error('🚨 DIAGNÓSTICO CRÍTICO: Dashboard - Verificando contexto de Outlet', {
-      location: location,
-      pathname: location.pathname,
-      children: children,
-      outlet: <Outlet />,
-      outletContext: outlet,
-      outletProps: outlet?.props
-    });
-
-    // Log detalhado de children
-    if (children) {
-      console.error('🚨 DIAGNÓSTICO CRÍTICO: Detalhes de children', {
-        type: children.type?.name,
-        props: children.props
-      });
-    }
-  }, [location, children, outlet]);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const user = await authService.getCurrentUser();
-        console.log('Dashboard - Dados do usuário recuperados:', user);
-        
-        setUserData({
-          id: user.id || null,
-          name: user.name || 'Usuário',
-          username: user.username || 'usuario',
-          email: user.email || ''
-        });
-      } catch (error) {
-        console.error('Dashboard - Erro ao recuperar dados do usuário:', error);
-        // Usar dados padrão em caso de erro
-        setUserData({
-          id: null,
-          name: 'Usuário',
-          username: 'usuario',
-          email: ''
-        });
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  useEffect(() => {
-    // Verificar usuário autenticado
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      setUserData(currentUser);
-    } else {
-      // Redirecionar para login se não estiver autenticado
-      navigate('/login');
-    }
-
-    // Carregar notificações
-    const fetchNotifications = async () => {
-      try {
-        // Implementar lógica de busca de notificações
-        const fetchedNotifications = []; // Substituir por chamada real à API
-        setNotifications(fetchedNotifications);
-      } catch (error) {
-        console.error('Erro ao buscar notificações:', error);
-        enqueueSnackbar('Não foi possível carregar notificações', { variant: 'error' });
-      }
-    };
-
-    fetchNotifications();
-
-    // Verificar status do sistema
-    const checkSystemHealth = async () => {
-      try {
-        await healthService.check();
-      } catch (error) {
-        console.error('Erro de saúde do sistema:', error);
-        enqueueSnackbar('Problemas com o sistema detectados', { variant: 'warning' });
-      }
-    };
-
-    checkSystemHealth();
-  }, [navigate, enqueueSnackbar]);
-
-  const handleDrawerToggle = () => {
-    setOpenDrawer(!openDrawer);
-  };
-
-  const handleMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      enqueueSnackbar('Erro ao fazer logout', { variant: 'error' });
-    }
-  };
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  const handleNotificationsOpen = (event) => {
-    setNotificationsAnchorEl(event.currentTarget);
-  };
-
-  const handleNotificationsClose = () => {
-    setNotificationsAnchorEl(null);
-  };
-
-  const handleClearCache = async () => {
-    try {
-      await healthService.clearCache();
-      enqueueSnackbar('Cache limpo com sucesso!', { variant: 'success' });
-    } catch (error) {
-      console.error('Erro ao limpar cache:', error);
-      enqueueSnackbar('Erro ao limpar o cache', { variant: 'error' });
-    }
-    handleSystemMenuClose();
-  };
-
-  const handleSubMenuToggle = (itemId) => {
-    setOpenSubMenus(prev => ({
-      ...prev,
-      [itemId]: !prev[itemId]
-    }));
-  };
-
-  const handleSystemMenuOpen = (event) => {
-    setMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleSystemMenuClose = () => {
-    setMenuAnchorEl(null);
-  };
-
-  const menuItems = [
+  const menuItems = useMemo(() => [
     {
       id: 'dashboard',
       title: 'Dashboard',
-      path: '/dashboard',
+      path: '/',
       icon: <DashboardIcon />,
     },
     {
@@ -407,252 +158,284 @@ export default function Dashboard({ darkMode, setDarkMode, children }) {
         },
       ],
     },
-  ];
+  ], []);
+
+  console.log('Dashboard - Pathname atual:', location.pathname);
+  console.log('Dashboard - Outlet context:', outletContext);
 
   const renderMenuItem = (item) => {
-    const hasSubItems = item.subItems && item.subItems.length > 0;
-    const isSubMenuOpen = openSubMenus[item.id];
-
-    const baseItemStyles = {
-      minHeight: 48,
-      justifyContent: openDrawer ? 'initial' : 'center',
-      px: openDrawer ? 2.5 : 'auto',
-      ...menuItemStyles,
-    };
+    const hasSubitems = item.subItems && item.subItems.length > 0;
+    const isSubMenuOpen = openSubMenus[item.id] || false;
 
     return (
-      <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-        <ListItemButton
-          sx={baseItemStyles}
-          selected={!hasSubItems && location.pathname === item.path}
-          onClick={(e) => {
-            if (hasSubItems) {
-              handleSubMenuToggle(item.id);
+      <React.Fragment key={item.id}>
+        <ListItem
+          disablePadding
+          sx={{
+            backgroundColor: location.pathname === item.path 
+              ? (darkMode ? theme.palette.grey[700] : theme.palette.primary.light)
+              : 'transparent'
+          }}
+          onClick={() => {
+            if (hasSubitems) {
+              setOpenSubMenus(prev => ({
+                ...prev,
+                [item.id]: !prev[item.id]
+              }));
             } else if (item.path) {
               navigate(item.path);
             }
           }}
         >
-          <ListItemIcon
-            sx={{
-              minWidth: 0,
-              mr: openDrawer ? 3 : 'auto',
-              justifyContent: 'center',
-            }}
-          >
-            {item.icon}
-          </ListItemIcon>
-          <ListItemText 
-            primary={item.title} 
-            sx={{ opacity: openDrawer ? 1 : 0 }} 
-          />
-          {hasSubItems && (
-            openDrawer ? 
-              (isSubMenuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />) : 
-              null
-          )}
-        </ListItemButton>
+          <ListItemButton>
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.title} />
+            {hasSubitems && (
+              isSubMenuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />
+            )}
+          </ListItemButton>
+        </ListItem>
 
-        {hasSubItems && openDrawer && (
-          <Collapse in={isSubMenuOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {item.subItems.map((subItem) => (
-                <ListItemButton
-                  key={subItem.id}
-                  sx={{
-                    ...baseItemStyles,
-                    pl: 4,
-                  }}
-                  selected={location.pathname === subItem.path}
-                  onClick={(e) => {
-                    if (subItem.onClick) {
-                      subItem.onClick(e);
-                    } else if (subItem.path) {
-                      navigate(subItem.path);
-                    }
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 0,
-                      mr: openDrawer ? 3 : 'auto',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {subItem.icon}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={subItem.title} 
-                    sx={{ opacity: openDrawer ? 1 : 0 }} 
-                  />
+        {hasSubitems && isSubMenuOpen && (
+          <List component="div" disablePadding>
+            {item.subItems.map((subitem) => (
+              <ListItem
+                key={subitem.id}
+                disablePadding
+                sx={{
+                  backgroundColor: location.pathname === subitem.path 
+                    ? (darkMode ? theme.palette.grey[700] : theme.palette.primary.light)
+                    : 'transparent'
+                }}
+                onClick={() => navigate(subitem.path)}
+              >
+                <ListItemButton sx={{ pl: 4 }}>
+                  <ListItemIcon>{subitem.icon}</ListItemIcon>
+                  <ListItemText primary={subitem.title} />
                 </ListItemButton>
-              ))}
-            </List>
-          </Collapse>
+              </ListItem>
+            ))}
+          </List>
         )}
-      </ListItem>
+      </React.Fragment>
     );
   };
 
-  const renderOutlet = () => {
-    console.log('🚨 DASHBOARD: Renderizando Outlet');
-    console.log('Outlet:', outlet);
-    console.log('Children:', children);
-    
-    // Prioridade: children específicos > outlet > Outlet padrão
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        console.log('Dashboard - Usuário recuperado:', user);
+        
+        if (user && user.id) {
+          setUserData(user);
+        } else {
+          console.warn('Usuário inválido, redirecionando para login');
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Erro crítico na autenticação:', error);
+        navigate('/login');
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  useEffect(() => {
+    // Verificar autenticação e navegação
+    if (!authService.isAuthenticated()) {
+      console.warn('Usuário não autenticado, redirecionando para login');
+      navigate('/login');
+      return;
+    }
+  }, [location, navigate]);
+
+  useEffect(() => {
+    console.error('🚨 DIAGNÓSTICO CRÍTICO: Dashboard - Verificando contexto de Outlet', {
+      location: location,
+      pathname: location.pathname,
+      children: children,
+      outletContext: outletContext,
+    });
+
+    // Log detalhado de children
     if (children) {
-      return children;
+      console.error('🚨 DIAGNÓSTICO CRÍTICO: Detalhes de children', {
+        type: children.type?.name,
+        props: children.props
+      });
     }
-    
-    if (outlet) {
-      return outlet;
+  }, [location, children, outletContext]);
+
+  useEffect(() => {
+    // Verificar usuário autenticado
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUserData(currentUser);
+    } else {
+      // Redirecionar para login se não estiver autenticado
+      navigate('/login');
     }
-    
-    return <Outlet />;
+
+    // Carregar notificações
+    const fetchNotifications = async () => {
+      try {
+        // Implementar lógica de busca de notificações
+        const fetchedNotifications = []; // Substituir por chamada real à API
+        setNotifications(fetchedNotifications);
+      } catch (error) {
+        console.error('Erro ao buscar notificações:', error);
+        enqueueSnackbar('Não foi possível carregar notificações', { variant: 'error' });
+      }
+    };
+
+    fetchNotifications();
+
+    // Verificar status do sistema
+    const checkSystemHealth = async () => {
+      try {
+        await healthService.check();
+      } catch (error) {
+        console.error('Erro de saúde do sistema:', error);
+        enqueueSnackbar('Problemas com o sistema detectados', { variant: 'warning' });
+      }
+    };
+
+    checkSystemHealth();
+  }, [navigate, enqueueSnackbar]);
+
+  useEffect(() => {
+    // Sincronizar submenu com rota atual
+    const currentPath = location.pathname;
+    const updatedOpenSubMenus = {};
+
+    menuItems.forEach(item => {
+      if (item.subItems) {
+        const matchingSubItem = item.subItems.find(subItem => 
+          currentPath.startsWith(subItem.path)
+        );
+        
+        if (matchingSubItem) {
+          updatedOpenSubMenus[item.id] = true;
+        }
+      }
+    });
+
+    setOpenSubMenus(prev => ({
+      ...prev,
+      ...updatedOpenSubMenus
+    }));
+  }, [location.pathname, menuItems]);
+
+  const handleDrawerToggle = () => {
+    setOpenDrawer(!openDrawer);
+  };
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      enqueueSnackbar('Erro ao fazer logout', { variant: 'error' });
+    }
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  const handleNotificationsOpen = (event) => {
+    setNotificationsAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
+  };
+
+  const handleClearCache = async () => {
+    try {
+      await healthService.clearCache();
+      enqueueSnackbar('Cache limpo com sucesso!', { variant: 'success' });
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+      enqueueSnackbar('Erro ao limpar o cache', { variant: 'error' });
+    }
+    handleSystemMenuClose();
+  };
+
+  const handleSubMenuToggle = (itemId) => {
+    setOpenSubMenus(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
+  const handleSystemMenuOpen = (event) => {
+    setMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleSystemMenuClose = () => {
+    setMenuAnchorEl(null);
   };
 
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar 
-        position="fixed" 
+      <Drawer
+        variant="permanent"
         open={openDrawer}
         sx={{
-          backgroundColor: theme.palette.background.paper,
-          boxShadow: 'none',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <Toolbar sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          py: 1,
-          px: 2,
-          gap: 2
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton
-              color="primary"
-              aria-label="open drawer"
-              onClick={handleDrawerToggle}
-              edge="start"
-            >
-              <MenuIcon />
-            </IconButton>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Tooltip title="Modo Escuro">
-              <IconButton 
-                onClick={toggleDarkMode} 
-                color="primary"
-              >
-                {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-              </IconButton>
-            </Tooltip>
-
-            <IconButton
-              aria-label="show new notifications"
-              color="primary"
-              onClick={handleNotificationsOpen}
-            >
-              <Badge badgeContent={notifications.length} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-
-            <IconButton
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleMenu}
-              color="primary"
-            >
-              <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                {userData.username ? userData.username.charAt(0).toUpperCase() : 'U'}
-              </Avatar>
-            </IconButton>
-          </Box>
-        </Toolbar>
-      </AppBar>
-      
-      <MuiDrawer
-        sx={{
-          width: drawerWidth,
+          width: openDrawer ? 240 : 73,
           flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
+          [`& .MuiDrawer-paper`]: { 
+            width: openDrawer ? 240 : 73, 
             boxSizing: 'border-box',
-            borderRight: `1px solid ${theme.palette.divider}`,
-            backgroundColor: theme.palette.background.paper,
+            transition: theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
           },
         }}
-        variant="persistent"
-        anchor="left"
-        open={openDrawer}
       >
-        <Box sx={{ 
-          p: 2, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-        }}>
-          <Logo size="medium" />
-        </Box>
-        <List sx={{ mt: 2 }}>
-          {menuItems.map((item) => renderMenuItem(item))}
-        </List>
-      </MuiDrawer>
-      
-      <Main open={openDrawer}>
-        <DrawerHeader />
-        {renderOutlet()}
-      </Main>
-
-      <Menu
-        id="system-menu"
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleSystemMenuClose}
-      >
-        <MenuItem onClick={handleClearCache}>
-          <ListItemIcon>
-            <CachedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Limpar Cache</ListItemText>
-        </MenuItem>
-      </Menu>
-
-      <Menu
-        id="menu-appbar"
-        anchorEl={anchorEl}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        keepMounted
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-      >
-        <MenuItem disabled>
-          <Typography variant="body2">
-            {userData.name || userData.username || 'Usuário'}
-          </Typography>
-        </MenuItem>
+        <Toolbar>
+          <IconButton onClick={() => setOpenDrawer(!openDrawer)}>
+            {openDrawer ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          </IconButton>
+        </Toolbar>
         <Divider />
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <ExitToAppIcon fontSize="small" />
-          </ListItemIcon>
-          Sair
-        </MenuItem>
-      </Menu>
+        <List>
+          {menuItems.map(renderMenuItem)}
+        </List>
+      </Drawer>
+      
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1, 
+          p: 3, 
+          width: `calc(100% - ${openDrawer ? 240 : 73}px)`,
+          transition: theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        <Toolbar />
+        {/* Renderização do Outlet */}
+        <Outlet context={{ darkMode, setDarkMode, userData }} />
+      </Box>
     </Box>
   );
-}
+};
+
+export default Dashboard;

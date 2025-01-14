@@ -143,23 +143,30 @@ const refreshTokenIfNeeded = async () => {
   
   try {
     const response = await api.post('/auth/refresh-token', { 
-      refresh_token: refreshToken // Corrigindo o nome do campo para refresh_token
+      refresh_token: refreshToken
     });
     
-    const { access_token, refresh_token } = response.data; // Corrigindo os nomes dos campos
+    const { 
+      accessToken = response.data.access_token, 
+      refreshToken: newRefreshToken = response.data.refresh_token 
+    } = response.data;
     
-    localStorage.setItem('accessToken', access_token);
-    if (refresh_token) {
-      localStorage.setItem('refreshToken', refresh_token);
+    if (!accessToken) {
+      throw new Error('Novo token de acesso não recebido');
+    }
+    
+    localStorage.setItem('accessToken', accessToken);
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
     }
     
     isRefreshing = false;
-    processQueue(null, access_token);
-    return access_token;
+    processQueue(null, accessToken);
+    return accessToken;
   } catch (error) {
     isRefreshing = false;
     processQueue(error, null);
-    handleAuthError(); // Adicionando chamada ao handleAuthError em caso de erro
+    handleAuthError(); // Redireciona para login
     throw error;
   }
 };
@@ -234,40 +241,59 @@ export const authService = {
 
   async getCurrentUser() {
     try {
-      // Primeiro, tentar recuperar do localStorage
-      const storedUserData = localStorage.getItem('userData');
+      // Primeiro, verificar se o token é válido
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        throw new Error('Sem token de acesso');
+      }
+
+      // Tentar decodificar o token
+      const decodedToken = jwtDecode(accessToken);
+      const currentTime = Date.now() / 1000;
+
+      // Se o token estiver expirado, forçar renovação
+      if (decodedToken.exp < currentTime) {
+        throw new Error('Token expirado');
+      }
+
+      // Tentar recuperar do localStorage
+      const storedUserData = localStorage.getItem('user');
       if (storedUserData) {
         const parsedUserData = JSON.parse(storedUserData);
         console.log('Dados do usuário recuperados do localStorage:', parsedUserData);
         return parsedUserData;
       }
 
-      // Se não estiver no localStorage, tentar buscar da API
+      // Se não estiver no localStorage, buscar da API
       const response = await api.get('/users/me');
-      const userData = response.data;
+      const userData = {
+        id: response.data.id || response.data.user_id,
+        username: response.data.username,
+        email: response.data.email,
+        name: response.data.name || `${response.data.first_name} ${response.data.last_name}`.trim()
+      };
 
-      console.log('Dados do usuário recuperados da API:', {
-        id: userData.id,
-        username: userData.username,
-        email: userData.email
-      });
+      console.log('Dados do usuário recuperados da API:', userData);
 
       // Armazenar dados do usuário no localStorage
-      localStorage.setItem('userData', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userData));
 
       return userData;
     } catch (error) {
       console.error('Erro ao recuperar dados do usuário:', error);
 
-      // Em caso de erro, retornar um usuário padrão
-      const defaultUser = {
+      // Limpar dados de autenticação em caso de erro
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+
+      // Retornar usuário padrão
+      return {
         id: null,
         name: 'Usuário',
         username: 'usuario',
         email: ''
       };
-
-      return defaultUser;
     }
   },
 
@@ -533,93 +559,70 @@ export const movementsService = {
 
 export const installmentsService = {
   async list(params = {}) {
+    // Remover parâmetros undefined ou null
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null)
+    );
+
+    // Log detalhado dos parâmetros de filtro
+    console.log('[GET] /installments: Params (limpos):', JSON.stringify(cleanParams, null, 2));
+
+    return api.get('/installments', { params: cleanParams })
+      .then(response => {
+        console.log('[GET] /installments: Resposta original:', response.data);
+
+        // Adicionar log detalhado de datas
+        if (response.data.items) {
+          const dateDiagnostics = response.data.items.map(item => ({
+            installmentId: item.installment_id,
+            dueDate: item.due_date,
+            expectedDate: item.expected_date,
+            daysOverdue: item.days_overdue
+          }));
+          console.log('[GET] /installments: Diagnóstico de Datas:', dateDiagnostics);
+        }
+
+        return response.data;
+      })
+      .catch(error => {
+        console.error('[GET] /installments: Erro na requisição:', error);
+        throw error;
+      });
+  },
+
+  async search(query = '') {
     try {
-      // Remover parâmetros inválidos e garantir formato correto
-      const cleanParams = {
-        page: params.page || 1,
-        limit: params.limit || 10,
-        ...(params.include && { include: params.include }),
-        ...(params.startDate && { startDate: format(new Date(params.startDate), 'yyyy-MM-dd') }),
-        ...(params.endDate && { endDate: format(new Date(params.endDate), 'yyyy-MM-dd') }),
-        ...(params.search && { search: params.search }),
-        ...(params.status && { status: params.status }),
-        ...(params.full_name && { full_name: params.full_name })
-      };
-
-      console.log(`[GET] /installments: Params (limpos):`, JSON.stringify(cleanParams, null, 2));
+      console.log('Buscando parcelas com query:', query);
+      const response = await api.get('/installments', {
+        params: {
+          search: query,
+          limit: 10
+        }
+      });
       
-      try {
-        const response = await api.get('/installments/details', { params: cleanParams });
-        
-        // Log detalhado da resposta original
-        console.log('[GET] /installments: Resposta original:', JSON.stringify(response.data, null, 2));
-
-        // Garantir que a resposta tenha uma estrutura consistente
-        const result = {
-          meta: {
-            items: response.data?.items || response.data || [],
-            total: response.data?.total || response.data?.count || 572, // FIXME: Valor fixo temporário
-            page: cleanParams.page,
-            limit: cleanParams.limit,
-            totalPages: Math.ceil((response.data?.total || 572) / cleanParams.limit)
-          },
-          items: response.data?.items || response.data || [],
-          total: response.data?.total || response.data?.count || 572, // FIXME: Valor fixo temporário
-          page: cleanParams.page,
-          limit: cleanParams.limit
-        };
-
-        console.log(`[GET] /installments: Resposta processada:`, JSON.stringify(result, null, 2));
-
-        return result;
-      } catch (networkError) {
-        console.error('🚨 INSTALLMENTS SERVICE: Erro de rede', {
-          message: networkError.message,
-          config: networkError.config
-        });
-
-        // Tentar recuperar dados do cache ou retornar dados padrão
-        return {
-          meta: {
-            items: [],
-            total: 0,
-            page: cleanParams.page,
-            limit: cleanParams.limit,
-            totalPages: 0
-          },
-          items: [],
-          total: 0,
-          page: cleanParams.page,
-          limit: cleanParams.limit
-        };
-      }
+      console.log('Resposta completa da busca de parcelas:', response.data);
+      
+      // Verificações robustas para diferentes estruturas de resposta
+      const data = response.data || {};
+      const installmentItems = data.data || data.items || [];
+      
+      console.log('Parcelas encontradas:', installmentItems);
+      
+      return {
+        items: installmentItems,
+        pagination: data.pagination || {
+          total: installmentItems.length,
+          page: 1,
+          limit: 10
+        }
+      };
     } catch (error) {
-      console.error('🚨 INSTALLMENTS SERVICE: ERRO DETALHADO', {
+      console.error('Erro na busca de parcelas:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status,
-        params: params
+        status: error.response?.status
       });
-
-      // Tratamento de erro específico
-      if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            throw new Error('Parâmetros inválidos. Verifique as datas e filtros.');
-          case 401:
-            throw new Error('Não autorizado. Faça login novamente.');
-          case 404:
-            throw new Error('Recurso não encontrado.');
-          case 500:
-            throw new Error('Erro interno do servidor. Tente novamente mais tarde.');
-          default:
-            throw new Error('Erro ao buscar parcelas. Tente novamente.');
-        }
-      } else if (error.request) {
-        throw new Error('Sem resposta do servidor. Verifique sua conexão.');
-      }
-
-      throw new Error('Erro desconhecido ao buscar parcelas.');
+      throw error;
     }
   }
 };
