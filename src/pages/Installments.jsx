@@ -1389,8 +1389,8 @@ export default function Installments() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          Editar Data de Vencimento
+        <DialogTitle sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="h6">Editar Data de Vencimento</Typography>
           {selectedInstallmentForDueDateEdit && (
             <Typography variant="subtitle2" color="textSecondary">
               Parcela: {selectedInstallmentForDueDateEdit.installment_id}
@@ -1400,31 +1400,24 @@ export default function Installments() {
         <DialogContent>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
-              <DatePicker
-                label="Nova Data de Vencimento"
-                value={newDueDate}
-                onChange={(date) => {
-                  setNewDueDate(date);
-                  if (selectedInstallmentForDueDateEdit) {
-                    const calculatedAmount = handleCalculateNewAmount(
-                      selectedInstallmentForDueDateEdit, 
-                      date, 
-                      updateBoletoWithFees
-                    );
-                    setNewAmount(calculatedAmount);
-                  }
-                }}
-                slots={{
-                  textField: TextField
-                }}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    variant: 'outlined',
-                    margin: 'normal'
-                  }
-                }}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
+                <DatePicker
+                  label="Nova Data de Vencimento"
+                  value={newDueDate}
+                  onChange={(date) => {
+                    setNewDueDate(date);
+                    if (selectedInstallmentForDueDateEdit) {
+                      const calculatedAmount = handleCalculateNewAmount(
+                        selectedInstallmentForDueDateEdit, 
+                        date, 
+                        updateBoletoWithFees
+                      );
+                      setNewAmount(calculatedAmount);
+                    }
+                  }}
+                  renderInput={(params) => <TextField {...params} fullWidth variant="outlined" margin="normal" />}
+                />
+              </LocalizationProvider>
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
