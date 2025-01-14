@@ -24,7 +24,7 @@
     "release": "cd .. && ./scripts/release.sh release",
     "release:minor": "cd .. && ./scripts/release.sh release minor",
     "release:patch": "cd .. && ./scripts/release.sh release patch",
-    "release:build": "cd .. && ./scripts/release.sh release build"
+    "release:build": "cd .. && ./scripts/release.sh build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

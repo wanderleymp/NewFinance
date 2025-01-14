@@ -100,6 +100,46 @@ create_release() {
     echo -e "${GREEN}Release v$new_version criada e enviada com sucesso!${NC}"
 }
 
+# Função para preparar novo build
+prepare_build() {
+    echo -e "${YELLOW}Iniciando processo de preparação de build${NC}"
+    
+    # 1. Atualizar branch develop do repositório remoto
+    echo -e "${GREEN}Atualizando branch develop${NC}"
+    git checkout develop
+    git pull origin develop
+    
+    # 2. Merge do develop para main
+    echo -e "${GREEN}Fazendo merge de develop para main${NC}"
+    git checkout main
+    git merge develop
+    git push origin main
+    
+    # 3. Criar nova branch de build
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local build_branch="build/release-${timestamp}"
+    git checkout -b "${build_branch}"
+    
+    # 4. Executar build
+    echo -e "${GREEN}Executando npm run build${NC}"
+    npm run build
+    
+    # 5. Incrementar versão
+    local current_version=$(cat VERSION || echo "0.1.0")
+    local new_version=$(increment_version "$current_version" 1)
+    echo "$new_version" > VERSION
+    
+    # 6. Preparar commit e push
+    git add dist VERSION  # Usando dist para projetos Vite
+    git commit -m "Prepare new build: ${build_branch} (v${new_version})"
+    git push -u origin "${build_branch}"
+    
+    echo -e "${GREEN}Build concluído com sucesso!${NC}"
+    echo -e "${YELLOW}Próximos passos:${NC}"
+    echo -e "1. Crie um Pull Request de ${build_branch} para main"
+    echo -e "2. Faça o merge após revisão"
+}
+
 # Menu principal
 case "$1" in
     "feature")
@@ -124,11 +164,16 @@ case "$1" in
         create_release "$2"
         ;;
     
+    "build")
+        prepare_build
+        ;;
+    
     *)
         echo -e "${YELLOW}Uso do script:${NC}"
         echo "  ./release.sh feature nome-da-feature  # Criar nova feature"
         echo "  ./release.sh finish                   # Finalizar feature atual"
         echo "  ./release.sh release [tipo]           # Criar release"
+        echo "  ./release.sh build                    # Preparar novo build"
         echo ""
         echo -e "${YELLOW}Tipos de release:${NC}"
         echo "  major  # Mudanças incompatíveis (1.x.x.x)"
