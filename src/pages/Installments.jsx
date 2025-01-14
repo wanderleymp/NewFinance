@@ -63,6 +63,7 @@ import {
   Refresh as RefreshIcon 
 } from '@mui/icons-material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import EventIcon from '@mui/icons-material/Event';
 import { 
   DatePicker, 
   LocalizationProvider 
@@ -456,6 +457,26 @@ export default function Installments() {
                   }}
                 >
                   <CheckCircleIcon fontSize="small" />
+                </IconButton>
+              )}
+
+              {/* Botão de Alterar Vencimento */}
+              {installment.status === 'Pendente' && (
+                <IconButton 
+                  size="small"
+                  color="primary"
+                  onClick={() => handleEditDueDate(installment)}
+                  title="Alterar Vencimento"
+                  sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'primary.light',
+                    '&:hover': { 
+                      bgcolor: 'primary.light', 
+                      color: 'primary.contrastText' 
+                    }
+                  }}
+                >
+                  <EventIcon fontSize="small" />
                 </IconButton>
               )}
             </Box>
