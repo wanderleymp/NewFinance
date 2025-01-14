@@ -22,169 +22,90 @@ increment_version() {
     echo "${ADDR[0]}.${ADDR[1]}.${ADDR[2]}.${ADDR[3]}"
 }
 
-# Função para criar feature
-create_feature() {
-    local feature_name=$1
-    echo -e "${YELLOW}Criando feature branch para: $feature_name${NC}"
-    
-    # Atualizar main
-    git checkout main
-    git pull origin main
-    
-    # Criar e mudar para nova branch
-    git checkout -b "feature/$feature_name"
-    
-    echo -e "${GREEN}Branch feature/$feature_name criada com sucesso!${NC}"
-    echo -e "Você pode começar a desenvolver sua feature agora."
-}
-
-# Função para finalizar feature
-finish_feature() {
-    local current_branch=$(git rev-parse --abbrev-ref HEAD)
-    
-    if [[ $current_branch != feature/* ]]; then
-        echo -e "${RED}Erro: Você não está em uma feature branch${NC}"
-        exit 1
-    fi
-    
-    echo -e "${YELLOW}Finalizando feature: $current_branch${NC}"
-    
-    # Commit alterações pendentes se houver
-    if [[ -n $(git status -s) ]]; then
-        echo -e "${YELLOW}Existem alterações pendentes. Fazendo commit...${NC}"
-        git add .
-        read -p "Mensagem do commit: " commit_message
-        git commit -m "$commit_message"
-    fi
-    
-    # Push para o remote
-    git push origin $current_branch
-    
-    echo -e "${GREEN}Feature finalizada e enviada para o GitHub${NC}"
-    echo -e "Agora você pode criar um Pull Request em: https://github.com/wanderleymp/NewFinance/compare/main...$current_branch"
-}
-
-# Função para criar release
-create_release() {
-    local release_type=$1
-    local current_version=$(node -p "require('./frontend/package.json').version")
-    local new_version
-    
-    case $release_type in
-        "major") new_version=$(increment_version "$current_version" 0);;
-        "minor") new_version=$(increment_version "$current_version" 1);;
-        "patch") new_version=$(increment_version "$current_version" 2);;
-        "build") new_version=$(increment_version "$current_version" 3);;
-        *) 
-            echo -e "${RED}Tipo de release inválido. Use: major, minor, patch ou build${NC}"
-            exit 1
-            ;;
-    esac
-    
-    echo -e "${YELLOW}Criando release $new_version${NC}"
-    
-    # Atualizar versão no package.json
-    cd frontend
-    npm version $new_version --no-git-tag-version
-    cd ..
-    
-    # Commit e tag
-    git add .
-    git commit -m "Release v$new_version"
-    git tag -a "v$new_version" -m "Release version $new_version"
-    
-    # Push
-    git push origin main
-    git push origin "v$new_version"
-    
-    echo -e "${GREEN}Release v$new_version criada e enviada com sucesso!${NC}"
-}
-
 # Função para preparar novo build
 prepare_build() {
     echo -e "${YELLOW}Iniciando processo de preparação de build${NC}"
     
-    # 1. Atualizar branch develop do repositório remoto
+    # Atualizar branch develop
     echo -e "${GREEN}Atualizando branch develop${NC}"
     git checkout develop
     git pull origin develop
     
-    # 2. Merge do develop para main
+    # Fazer merge de develop para main
     echo -e "${GREEN}Fazendo merge de develop para main${NC}"
     git checkout main
     git merge develop
-    git push origin main  # Isso vai triggar o deploy no Cloudflare Pages
     
-    # 3. Executar build local
+    # Incrementar versão
+    local current_version=$(node -p "require('./package.json').version")
+    local new_version=$(increment_version "$current_version" 3)
+    
+    # Atualizar package.json com nova versão
+    npm version "$new_version" --no-git-tag-version
+    
+    # Commitar mudanças de versão
+    git add package.json
+    git commit -m "Bump version to $new_version"
+    
+    # Executar build
     echo -e "${GREEN}Executando npm run build${NC}"
     npm run build
     
-    # 4. Criar tag de release
-    local current_version=$(node -p "require('./package.json').version")
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local release_tag="v${current_version}-${timestamp}"
+    # Criar tag de release
+    local release_tag="v$new_version-$(date +%Y%m%d_%H%M%S)"
+    git tag "$release_tag"
     
-    git tag "${release_tag}"
-    git push origin "${release_tag}"
-    
-    # 5. Voltar para develop e preparar próximo ciclo
-    git checkout develop
-    
-    # Incrementar versão de desenvolvimento
-    npm --no-git-tag-version version prerelease
-    
-    # Push das mudanças
-    git add package.json
-    git commit -m "Bump version for next development cycle"
+    # Push para repositório
+    git push origin main
     git push origin develop
+    git push origin "$release_tag"
+    
+    # Deploy para Cloudflare
+    echo -e "${GREEN}Deploy iniciado no Cloudflare Pages${NC}"
     
     echo -e "${GREEN}Build e próximo ciclo preparados!${NC}"
-    echo -e "${GREEN}Deploy iniciado no Cloudflare Pages${NC}"
-    echo -e "${YELLOW}Release criada: ${release_tag}${NC}"
-    
-    # Opcional: Verificar status do deploy no Cloudflare
+    echo -e "${YELLOW}Release criada: $release_tag${NC}"
     echo -e "${YELLOW}Verifique o status do deploy no Cloudflare Pages${NC}"
+}
+
+# Função para otimizar build
+optimize_build() {
+    echo -e "${YELLOW}Otimizando build...${NC}"
+    
+    # Adicionar configurações de otimização no vite.config.js
+    cat > vite.config.js << EOL
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor'
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    sourcemap: false
+  }
+})
+EOL
+
+    echo -e "${GREEN}Configurações de otimização aplicadas!${NC}"
 }
 
 # Menu principal
 case "$1" in
-    "feature")
-        if [ -z "$2" ]; then
-            echo -e "${RED}Erro: Nome da feature é obrigatório${NC}"
-            echo "Uso: ./release.sh feature nome-da-feature"
-            exit 1
-        fi
-        create_feature "$2"
-        ;;
-    
-    "finish")
-        finish_feature
-        ;;
-    
-    "release")
-        if [ -z "$2" ]; then
-            echo -e "${RED}Erro: Tipo de release é obrigatório${NC}"
-            echo "Uso: ./release.sh release [major|minor|patch|build]"
-            exit 1
-        fi
-        create_release "$2"
-        ;;
-    
     "build")
+        optimize_build
         prepare_build
         ;;
-    
     *)
-        echo -e "${YELLOW}Uso do script:${NC}"
-        echo "  ./release.sh feature nome-da-feature  # Criar nova feature"
-        echo "  ./release.sh finish                   # Finalizar feature atual"
-        echo "  ./release.sh release [tipo]           # Criar release"
-        echo "  ./release.sh build                    # Preparar novo build"
-        echo ""
-        echo -e "${YELLOW}Tipos de release:${NC}"
-        echo "  major  # Mudanças incompatíveis (1.x.x.x)"
-        echo "  minor  # Novas funcionalidades (x.1.x.x)"
-        echo "  patch  # Correções de bugs (x.x.1.x)"
-        echo "  build  # Builds específicos (x.x.x.1)"
+        echo -e "${RED}Uso: $0 {build}${NC}"
+        exit 1
         ;;
 esac
