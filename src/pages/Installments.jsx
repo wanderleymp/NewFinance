@@ -296,6 +296,11 @@ export default function Installments() {
 
   // Renderização condicional da tabela
   const renderInstallmentsTable = useMemo(() => {
+    console.log('🚨 Renderizando installments:', {
+      items: installments.items.length,
+      total: installments.total
+    });
+
     if (isLoading) {
       return (
         <Box display="flex" justifyContent="center" alignItems="center" height={400}>
@@ -340,7 +345,7 @@ export default function Installments() {
       );
     }
 
-    return filteredInstallments.map(installment => (
+    return installments.items.map(installment => (
       // Render logic here
       <TableRow key={installment.installment_id} hover>
         <TableCell padding="checkbox">
@@ -494,7 +499,7 @@ export default function Installments() {
         </TableCell>
       </TableRow>
     ));
-  }, [filteredInstallments, isLoading, fetchError, installments]);
+  }, [installments.items, isLoading, fetchError]);
 
   // Função de cálculo de juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
