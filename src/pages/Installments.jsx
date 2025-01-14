@@ -244,69 +244,41 @@ export default function Installments() {
   }, [installments, filters]);
 
   // Optimize data fetching with useCallback
-  const fetchInstallments = useCallback(async (customFilters = {}) => {
-    setIsLoading(true);
-    setFetchError(null);
-
+  const fetchInstallments = useCallback(async () => {
     try {
-      // Usa os filtros personalizados ou os filtros atuais do estado
-      const effectiveFilters = customFilters.startDate 
-        ? customFilters 
-        : filters;
-
-      // Prepara os parâmetros para a API
-      const apiParams = {
+      console.log('🚨 FILTROS DA API (Detalhado):', {
         page: page + 1,
         limit: rowsPerPage,
-        ...(effectiveFilters.startDate && { 
-          start_date: format(startOfDay(effectiveFilters.startDate), 'yyyy-MM-dd') 
-        }),
-        ...(effectiveFilters.endDate && { 
-          end_date: format(endOfDay(effectiveFilters.endDate), 'yyyy-MM-dd') 
-        }),
-        ...(effectiveFilters.status && { status: effectiveFilters.status }),
-        ...(effectiveFilters.full_name && { full_name: effectiveFilters.full_name })
-      };
-
-      console.log('🚨 FILTROS DA API (Detalhado):', apiParams);
-
-      const response = await installmentsService.list(apiParams);
-
-      console.log('🚨 Renderizando installments:', {
-        items: response.items.length, 
-        total: response.meta.total
+        ...(filters.startDate ? { start_date: format(filters.startDate, 'yyyy-MM-dd') } : {}),
+        ...(filters.endDate ? { end_date: format(filters.endDate, 'yyyy-MM-dd') } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.full_name ? { full_name: filters.full_name } : {})
       });
 
-      // Diagnóstico detalhado de paginação
-      const diagnosticInfo = {
-        apiResponse: response,
-        localPage: page,
-        apiPage: response.meta.page,
-        apiTotal: response.meta.total,
-        apiTotalPages: response.meta.totalPages,
-        apiLimit: response.meta.limit
-      };
-      console.log('🔍 DIAGNÓSTICO PAGINAÇÃO DETALHADO:', diagnosticInfo);
+      const response = await installmentsService.list({
+        page: page + 1,
+        limit: rowsPerPage,
+        ...(filters.startDate ? { start_date: format(filters.startDate, 'yyyy-MM-dd') } : {}),
+        ...(filters.endDate ? { end_date: format(filters.endDate, 'yyyy-MM-dd') } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.full_name ? { full_name: filters.full_name } : {})
+      });
 
-      // Sincroniza a paginação
-      const paginationSync = {
-        apiPage: response.meta.page,
-        localPage: page,
-        total: response.meta.total || 0,
-        limit: rowsPerPage
-      };
-      console.log('🚨 PAGINAÇÃO SINCRONIZADA:', paginationSync);
+      console.log('🚨 Resposta completa da API:', response);
 
-      setInstallments(response.items);
-      setTotalItems(response.meta.total || 0);
+      // Verificação robusta da resposta
+      const items = response?.items || response?.data?.items || [];
+      const total = response?.total || response?.data?.total || 0;
+
+      console.log('🚨 Renderizando installments:', { items: items.length, total });
+
+      setInstallments(items);
+      setTotalItems(total);
 
     } catch (error) {
       console.error('Erro ao buscar parcelas:', error);
-      setFetchError(error);
       setInstallments([]);
       setTotalItems(0);
-    } finally {
-      setIsLoading(false);
     }
   }, [page, rowsPerPage, filters]);
 
@@ -467,26 +439,6 @@ export default function Installments() {
                 </IconButton>
               )}
 
-              {/* Botão de Alterar Vencimento */}
-              {installment.status === 'Pendente' && (
-                <IconButton 
-                  size="small"
-                  color="primary"
-                  onClick={() => handleOpenEditDueDateDialog(installment)}
-                  title="Alterar Vencimento"
-                  sx={{ 
-                    border: '1px solid', 
-                    borderColor: 'primary.light',
-                    '&:hover': { 
-                      bgcolor: 'primary.light', 
-                      color: 'primary.contrastText' 
-                    }
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              )}
-
               {/* Botão de Liquidar */}
               {installment.status === 'Pendente' && (
                 <IconButton 
@@ -506,23 +458,6 @@ export default function Installments() {
                   <CheckCircleIcon fontSize="small" />
                 </IconButton>
               )}
-
-              {/* Botão de Compartilhamento */}
-              <IconButton
-                size="small"
-                onClick={(event) => handleShareClick(event, installment)}
-                title="Compartilhar"
-                sx={{ 
-                  border: '1px solid', 
-                  borderColor: 'info.light',
-                  '&:hover': { 
-                    bgcolor: 'info.light', 
-                    color: 'info.contrastText' 
-                  }
-                }}
-              >
-                <ShareIcon fontSize="small" />
-              </IconButton>
             </Box>
           </TableCell>
         </TableRow>
@@ -1062,24 +997,18 @@ export default function Installments() {
 
   const handleShareClick = (event, installment = null) => {
     // console.log('Clicando no botão de compartilhamento:', event, installment);
-    // setShareAnchorEl(event.currentTarget);
-    // setSelectedInstallment(installment);
   };
 
   const handleShareClose = () => {
     // console.log('Fechando o menu de compartilhamento');
-    // setShareAnchorEl(null);
-    // setSelectedInstallment(null);
   };
 
   const handleWhatsAppShare = () => {
     // console.log('Compartilhando via WhatsApp');
-    handleShareClose();
   };
 
   const handleEmailShare = () => {
     // console.log('Compartilhando via Email');
-    handleShareClose();
   };
 
   const normalizeCurrencyValue = (value) => {
@@ -1174,12 +1103,6 @@ export default function Installments() {
       </Box> */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Contas a Receber</Typography>
-        <IconButton 
-          onClick={() => handleShareClick(null)} 
-          color="primary"
-        >
-          <ShareIcon />
-        </IconButton>
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>

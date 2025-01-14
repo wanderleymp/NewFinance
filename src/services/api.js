@@ -559,71 +559,11 @@ export const movementsService = {
 
 export const installmentsService = {
   async list(params = {}) {
-    // Remover parâmetros undefined ou null
-    const cleanParams = Object.fromEntries(
-      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null)
-    );
-
-    // Log detalhado dos parâmetros de filtro
-    console.log('[GET] /installments: Params (limpos):', JSON.stringify(cleanParams, null, 2));
-
-    return api.get('/installments', { params: cleanParams })
-      .then(response => {
-        console.log('[GET] /installments: Resposta original:', response.data);
-
-        // Adicionar log detalhado de datas
-        if (response.data.items) {
-          const dateDiagnostics = response.data.items.map(item => ({
-            installmentId: item.installment_id,
-            dueDate: item.due_date,
-            expectedDate: item.expected_date,
-            daysOverdue: item.days_overdue
-          }));
-          console.log('[GET] /installments: Diagnóstico de Datas:', dateDiagnostics);
-        }
-
-        return response.data;
-      })
-      .catch(error => {
-        console.error('[GET] /installments: Erro na requisição:', error);
-        throw error;
-      });
+    console.log('[GET] /installments/details: Params (limpos):', params);
+    return api.get('/installments/details', { params });
   },
-
   async search(query = '') {
-    try {
-      console.log('Buscando parcelas com query:', query);
-      const response = await api.get('/installments', {
-        params: {
-          search: query,
-          limit: 10
-        }
-      });
-      
-      console.log('Resposta completa da busca de parcelas:', response.data);
-      
-      // Verificações robustas para diferentes estruturas de resposta
-      const data = response.data || {};
-      const installmentItems = data.data || data.items || [];
-      
-      console.log('Parcelas encontradas:', installmentItems);
-      
-      return {
-        items: installmentItems,
-        pagination: data.pagination || {
-          total: installmentItems.length,
-          page: 1,
-          limit: 10
-        }
-      };
-    } catch (error) {
-      console.error('Erro na busca de parcelas:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      throw error;
-    }
+    return api.get(`/installments/details?query=${query}`);
   }
 };
 
@@ -634,8 +574,7 @@ export const personsService = {
       const response = await api.get('/persons', {
         params: {
           search: query,
-          limit: 10,
-          page: 1
+          limit: 10
         }
       });
       
