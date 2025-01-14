@@ -525,28 +525,55 @@ export default function Installments() {
 
   // Função de cálculo de juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
-    if (!originalDueDate || !newDueDate) return originalBalance;
+    console.log('🚨 CÁLCULO DE JUROS E MULTA:', {
+      originalDueDate,
+      newDueDate,
+      originalBalance
+    });
 
-    const originalDate = parseISO(originalDueDate);
-    const newDate = parseISO(newDueDate);
+    // Converte para Date se for string
+    const originalDate = typeof originalDueDate === 'string' 
+      ? parseISO(originalDueDate) 
+      : originalDueDate;
+    const newDate = typeof newDueDate === 'string' 
+      ? parseISO(newDueDate) 
+      : newDueDate;
+
+    // Calcula dias de atraso
     const daysOverdue = differenceInDays(newDate, originalDate);
+    console.log('🚨 DIAS DE ATRASO:', daysOverdue);
 
-    if (daysOverdue <= 0) return originalBalance;
+    // Define taxas de juros e multa
+    const interestRate = 0.01; // 1% ao mês
+    const penaltyRate = 0.02; // 2% de multa
 
-    // Configurações de juros e multa (ajuste conforme necessário)
-    const dailyInterestRate = 0.033 / 100; // 0.033% ao dia
-    const penaltyRate = 2 / 100; // 2% de multa
-
-    const interest = originalBalance * dailyInterestRate * daysOverdue;
+    // Calcula juros e multa
+    const dailyInterestRate = interestRate / 30;
+    const interest = originalBalance * (dailyInterestRate * daysOverdue);
     const penalty = originalBalance * penaltyRate;
     const totalNewBalance = originalBalance + interest + penalty;
+
+    console.log('🚨 DETALHES DO CÁLCULO:', {
+      interest,
+      penalty,
+      totalNewBalance
+    });
 
     return totalNewBalance;
   }, []);
 
   // Função auxiliar para calcular e formatar novo valor com juros
   const handleCalculateNewAmount = useCallback((installment, newDueDate, updateWithFees) => {
-    if (!updateWithFees) return formatCurrency(installment.balance);
+    console.log('🚨 CÁLCULO DE NOVO VALOR:', {
+      installment,
+      newDueDate,
+      updateWithFees
+    });
+
+    if (!updateWithFees) {
+      console.log('🚨 RETORNANDO VALOR ORIGINAL:', formatCurrency(installment.balance));
+      return formatCurrency(installment.balance);
+    }
 
     const newBalance = calculateInterestAndPenalty(
       installment.due_date, 
@@ -554,6 +581,7 @@ export default function Installments() {
       parseFloat(cleanCurrencyValue(installment.balance))
     );
 
+    console.log('🚨 NOVO VALOR CALCULADO:', formatCurrency(newBalance));
     return formatCurrency(newBalance);
   }, [calculateInterestAndPenalty]);
 
@@ -1389,6 +1417,12 @@ export default function Installments() {
         maxWidth="md"
         fullWidth
       >
+        {console.log('🚨 ESTADO DO MODAL:', {
+          editDueDateDialogOpen,
+          selectedInstallmentForDueDateEdit,
+          newDueDate,
+          updateBoletoWithFees
+        })}
         <DialogTitle sx={{ display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6">Editar Data de Vencimento</Typography>
           {selectedInstallmentForDueDateEdit && (
@@ -1404,7 +1438,9 @@ export default function Installments() {
                 <DatePicker
                   label="Nova Data de Vencimento"
                   value={newDueDate}
+                  format="dd/MM/yyyy"
                   onChange={(date) => {
+                    console.log('🚨 DATA SELECIONADA:', date);
                     setNewDueDate(date);
                     if (selectedInstallmentForDueDateEdit) {
                       const calculatedAmount = handleCalculateNewAmount(
@@ -1412,10 +1448,17 @@ export default function Installments() {
                         date, 
                         updateBoletoWithFees
                       );
+                      console.log('🚨 VALOR CALCULADO NO MODAL:', calculatedAmount);
                       setNewAmount(calculatedAmount);
                     }
                   }}
-                  renderInput={(params) => <TextField {...params} fullWidth variant="outlined" margin="normal" />}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      variant: 'outlined',
+                      margin: 'normal'
+                    }
+                  }}
                 />
               </LocalizationProvider>
             </Grid>
