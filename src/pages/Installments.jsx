@@ -409,6 +409,11 @@ export default function Installments() {
             justifyContent: 'flex-end' 
           }}>
             {/* Botão de Notificação */}
+            {console.log('🚨 CONDIÇÕES DE NOTIFICAÇÃO:', {
+              status: installment.status,
+              boletos: installment.boletos,
+              boletosAReceber: installment.boletos?.some(boleto => boleto.status === 'A_RECEBER')
+            })}
             {installment.status === 'Pendente' && 
              installment.boletos && 
              installment.boletos.some(boleto => boleto.status === 'A_RECEBER') && (
@@ -990,23 +995,22 @@ export default function Installments() {
   };
 
   const handleNotifyInstallment = async (installment) => {
-    // console.log('Notificando parcela:', installment);
-    // Cria um estado de processamento específico para este installment
-    // const updatedInstallments = installments.items.map(item => 
-    //   item.installment_id === installment.installment_id 
-    //     ? { ...item, isNotifying: true } 
-    //     : item
-    // );
-    
-    // setInstallments(prev => ({
-    //   ...prev,
-    //   items: updatedInstallments
-    // }));
+    console.log('🚨 NOTIFICANDO PARCELA:', {
+      installment_id: installment.installment_id,
+      status: installment.status,
+      boletos: installment.boletos,
+      full_name: installment.full_name
+    });
 
     try {
+      console.log('🚨 PREPARANDO ENVIO DE NOTIFICAÇÃO');
       const response = await axios.post(
         'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
-        { installment_id: installment.installment_id },
+        { 
+          installment_id: installment.installment_id,
+          full_name: installment.full_name,
+          amount: installment.amount
+        },
         {
           headers: {
             'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
@@ -1015,25 +1019,19 @@ export default function Installments() {
         }
       );
 
+      console.log('🚨 RESPOSTA DA NOTIFICAÇÃO:', response.data);
+
       // Simula um tempo de processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       enqueueSnackbar('Notificação enviada com sucesso!', { variant: 'success' });
     } catch (error) {
-      // console.error('Erro ao enviar notificação:', error);
+      console.error('🚨 ERRO AO ENVIAR NOTIFICAÇÃO:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       enqueueSnackbar('Erro ao enviar notificação', { variant: 'error' });
-    } finally {
-      // Remove o estado de processamento
-      // const resetInstallments = installments.items.map(item => 
-      //   item.installment_id === installment.installment_id 
-      //     ? { ...item, isNotifying: false } 
-      //     : item
-      // );
-      
-      // setInstallments(prev => ({
-      //   ...prev,
-      //   items: resetInstallments
-      // }));
     }
   };
 
