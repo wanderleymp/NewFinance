@@ -498,12 +498,12 @@ export default function Installments() {
     const originalDate = typeof originalDueDate === 'string' 
       ? new Date(originalDueDate) 
       : originalDueDate;
-    const newDate = typeof newDueDate === 'string' 
+    const calculatedNewDate = typeof newDueDate === 'string' 
       ? new Date(newDueDate) 
-      : newDate;
+      : newDueDate;
 
     // Calcula dias de atraso
-    const daysOverdue = differenceInDays(newDate, originalDate);
+    const daysOverdue = differenceInDays(calculatedNewDate, originalDate);
     console.log('🚨 DIAS DE ATRASO:', daysOverdue);
 
     // Define taxas de juros e multa
@@ -522,7 +522,11 @@ export default function Installments() {
       totalNewBalance
     });
 
-    return totalNewBalance;
+    return {
+      interest,
+      penalty,
+      totalNewBalance
+    };
   }, []);
 
   // Função auxiliar para calcular e formatar novo valor com juros
@@ -693,35 +697,44 @@ export default function Installments() {
   }, [enqueueSnackbar, fetchInstallments]);
 
   const handleEditDueDate = useCallback((installment) => {
-    // console.log('Edição de data de vencimento:', installment);
-    if (installment) {
-      // Definir estados iniciais
-      setSelectedInstallmentForDueDateEdit(installment);
-      
-      // Definir nova data
-      const originalDueDate = new Date(installment.due_date);
-      const newDueDate = isPast(originalDueDate) ? new Date() : originalDueDate;
-      setNewDueDate(newDueDate);
+    console.log('🚨 INICIANDO EDIÇÃO DE VENCIMENTO:', installment);
 
-      // Definir valor
-      const originalBalance = formatCurrency(installment.balance || 0);
-      setNewAmount(originalBalance);
+    // Limpa o valor original do balance
+    const originalBalance = parseFloat(cleanCurrencyValue(installment.amount));
 
-      // Se já estiver vencido, calcular valor atualizado
-      if (isPast(originalDueDate)) {
-        const updatedBalance = calculateInterestAndPenalty(originalDueDate, new Date(), parseFloat(cleanCurrencyValue(originalBalance)));
-        setNewAmount(formatCurrency(updatedBalance));
-        setUpdateBoletoWithFees(true);
-        setUpdateBoletoOnly(true);
-      } else {
-        setUpdateBoletoWithFees(false);
-        setUpdateBoletoOnly(false);
-      }
-      
-      // Forçar abertura do modal
-      setEditDueDateDialogOpen(true);
+    // Configura a data original e a nova data
+    const originalDueDate = new Date(installment.due_date);
+    const newDueDate = isPast(originalDueDate) ? new Date() : originalDueDate;
+
+    // Calcula juros e multa se a data original estiver no passado
+    let newBalance = originalBalance;
+    let interestDetails = { interest: 0, penalty: 0 };
+    
+    if (isPast(originalDueDate)) {
+      interestDetails = calculateInterestAndPenalty(originalDueDate, newDueDate, originalBalance);
+      newBalance = interestDetails.totalNewBalance;
     }
-  }, [calculateInterestAndPenalty]);
+
+    console.log('🚨 DETALHES DE EDIÇÃO DE VENCIMENTO:', {
+      originalBalance,
+      newBalance,
+      interestDetails
+    });
+
+    // Atualiza o estado para abertura do modal
+    setSelectedInstallmentForDueDateEdit(installment);
+    setNewDueDate(newDueDate);
+    
+    // Define o novo valor no input
+    setNewAmount(formatCurrency(newBalance));
+    
+    // Define se deve atualizar com juros
+    setUpdateBoletoWithFees(isPast(originalDueDate));
+    setUpdateBoletoOnly(isPast(originalDueDate));
+    
+    // Abre o modal com o novo valor calculado
+    setEditDueDateDialogOpen(true);
+  }, [calculateInterestAndPenalty, cleanCurrencyValue, formatCurrency, isPast]);
 
   const handleUpdateDueDate = async (installmentId, newDueDate, newAmount, updateBoletoWithFees, updateBoletoOnly) => {
     // console.log('Atualização de data de vencimento:', {
