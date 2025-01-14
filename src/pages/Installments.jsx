@@ -345,9 +345,17 @@ export default function Installments() {
       );
     }
 
-    if (installments.items.length === 0) {
+    if (!installments || !installments.items || installments.items.length === 0) {
       return (
-        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height={400}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100%', 
+          textAlign: 'center', 
+          p: 4 
+        }}>
           <SentimentDissatisfiedIcon color="disabled" sx={{ fontSize: 80, mb: 2 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             Nenhuma parcela encontrada
@@ -359,7 +367,7 @@ export default function Installments() {
       );
     }
 
-    return installments.items.map(installment => (
+    return (installments?.items || []).map(installment => (
       // Render logic here
       <TableRow key={installment.installment_id} hover>
         <TableCell padding="checkbox">
@@ -379,7 +387,7 @@ export default function Installments() {
           {renderInstallmentStatus(installment.status)}
         </TableCell>
         <TableCell>
-          {installment.boletos.map((boleto) => (
+          {(installment.boletos || []).map((boleto) => (
             <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
               {boleto.status === 'A_RECEBER' && (
                 <IconButton 

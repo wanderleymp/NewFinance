@@ -549,7 +549,7 @@ export const installmentsService = {
       console.log(`[GET] /installments: Params (limpos):`, JSON.stringify(cleanParams, null, 2));
       
       try {
-        const response = await api.get('/installments', { params: cleanParams });
+        const response = await api.get('/installments/details', { params: cleanParams });
         
         // Log detalhado da resposta original
         console.log('[GET] /installments: Resposta original:', JSON.stringify(response.data, null, 2));
