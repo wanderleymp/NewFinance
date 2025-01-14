@@ -174,7 +174,7 @@ export default function Installments() {
     startDate: null,
     endDate: null,
     status: '',
-    fullName: ''
+    full_name: ''
   });
 
   // Estados de carregamento e erro
@@ -226,8 +226,8 @@ export default function Installments() {
   const filteredInstallments = useMemo(() => {
     return installments.items.filter(installment => {
       const matchStatus = !filters.status || installment.status === filters.status;
-      const matchFullName = !filters.fullName || 
-        installment.full_name.toLowerCase().includes(filters.fullName.toLowerCase());
+      const matchFullName = !filters.full_name || 
+        installment.full_name.toLowerCase().includes(filters.full_name.toLowerCase());
       
       return matchStatus && matchFullName;
     });
@@ -239,13 +239,17 @@ export default function Installments() {
     setError(null);
 
     try {
-      const response = await installmentsService.list({
+      // Preparar filtros para a API
+      const apiFilters = {
         page: page + 1,  
         limit: rowsPerPage,
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, v]) => v != null && v !== '')
-        )
-      });
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.full_name ? { full_name: filters.full_name } : {})
+      };
+
+      console.log('🚨 FILTROS DA API:', apiFilters);
+
+      const response = await installmentsService.list(apiFilters);
 
       console.log('🔍 DIAGNÓSTICO PAGINAÇÃO DETALHADO:', {
         apiResponse: response,
@@ -266,6 +270,13 @@ export default function Installments() {
       // Sincronizar estados de paginação
       setPage(response.page - 1);
       setRowsPerPage(response.limit || rowsPerPage);
+
+      console.log('🚨 PAGINAÇÃO SINCRONIZADA:', {
+        apiPage: response.page,
+        localPage: response.page - 1,
+        total: response.total,
+        limit: response.limit || rowsPerPage
+      });
 
     } catch (err) {
       console.error('🚨 Erro ao buscar parcelas:', err);
@@ -289,7 +300,10 @@ export default function Installments() {
       total: installments.total,
       page,
       rowsPerPage,
-      filters
+      filters: {
+        ...filters,
+        full_name: filters.full_name ? `"${filters.full_name}"` : null
+      }
     });
     fetchInstallments();
   }, [fetchInstallments, filters, page, rowsPerPage]);
@@ -1256,8 +1270,8 @@ export default function Installments() {
         <Grid item>
           <TextField
             label="Nome"
-            value={filters.fullName}
-            onChange={(e) => setFilters(prev => ({ ...prev, fullName: e.target.value }))}
+            value={filters.full_name}
+            onChange={(e) => setFilters(prev => ({ ...prev, full_name: e.target.value }))}
             size="small"
             InputProps={{
               startAdornment: (
@@ -1331,6 +1345,9 @@ export default function Installments() {
         count={installments.total}
         rowsPerPage={rowsPerPage}
         page={page}
+        labelDisplayedRows={({ from, to, count }) => 
+          `${from}–${to} de ${count !== -1 ? count : `mais de ${to}`}`
+        }
         onPageChange={(event, newPage) => {
           console.log('🚨 PAGINAÇÃO: Nova página', newPage);
           setPage(newPage);
