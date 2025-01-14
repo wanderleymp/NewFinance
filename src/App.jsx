@@ -50,7 +50,16 @@ const PrivateRoute = () => {
 };
 
 function AppRoutes({ darkMode, setDarkMode }) {
-  return <Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />;
+  const contextValue = {
+    darkMode,
+    setDarkMode
+  };
+
+  return (
+    <Dashboard darkMode={darkMode} setDarkMode={setDarkMode}>
+      <Outlet context={contextValue} />
+    </Dashboard>
+  );
 }
 
 function App() {

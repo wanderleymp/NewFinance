@@ -64,17 +64,12 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-  const outletContext = useOutletContext() || {
-    darkMode: false,
-    setDarkMode: () => {},
-    userData: {},
-    setUserData: () => {},
-    notifications: [],
-    setNotifications: () => {}
-  };
-
-  console.log('Dashboard - Pathname atual:', location.pathname);
-  console.log('Dashboard - Outlet context:', outletContext);
+  const outletContext = useOutletContext();
+  const context = useMemo(() => ({
+    darkMode,
+    setDarkMode,
+    ...(outletContext || {})
+  }), [darkMode, setDarkMode, outletContext]);
 
   const [openDrawer, setOpenDrawer] = useState(true);
   const [openSubMenus, setOpenSubMenus] = useState({});
@@ -280,22 +275,6 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
     }
   }, [location, navigate]);
 
-  useEffect(() => {
-    console.error('🚨 DIAGNÓSTICO CRÍTICO: Dashboard - Verificando contexto de Outlet', {
-      location: location,
-      pathname: location.pathname,
-      children: children,
-      outletContext: outletContext,
-    });
-
-    // Log detalhado de children
-    if (children) {
-      console.error('🚨 DIAGNÓSTICO CRÍTICO: Detalhes de children', {
-        type: children.type?.name,
-        props: children.props
-      });
-    }
-  }, [location, children, outletContext]);
 
   useEffect(() => {
     // Verificar usuário autenticado
@@ -500,13 +479,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
       >
         <Toolbar />
         {/* Renderização do Outlet */}
-        <Outlet context={{ 
-          userData, 
-          setUserData, 
-          notifications, 
-          setNotifications,
-          ...(outletContext || {}) 
-        }} />
+        <Outlet context={context} />
       </Box>
     </Box>
   );
