@@ -60,7 +60,10 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-  const outletContext = useOutletContext();
+  const outletContext = useOutletContext() || {}; // Provide a default empty object
+
+  console.log('Dashboard - Pathname atual:', location.pathname);
+  console.log('Dashboard - Outlet context:', outletContext);
 
   const [openDrawer, setOpenDrawer] = useState(true);
   const [openSubMenus, setOpenSubMenus] = useState({});
@@ -432,7 +435,13 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
       >
         <Toolbar />
         {/* Renderização do Outlet */}
-        <Outlet context={{ darkMode, setDarkMode, userData }} />
+        <Outlet context={{ 
+          userData, 
+          setUserData, 
+          notifications, 
+          setNotifications,
+          ...outletContext 
+        }} />
       </Box>
     </Box>
   );

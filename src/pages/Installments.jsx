@@ -69,7 +69,7 @@ import {
 } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
-import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths } from 'date-fns';
+import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import axios from 'axios';
@@ -99,9 +99,17 @@ const cleanCurrencyValue = (value) => {
 // Função segura para formatar data
 const safeFormatDate = (date) => {
   try {
-    // Se for uma string, remove o timezone e converte para Date
+    // Log para diagnóstico
+    console.log('🔍 Formatando data:', { 
+      originalDate: date, 
+      type: typeof date,
+      isDate: date instanceof Date,
+      isValidDate: date && !isNaN(new Date(date))
+    });
+
+    // Se for uma string, converte para Date considerando o timezone local
     const parsedDate = typeof date === 'string' 
-      ? new Date(date.split('T')[0]) 
+      ? parse(date, 'yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'', new Date())  // Usa parse com formato específico
       : date;
     
     // Verifica se é uma data válida
@@ -160,12 +168,8 @@ export default function Installments() {
   const { enqueueSnackbar } = useSnackbar();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [installments, setInstallments] = useState({
-    items: [],
-    total: 0,
-    page: 0,
-    limit: 10
-  });
+  const [installments, setInstallments] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Memoize complex states and calculations
   const [loading, setLoading] = useState(true);
@@ -182,6 +186,10 @@ export default function Installments() {
   // Estados de carregamento e erro
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+
+  // Estados para startDate e endDate
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   // Função para renderizar o status da parcela
   const renderInstallmentStatus = useCallback((status, daysOverdue) => {
@@ -226,110 +234,87 @@ export default function Installments() {
 
   // Memoize filtered installments
   const filteredInstallments = useMemo(() => {
-    return installments.items.filter(installment => {
+    return installments.filter(installment => {
       const matchStatus = !filters.status || installment.status === filters.status;
       const matchFullName = !filters.full_name || 
         installment.full_name.toLowerCase().includes(filters.full_name.toLowerCase());
       
       return matchStatus && matchFullName;
     });
-  }, [installments.items, filters]);
+  }, [installments, filters]);
 
   // Optimize data fetching with useCallback
-  const fetchInstallments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchInstallments = useCallback(async (customFilters = {}) => {
+    setIsLoading(true);
+    setFetchError(null);
 
     try {
-      // Garantir que page seja sempre um número válido
-      const safePageNumber = Math.max(0, page || 0);
-      const safeRowsPerPage = Math.max(10, rowsPerPage || 10);
+      // Usa os filtros personalizados ou os filtros atuais do estado
+      const effectiveFilters = customFilters.startDate 
+        ? customFilters 
+        : filters;
 
-      // Formatar datas para enviar à API
-      const formattedStartDate = filters.startDate 
-        ? format(startOfDay(filters.startDate), 'yyyy-MM-dd') 
-        : null;
-      const formattedEndDate = filters.endDate 
-        ? format(endOfDay(filters.endDate), 'yyyy-MM-dd') 
-        : null;
-
-      console.log('🚨 FILTROS DE DATA:', {
-        startDate: filters.startDate,
-        formattedStartDate,
-        endDate: filters.endDate,
-        formattedEndDate
-      });
-
+      // Prepara os parâmetros para a API
       const apiParams = {
-        page: safePageNumber + 1,  // API usa base 1 para página
-        limit: safeRowsPerPage,
-        ...(formattedStartDate && { start_date: formattedStartDate }),
-        ...(formattedEndDate && { end_date: formattedEndDate }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.full_name && { full_name: filters.full_name })
+        page: page + 1,
+        limit: rowsPerPage,
+        ...(effectiveFilters.startDate && { 
+          start_date: format(startOfDay(effectiveFilters.startDate), 'yyyy-MM-dd') 
+        }),
+        ...(effectiveFilters.endDate && { 
+          end_date: format(endOfDay(effectiveFilters.endDate), 'yyyy-MM-dd') 
+        }),
+        ...(effectiveFilters.status && { status: effectiveFilters.status }),
+        ...(effectiveFilters.full_name && { full_name: effectiveFilters.full_name })
       };
 
-      console.log('🚨 FILTROS DA API (Detalhado):', {
-        page: apiParams.page,
-        limit: apiParams.limit,
-        start_date: apiParams.start_date || 'Não definido',
-        end_date: apiParams.end_date || 'Não definido'
-      });
+      console.log('🚨 FILTROS DA API (Detalhado):', apiParams);
 
       const response = await installmentsService.list(apiParams);
 
-      console.log('🔍 DIAGNÓSTICO PAGINAÇÃO DETALHADO:', {
+      console.log('🚨 Renderizando installments:', {
+        items: response.items.length, 
+        total: response.meta.total
+      });
+
+      // Diagnóstico detalhado de paginação
+      const diagnosticInfo = {
         apiResponse: response,
-        localPage: safePageNumber,
-        apiPage: response.page,
-        apiTotal: response.total,
-        apiTotalPages: response.meta?.totalPages || Math.ceil(response.total / safeRowsPerPage),
-        localRowsPerPage: safeRowsPerPage
-      });
+        localPage: page,
+        apiPage: response.meta.page,
+        apiTotal: response.meta.total,
+        apiTotalPages: response.meta.totalPages,
+        apiLimit: response.meta.limit
+      };
+      console.log('🔍 DIAGNÓSTICO PAGINAÇÃO DETALHADO:', diagnosticInfo);
 
-      const processedItems = response.items.map(item => ({
-        ...item,
-        boletos: item.boletos || []
-      }));
+      // Sincroniza a paginação
+      const paginationSync = {
+        apiPage: response.meta.page,
+        localPage: page,
+        total: response.meta.total || 0,
+        limit: rowsPerPage
+      };
+      console.log('🚨 PAGINAÇÃO SINCRONIZADA:', paginationSync);
 
-      setInstallments({
-        items: processedItems,
-        total: response.total || 0,
-        page: response.page || safePageNumber + 1,
-        limit: response.limit || safeRowsPerPage
-      });
+      setInstallments(response.items);
+      setTotalItems(response.meta.total || 0);
 
-      // Sincronizar estados de paginação
-      setPage(Math.max(0, (response.page || safePageNumber + 1) - 1));
-      setRowsPerPage(response.limit || safeRowsPerPage);
-
-      console.log('🚨 PAGINAÇÃO SINCRONIZADA:', {
-        apiPage: response.page,
-        localPage: Math.max(0, (response.page || safePageNumber + 1) - 1),
-        total: response.total || 0,
-        limit: response.limit || safeRowsPerPage
-      });
-
-    } catch (err) {
-      console.error('Erro ao buscar parcelas:', err);
-      setError(err);
-      setInstallments({
-        items: [],
-        total: 0,
-        page: 0,
-        limit: 10
-      });
-      enqueueSnackbar('Erro ao carregar parcelas', { variant: 'error' });
+    } catch (error) {
+      console.error('Erro ao buscar parcelas:', error);
+      setFetchError(error);
+      setInstallments([]);
+      setTotalItems(0);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [page, rowsPerPage, filters, enqueueSnackbar]);
+  }, [page, rowsPerPage, filters]);
 
   // Controlled effect for data fetching
   useEffect(() => {
     console.log('🚨 INSTALLMENTS: Dados de paginação', {
-      items: installments.items.length,
-      total: installments.total,
+      items: installments.length,
+      total: totalItems,
       page,
       rowsPerPage,
       filters: {
@@ -348,8 +333,8 @@ export default function Installments() {
   // Renderização condicional da tabela
   const renderInstallmentsTable = useMemo(() => {
     console.log('🚨 Renderizando installments:', {
-      items: installments.items.length,
-      total: installments.total
+      items: installments.length,
+      total: totalItems
     });
 
     if (isLoading) {
@@ -382,7 +367,7 @@ export default function Installments() {
       );
     }
 
-    if (!installments || !installments.items || installments.items.length === 0) {
+    if (!installments || !installments.length === 0) {
       return (
         <Box sx={{ 
           display: 'flex', 
@@ -404,138 +389,146 @@ export default function Installments() {
       );
     }
 
-    return (installments?.items || []).map(installment => (
-      // Render logic here
-      <TableRow key={installment.installment_id} hover>
-        <TableCell padding="checkbox">
-          <Checkbox 
-            checked={false} 
-            onChange={() => {}}
-          />
-        </TableCell>
-        <TableCell>{installment.installment_id}</TableCell>
-        <TableCell>{installment.movement_id}</TableCell>
-        <TableCell>{installment.full_name}</TableCell>
-        <TableCell>
-          {safeFormatDate(installment.due_date)}
-        </TableCell>
-        <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
-        <TableCell>
-          {renderInstallmentStatus(installment.status)}
-        </TableCell>
-        <TableCell>
-          {(installment.boletos || []).map((boleto) => (
-            <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-              {boleto.status === 'A_RECEBER' && (
+    return (installments || []).map(installment => {
+      // Log completo do registro
+      console.log('🚨 REGISTRO COMPLETO:', {
+        ...installment,
+        due_date_original: installment.due_date,
+        due_date_formatted: safeFormatDate(installment.due_date)
+      });
+
+      return (
+        <TableRow key={installment.installment_id} hover>
+          <TableCell padding="checkbox">
+            <Checkbox 
+              checked={false} 
+              onChange={() => {}}
+            />
+          </TableCell>
+          <TableCell>{installment.installment_id}</TableCell>
+          <TableCell>{installment.movement_id}</TableCell>
+          <TableCell>{installment.full_name}</TableCell>
+          <TableCell>
+            {safeFormatDate(installment.due_date)}
+          </TableCell>
+          <TableCell>R$ {formatCurrency(installment.amount)}</TableCell>
+          <TableCell>
+            {renderInstallmentStatus(installment.status)}
+          </TableCell>
+          <TableCell>
+            {(installment.boletos || []).map((boleto) => (
+              <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                {boleto.status === 'A_RECEBER' && (
+                  <IconButton 
+                    size="small" 
+                    onClick={() => window.open(boleto.boleto_url, '_blank')}
+                    title="Visualizar Boleto"
+                  >
+                    <ReceiptIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            ))}
+          </TableCell>
+          <TableCell align="right">
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 1,
+              alignItems: 'center',
+              justifyContent: 'flex-end' 
+            }}>
+              {/* Botão de Notificação */}
+              {console.log('🚨 CONDIÇÕES DE NOTIFICAÇÃO:', {
+                installmentId: installment.installment_id,
+                status: installment.status,
+                boletosLength: installment.boletos?.length,
+                boletosAReceber: installment.boletos?.some(boleto => boleto?.status === 'A_RECEBER')
+              })}
+              {installment.status === 'Pendente' && 
+               installment.boletos && 
+               installment.boletos.length > 0 && 
+               installment.boletos.some(boleto => boleto?.status === 'A_RECEBER') && (
                 <IconButton 
-                  size="small" 
-                  onClick={() => window.open(boleto.boleto_url, '_blank')}
-                  title="Visualizar Boleto"
+                  size="small"
+                  color="warning"
+                  onClick={() => handleNotifyInstallment(installment)} 
+                  disabled={false}
+                  title="Notificar Boleto Pendente"
+                  sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'warning.light',
+                    '&:hover': { 
+                      bgcolor: 'warning.light', 
+                      color: 'warning.contrastText' 
+                    }
+                  }}
                 >
-                  <ReceiptIcon fontSize="small" />
+                  <NotificationsIcon fontSize="small" />
                 </IconButton>
               )}
+
+              {/* Botão de Alterar Vencimento */}
+              {installment.status === 'Pendente' && (
+                <IconButton 
+                  size="small"
+                  color="primary"
+                  onClick={() => handleOpenEditDueDateDialog(installment)}
+                  title="Alterar Vencimento"
+                  sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'primary.light',
+                    '&:hover': { 
+                      bgcolor: 'primary.light', 
+                      color: 'primary.contrastText' 
+                    }
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              )}
+
+              {/* Botão de Liquidar */}
+              {installment.status === 'Pendente' && (
+                <IconButton 
+                  size="small"
+                  color="success"
+                  onClick={() => handleSettleInstallment(installment)}
+                  title="Liquidar Parcela"
+                  sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'success.light',
+                    '&:hover': { 
+                      bgcolor: 'success.light', 
+                      color: 'success.contrastText' 
+                    }
+                  }}
+                >
+                  <CheckCircleIcon fontSize="small" />
+                </IconButton>
+              )}
+
+              {/* Botão de Compartilhamento */}
+              <IconButton
+                size="small"
+                onClick={(event) => handleShareClick(event, installment)}
+                title="Compartilhar"
+                sx={{ 
+                  border: '1px solid', 
+                  borderColor: 'info.light',
+                  '&:hover': { 
+                    bgcolor: 'info.light', 
+                    color: 'info.contrastText' 
+                  }
+                }}
+              >
+                <ShareIcon fontSize="small" />
+              </IconButton>
             </Box>
-          ))}
-        </TableCell>
-        <TableCell align="right">
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 1,
-            alignItems: 'center',
-            justifyContent: 'flex-end' 
-          }}>
-            {/* Botão de Notificação */}
-            {console.log('🚨 CONDIÇÕES DE NOTIFICAÇÃO:', {
-              installmentId: installment.installment_id,
-              status: installment.status,
-              boletosLength: installment.boletos?.length,
-              boletosAReceber: installment.boletos?.some(boleto => boleto?.status === 'A_RECEBER')
-            })}
-            {installment.status === 'Pendente' && 
-             installment.boletos && 
-             installment.boletos.length > 0 && 
-             installment.boletos.some(boleto => boleto?.status === 'A_RECEBER') && (
-              <IconButton 
-                size="small"
-                color="warning"
-                onClick={() => handleNotifyInstallment(installment)} 
-                disabled={false}
-                title="Notificar Boleto Pendente"
-                sx={{ 
-                  border: '1px solid', 
-                  borderColor: 'warning.light',
-                  '&:hover': { 
-                    bgcolor: 'warning.light', 
-                    color: 'warning.contrastText' 
-                  }
-                }}
-              >
-                <NotificationsIcon fontSize="small" />
-              </IconButton>
-            )}
-
-            {/* Botão de Alterar Vencimento */}
-            {installment.status === 'Pendente' && (
-              <IconButton 
-                size="small"
-                color="primary"
-                onClick={() => handleOpenEditDueDateDialog(installment)}
-                title="Alterar Vencimento"
-                sx={{ 
-                  border: '1px solid', 
-                  borderColor: 'primary.light',
-                  '&:hover': { 
-                    bgcolor: 'primary.light', 
-                    color: 'primary.contrastText' 
-                  }
-                }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            )}
-
-            {/* Botão de Liquidar */}
-            {installment.status === 'Pendente' && (
-              <IconButton 
-                size="small"
-                color="success"
-                onClick={() => handleSettleInstallment(installment)}
-                title="Liquidar Parcela"
-                sx={{ 
-                  border: '1px solid', 
-                  borderColor: 'success.light',
-                  '&:hover': { 
-                    bgcolor: 'success.light', 
-                    color: 'success.contrastText' 
-                  }
-                }}
-              >
-                <CheckCircleIcon fontSize="small" />
-              </IconButton>
-            )}
-
-            {/* Botão de Compartilhamento */}
-            <IconButton
-              size="small"
-              onClick={(event) => handleShareClick(event, installment)}
-              title="Compartilhar"
-              sx={{ 
-                border: '1px solid', 
-                borderColor: 'info.light',
-                '&:hover': { 
-                  bgcolor: 'info.light', 
-                  color: 'info.contrastText' 
-                }
-              }}
-            >
-              <ShareIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </TableCell>
-      </TableRow>
-    ));
-  }, [installments.items, isLoading, fetchError]);
+          </TableCell>
+        </TableRow>
+      );
+    });
+  }, [installments, isLoading, fetchError]);
 
   // Função para calcular juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
@@ -639,13 +632,13 @@ export default function Installments() {
   }, []);
 
   const installmentsSummary = useMemo(() => {
-    return calculateInstallmentsSummary(installments.items);
-  }, [installments.items]);
+    return calculateInstallmentsSummary(installments);
+  }, [installments]);
 
   const handleSelectAllInstallments = (event) => {
     // console.log('Seleção de todas as parcelas:', event.target.checked);
     if (event.target.checked) {
-      const allInstallmentIds = installments.items.map(item => item.installment_id);
+      const allInstallmentIds = installments.map(item => item.installment_id);
       // setSelectedInstallments(allInstallmentIds);
     } else {
       // setSelectedInstallments([]);
@@ -914,45 +907,66 @@ export default function Installments() {
   const handleQuickDateFilter = useCallback((type) => {
     let newStartDate = null;
     let newEndDate = null;
+
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     switch (type) {
       case 'Hoje':
         newStartDate = startOfDay(today);
         newEndDate = endOfDay(today);
         break;
-      case 'Semana':
-        newStartDate = startOfDay(startOfWeek(today, { locale: ptBR }));
-        newEndDate = endOfDay(endOfWeek(today, { locale: ptBR }));
+      case 'Amanhã':
+        const tomorrow = addDays(today, 1);
+        newStartDate = startOfDay(tomorrow);
+        newEndDate = endOfDay(tomorrow);
         break;
-      case 'Mês':
-        newStartDate = startOfDay(startOfMonth(today));
-        newEndDate = endOfDay(endOfMonth(today));
+      case 'Esta Semana':
+        newStartDate = startOfWeek(today, { weekStartsOn: 1 }); // Segunda-feira
+        newEndDate = endOfWeek(today, { weekStartsOn: 1 });
+        break;
+      case 'Próxima Semana':
+        const nextWeekStart = addWeeks(today, 1);
+        newStartDate = startOfWeek(nextWeekStart, { weekStartsOn: 1 });
+        newEndDate = endOfWeek(nextWeekStart, { weekStartsOn: 1 });
+        break;
+      case 'Este Mês':
+        newStartDate = startOfMonth(today);
+        newEndDate = endOfMonth(today);
         break;
       case 'Próximo Mês':
-        const nextMonthStart = startOfMonth(addMonths(today, 1));
-        newStartDate = startOfDay(nextMonthStart);
-        newEndDate = endOfDay(endOfMonth(nextMonthStart));
+        const nextMonth = addMonths(today, 1);
+        newStartDate = startOfMonth(nextMonth);
+        newEndDate = endOfMonth(nextMonth);
         break;
       default:
-        return;
+        newStartDate = null;
+        newEndDate = null;
     }
 
-    console.log('🚨 FILTRO RÁPIDO:', {
-      type,
-      startDate: newStartDate,
-      endDate: newEndDate
+    console.log('🚨 FILTRO RÁPIDO:', { 
+      type, 
+      startDate: newStartDate, 
+      endDate: newEndDate 
     });
 
-    setFilters(prevFilters => ({
-      ...prevFilters,
+    // Atualiza os estados de data
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+
+    // Atualiza os filtros para a busca na API
+    setFilters(prev => ({
+      ...prev,
       startDate: newStartDate,
       endDate: newEndDate
     }));
-    setStartDate(newStartDate);
-    setEndDate(newEndDate);
-    fetchInstallments();
-  }, [fetchInstallments]);
+
+    // Dispara a busca de parcelas
+    fetchInstallments({
+      startDate: newStartDate,
+      endDate: newEndDate
+    });
+  }, [fetchInstallments, startDate, endDate]);
 
   const handleClearDateFilter = useCallback(() => {
     setFilters(prev => ({
@@ -960,7 +974,10 @@ export default function Installments() {
       startDate: null,
       endDate: null
     }));
-  }, []);
+    setStartDate(null);
+    setEndDate(null);
+    fetchInstallments();
+  }, [fetchInstallments]);
 
   const renderBoletoStatus = (status) => {
     // console.log('Renderizando status de boleto:', status);
@@ -1195,7 +1212,7 @@ export default function Installments() {
                 R$ {formatCurrency(installmentsSummary.totalReceivable)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {installments.items.length} parcelas
+                {installments.length} parcelas
               </Typography>
             </Box>
           </Paper>
@@ -1230,7 +1247,7 @@ export default function Installments() {
                 R$ {formatCurrency(installmentsSummary.totalReceivable)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {installments.items.filter(item => item.status === 'Pendente').length} parcelas
+                {installments.filter(item => item.status === 'Pendente').length} parcelas
               </Typography>
             </Box>
           </Paper>
@@ -1265,7 +1282,7 @@ export default function Installments() {
                 R$ {formatCurrency(installmentsSummary.totalReceived)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {installments.items.filter(item => item.status === 'Pago').length} parcelas
+                {installments.filter(item => item.status === 'Pago').length} parcelas
               </Typography>
             </Box>
           </Paper>
@@ -1277,8 +1294,8 @@ export default function Installments() {
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
             <DatePicker
               label="Data Inicial"
-              value={filters.startDate}
-              onChange={(newValue) => setFilters(prev => ({ ...prev, startDate: newValue }))}
+              value={startDate}
+              onChange={(newValue) => setStartDate(newValue)}
               slots={{
                 textField: TextField
               }}
@@ -1297,8 +1314,8 @@ export default function Installments() {
           <LocalizationProvider dateAdapter={AdapterDateFns} locale={ptBR}>
             <DatePicker
               label="Data Final"
-              value={filters.endDate}
-              onChange={(newValue) => setFilters(prev => ({ ...prev, endDate: newValue }))}
+              value={endDate}
+              onChange={(newValue) => setEndDate(newValue)}
               slots={{
                 textField: TextField
               }}
@@ -1402,7 +1419,7 @@ export default function Installments() {
       <TablePagination
         rowsPerPageOptions={[5, 10, 25]}
         component="div"
-        count={installments.total}
+        count={totalItems}
         rowsPerPage={rowsPerPage}
         page={page}
         labelDisplayedRows={({ from, to, count }) => 
