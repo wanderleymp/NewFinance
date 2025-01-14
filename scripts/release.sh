@@ -113,31 +113,37 @@ prepare_build() {
     echo -e "${GREEN}Fazendo merge de develop para main${NC}"
     git checkout main
     git merge develop
-    git push origin main
+    git push origin main  # Isso vai triggar o deploy no Cloudflare Pages
     
-    # 3. Criar nova branch de build
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local build_branch="build/release-${timestamp}"
-    git checkout -b "${build_branch}"
-    
-    # 4. Executar build
+    # 3. Executar build local
     echo -e "${GREEN}Executando npm run build${NC}"
     npm run build
     
-    # 5. Incrementar versão
-    local current_version=$(cat VERSION || echo "0.1.0")
-    local new_version=$(increment_version "$current_version" 1)
-    echo "$new_version" > VERSION
+    # 4. Criar tag de release
+    local current_version=$(node -p "require('./package.json').version")
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local release_tag="v${current_version}-${timestamp}"
     
-    # 6. Preparar commit e push
-    git add dist VERSION  # Usando dist para projetos Vite
-    git commit -m "Prepare new build: ${build_branch} (v${new_version})"
-    git push -u origin "${build_branch}"
+    git tag "${release_tag}"
+    git push origin "${release_tag}"
     
-    echo -e "${GREEN}Build concluído com sucesso!${NC}"
-    echo -e "${YELLOW}Próximos passos:${NC}"
-    echo -e "1. Crie um Pull Request de ${build_branch} para main"
-    echo -e "2. Faça o merge após revisão"
+    # 5. Voltar para develop e preparar próximo ciclo
+    git checkout develop
+    
+    # Incrementar versão de desenvolvimento
+    npm --no-git-tag-version version prerelease
+    
+    # Push das mudanças
+    git add package.json
+    git commit -m "Bump version for next development cycle"
+    git push origin develop
+    
+    echo -e "${GREEN}Build e próximo ciclo preparados!${NC}"
+    echo -e "${GREEN}Deploy iniciado no Cloudflare Pages${NC}"
+    echo -e "${YELLOW}Release criada: ${release_tag}${NC}"
+    
+    # Opcional: Verificar status do deploy no Cloudflare
+    echo -e "${YELLOW}Verifique o status do deploy no Cloudflare Pages${NC}"
 }
 
 # Menu principal

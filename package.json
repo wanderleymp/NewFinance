@@ -19,12 +19,12 @@
     "format": "prettier --write \"src/**/*.{js,jsx}\"",
     "test": "vitest",
     "prepare-release": "npm run lint && npm run test && npm run build",
-    "feature": "cd .. && ./scripts/release.sh feature",
-    "finish": "cd .. && ./scripts/release.sh finish",
-    "release": "cd .. && ./scripts/release.sh release",
-    "release:minor": "cd .. && ./scripts/release.sh release minor",
-    "release:patch": "cd .. && ./scripts/release.sh release patch",
-    "release:build": "cd .. && ./scripts/release.sh build"
+    "feature": "./scripts/release.sh feature",
+    "finish": "./scripts/release.sh finish",
+    "release": "./scripts/release.sh release",
+    "release:minor": "./scripts/release.sh release minor",
+    "release:patch": "./scripts/release.sh release patch",
+    "release:build": "./scripts/release.sh build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

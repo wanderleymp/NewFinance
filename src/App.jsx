@@ -36,6 +36,7 @@ import ImportCNPJ from './pages/ImportCNPJ';
 // Componentes
 import AIChat from './components/AIChat';
 import { AIAssistant } from './components/AIAssistant';
+import { AppVersion } from './components/AppVersion';
 
 // Rotas Protegidas
 const PrivateRoute = () => {
@@ -104,6 +105,7 @@ function App() {
             draggable
             pauseOnHover
           />
+          <AppVersion />
         </BrowserRouter>
       </SnackbarProvider>
     </ThemeProvider>

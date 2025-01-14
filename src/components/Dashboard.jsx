@@ -17,7 +17,8 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Collapse
+  Collapse,
+  AppBar
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -54,6 +55,9 @@ import {
 import { useSnackbar } from 'notistack';
 import { healthService, authService } from '../services/api';
 import Logo from './Logo';
+import { AppVersion } from './AppVersion'; // Adicionar import
+import NotificationsMenu from './NotificationsMenu';
+import UserMenu from './UserMenu';
 
 const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const theme = useTheme();
@@ -78,6 +82,21 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const [notifications, setNotifications] = useState([]);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
+
+  // Mapeamento de rotas para títulos
+  const pageTitles = {
+    '/': 'Dashboard',
+    '/movements': 'Movimentações',
+    '/installments': 'Contas a Receber',
+    '/persons': 'Pessoas',
+    '/contacts': 'Contatos',
+    '/categories': 'Categorias',
+    '/users': 'Usuários',
+    '/system/status': 'Status do Sistema'
+  };
+
+  // Determinar título da página baseado na rota atual
+  const pageTitle = pageTitles[location.pathname] || 'Dashboard';
 
   const menuItems = useMemo(() => [
     {
@@ -394,9 +413,46 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
+      <AppBar
+        position="fixed"
+        sx={{
+          width: `calc(100% - ${openDrawer ? 240 : 73}px)`,
+          ml: `${openDrawer ? 240 : 73}px`,
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setOpenDrawer(!openDrawer)}
+            sx={{ marginRight: 5 }}
+          >
+            {openDrawer ? <ChevronLeftIcon /> : <MenuIcon />}
+          </IconButton>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            {pageTitle}
+          </Typography>
+          
+          {/* Componentes de cabeçalho */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <NotificationsMenu notifications={notifications} />
+            <UserMenu 
+              userData={userData} 
+              setUserData={setUserData} 
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+            />
+          </Box>
+        </Toolbar>
+      </AppBar>
+
       <Drawer
         variant="permanent"
-        open={openDrawer}
         sx={{
           width: openDrawer ? 240 : 73,
           flexShrink: 0,
@@ -407,6 +463,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
+            position: 'relative'  
           },
         }}
       >
@@ -419,6 +476,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
         <List>
           {menuItems.map(renderMenuItem)}
         </List>
+        <AppVersion />  
       </Drawer>
       
       <Box 
