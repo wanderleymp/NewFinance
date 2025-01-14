@@ -64,11 +64,9 @@ import {
 } from '@mui/icons-material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EventIcon from '@mui/icons-material/Event';
-import { 
-  DatePicker, 
-  LocalizationProvider 
-} from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { ptBR } from 'date-fns/locale';
 import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks } from 'date-fns';
 import { useSnackbar } from 'notistack';

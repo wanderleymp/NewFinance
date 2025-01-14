@@ -1,7 +1,15 @@
 import React, { Suspense, lazy } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
 import Loading from './pages/Loading';
+import Unauthorized from './pages/Unauthorized';
 import { Payment as PaymentIcon } from '@mui/icons-material';
+
+// Definição de roles
+const ROLES = {
+  ADMIN: 'admin',
+  FINANCEIRO: 'financeiro',
+  CONSULTA: 'consulta'
+};
 
 // Lazy load all components
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -23,37 +31,90 @@ const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
 const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, requiredRoles = [] }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return isAuthenticated ? (
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+  console.log('Verificando acesso para rota:', {
+    path: window.location.pathname,
+    user: user.username,
+    roles: user.roles,
+    requiredRoles,
+    timestamp: new Date().toISOString()
+  });
+
+  // Verificar se o usuário tem as roles necessárias
+  const hasRequiredRoles = requiredRoles.length === 0 || 
+    requiredRoles.some(role => user.roles?.includes(role));
+
+  if (!isAuthenticated) {
+    console.log('Usuário não autenticado, redirecionando para login');
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!hasRequiredRoles) {
+    console.warn('Acesso negado - roles insuficientes:', {
+      required: requiredRoles,
+      current: user.roles,
+      path: window.location.pathname,
+      timestamp: new Date().toISOString()
+    });
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  console.log('Acesso permitido para:', {
+    username: user.username,
+    roles: user.roles,
+    path: window.location.pathname,
+    timestamp: new Date().toISOString()
+  });
+  
+  return (
     <Suspense fallback={<Loading />}>
       {children}
     </Suspense>
-  ) : (
-    <Navigate to="/login" replace />
   );
 };
 
 const PublicRoute = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
-  return !isAuthenticated ? (
+  
+  console.log('Verificando rota pública:', {
+    path: window.location.pathname,
+    isAuthenticated,
+    timestamp: new Date().toISOString()
+  });
+
+  if (isAuthenticated) {
+    console.log('Usuário autenticado tentando acessar rota pública, redirecionando para home', {
+      username: JSON.parse(localStorage.getItem('user'))?.username,
+      timestamp: new Date().toISOString()
+    });
+    return <Navigate to="/" replace />;
+  }
+
+  return (
     <Suspense fallback={<Loading />}>
       {children}
     </Suspense>
-  ) : (
-    <Navigate to="/" replace />
   );
 };
 
 const AppRoutes = ({ darkMode, setDarkMode }) => {
   return (
     <Routes>
+      {/* Rotas públicas */}
       <Route path="/login" element={
         <PublicRoute>
           <Suspense fallback={<Loading />}>
             <Login />
           </Suspense>
         </PublicRoute>
+      } />
+      <Route path="/unauthorized" element={
+        <Suspense fallback={<Loading />}>
+          <Unauthorized />
+        </Suspense>
       } />
       <Route
         path="/"
@@ -91,7 +152,14 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
             </Suspense>
           </PrivateRoute>
         } />
-        <Route path="users" element={<Suspense fallback={<Loading />}><Users /></Suspense>} />
+        {/* Rotas administrativas */}
+        <Route path="users" element={
+          <PrivateRoute requiredRoles={[ROLES.ADMIN]}>
+            <Suspense fallback={<Loading />}>
+              <Users />
+            </Suspense>
+          </PrivateRoute>
+        } />
         <Route path="installments" element={
           <Suspense fallback={<Loading />}>
             {console.log('🚨 ROUTES: Renderizando Installments')}
@@ -104,7 +172,14 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           </Suspense>
         } />
         <Route path="receivables" element={<Suspense fallback={<Loading />}><Receivables /></Suspense>} />
-        <Route path="system/status" element={<Suspense fallback={<Loading />}><SystemStatus /></Suspense>} />
+        {/* Rotas de monitoramento */}
+        <Route path="system/status" element={
+          <PrivateRoute requiredRoles={[ROLES.ADMIN]}>
+            <Suspense fallback={<Loading />}>
+              <SystemStatus />
+            </Suspense>
+          </PrivateRoute>
+        } />
         <Route path="contacts" element={<Suspense fallback={<Loading />}><Contacts /></Suspense>} />
         <Route path="payment-methods" element={<Suspense fallback={<Loading />}><PaymentMethods /></Suspense>} />
         <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />

@@ -64,7 +64,14 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-  const outletContext = useOutletContext() || {}; // Provide a default empty object
+  const outletContext = useOutletContext() || {
+    darkMode: false,
+    setDarkMode: () => {},
+    userData: {},
+    setUserData: () => {},
+    notifications: [],
+    setNotifications: () => {}
+  };
 
   console.log('Dashboard - Pathname atual:', location.pathname);
   console.log('Dashboard - Outlet context:', outletContext);
@@ -498,7 +505,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
           setUserData, 
           notifications, 
           setNotifications,
-          ...outletContext 
+          ...(outletContext || {}) 
         }} />
       </Box>
     </Box>

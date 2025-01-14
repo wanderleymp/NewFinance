@@ -2,17 +2,51 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
-  timeout: 30000, // Aumentar timeout para 30 segundos
-  timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.',
-  withCredentials: true, // Habilitar credenciais para CORS
-  headers: {
+// Configurações de segurança
+const SECURITY_CONFIG = {
+  maxRetryAttempts: 3,
+  retryDelay: 1000,
+  csrfToken: null,
+  securityHeaders: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-XSS-Protection': '1; mode=block',
+    'X-Content-Type-Options': 'nosniff',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
   }
+};
+
+// Configuração base do Axios
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 30000,
+  timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.',
+  withCredentials: true,
+  headers: SECURITY_CONFIG.securityHeaders
 });
+
+// Interceptor para adicionar CSRF token
+api.interceptors.request.use(config => {
+  if (SECURITY_CONFIG.csrfToken) {
+    config.headers['X-CSRF-TOKEN'] = SECURITY_CONFIG.csrfToken;
+  }
+  return config;
+});
+
+// Função para obter CSRF token
+const fetchCsrfToken = async () => {
+  try {
+    const response = await api.get('/csrf-token');
+    SECURITY_CONFIG.csrfToken = response.data.csrfToken;
+  } catch (error) {
+    console.error('Erro ao obter CSRF token:', error);
+  }
+};
+
+// Obter CSRF token ao inicializar
+fetchCsrfToken();
 
 // Log da URL base para debug
 console.log('API Base URL:', api.defaults.baseURL);
@@ -53,21 +87,56 @@ const processQueue = (error, token = null) => {
 // Interceptor para adicionar o token e verificar expiração
 api.interceptors.request.use(
   async (config) => {
+    console.log('Iniciando interceptor de requisição:', {
+      url: config.url,
+      method: config.method,
+      timestamp: new Date().toISOString()
+    });
+
     const token = localStorage.getItem('accessToken');
     
     if (token) {
+      console.log('Token encontrado, verificando expiração...', {
+        timestamp: new Date().toISOString()
+      });
+      
       // Verificar se o token está próximo de expirar
       if (isTokenExpiringSoon(token) && !config.url.includes('/auth/refresh-token')) {
+          console.log('Token próximo de expirar, tentando renovar...', {
+            timestamp: new Date().toISOString()
+          });
         try {
           const newToken = await refreshTokenIfNeeded();
+          console.log('Token renovado com sucesso', {
+            timestamp: new Date().toISOString()
+          });
           config.headers.Authorization = `Bearer ${newToken}`;
         } catch (error) {
+          console.error('Falha ao renovar token:', error);
           // Se falhar em renovar o token, redirecionar para login
           handleAuthError();
           return Promise.reject(error);
         }
       } else {
+          console.log('Token válido, adicionando ao cabeçalho', {
+            timestamp: new Date().toISOString()
+          });
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Verificar roles do usuário para endpoints protegidos
+      if (!config.url.includes('/auth/')) {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (userData?.roles) {
+          console.log('Verificando roles do usuário:', {
+            roles: userData.roles,
+            endpoint: config.url,
+            timestamp: new Date().toISOString()
+          });
+
+          // Adicionar roles ao cabeçalho
+          config.headers['X-User-Roles'] = userData.roles.join(',');
+        }
       }
     }
 
@@ -82,8 +151,14 @@ api.interceptors.request.use(
 
     // Log dos parâmetros enviados
     if (config.params) {
-      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params:`, config.params);
-      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params (detailed):`, JSON.stringify(config.params, null, 2));
+      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params:`, {
+        params: config.params,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params (detailed):`, {
+        params: JSON.stringify(config.params, null, 2),
+        timestamp: new Date().toISOString()
+      });
     }
 
     return config;
@@ -185,21 +260,58 @@ const handleAuthError = () => {
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => {
-    // Se a resposta contém dados, retorna a resposta completa
+    console.log('Resposta recebida:', {
+      status: response.status,
+      url: response.config.url,
+      method: response.config.method,
+      timestamp: new Date().toISOString()
+    });
     return response;
   },
   async (error) => {
+    console.error('Erro na resposta:', {
+      message: error.message,
+      status: error.response?.status,
+      url: error.config?.url,
+      method: error.config?.method,
+      timestamp: new Date().toISOString()
+    });
+
     const originalRequest = error.config;
 
     // Se o erro for de autenticação (401) e não estamos tentando renovar o token
     if (error.response?.status === 401 && !originalRequest._retry) {
+      console.log('Erro 401 detectado, verificando se é endpoint de login...', {
+        timestamp: new Date().toISOString()
+      });
       if (originalRequest.url === '/auth/login') {
+        console.log('Erro no endpoint de login, rejeitando...', {
+          timestamp: new Date().toISOString()
+        });
         return Promise.reject(error);
       }
       
+      console.log('Tentando renovar token...', {
+        timestamp: new Date().toISOString()
+      });
       return handleAuthError(error, originalRequest);
     }
 
+    // Tratamento de erro 403 (Forbidden)
+    if (error.response?.status === 403) {
+      console.error('Acesso negado:', {
+        rolesRequired: error.response?.data?.required_roles,
+        userRoles: error.config.headers['X-User-Roles'],
+        timestamp: new Date().toISOString()
+      });
+      // Redirecionar para página de acesso negado
+      window.location.href = '/unauthorized';
+      return Promise.reject(error);
+    }
+
+      console.error('Erro não tratado, rejeitando...', {
+        timestamp: new Date().toISOString()
+      });
     return Promise.reject(error);
   }
 );
@@ -219,7 +331,8 @@ export const authService = {
       const userData = {
         id: user.user_id || user.id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        roles: user.roles || ['consulta'] // Adicionando roles com valor padrão
       };
 
       localStorage.setItem('accessToken', accessToken);
@@ -270,7 +383,8 @@ export const authService = {
         id: response.data.id || response.data.user_id,
         username: response.data.username,
         email: response.data.email,
-        name: response.data.name || `${response.data.first_name} ${response.data.last_name}`.trim()
+        name: response.data.name || `${response.data.first_name} ${response.data.last_name}`.trim(),
+        roles: response.data.roles || ['consulta'] // Adicionando roles com valor padrão
       };
 
       console.log('Dados do usuário recuperados da API:', userData);
@@ -319,11 +433,20 @@ export const authService = {
 
       console.log('Token info:', {
         expiration: decodedToken.exp,
-        currentTime: currentTime
+        currentTime: currentTime,
+        roles: decodedToken.roles // Adicionando roles no log
       });
 
+      // Verificar expiração do token
       if (decodedToken.exp < currentTime) {
         console.log('Token expirado');
+        return false;
+      }
+
+      // Verificar se o usuário tem roles válidas
+      const userData = JSON.parse(user);
+      if (!userData?.roles || userData.roles.length === 0) {
+        console.log('Usuário sem roles definidas');
         return false;
       }
 
