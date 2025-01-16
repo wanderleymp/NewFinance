@@ -10,11 +10,11 @@ export default defineConfig({
       port: 5173
     },
     proxy: {
-      '/api': {
+      '/auth': {
         target: 'https://dev.agilefinance.com.br',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/auth/, '')
       }
     }
   },

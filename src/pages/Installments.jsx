@@ -245,34 +245,34 @@ export default function Installments() {
   // Optimize data fetching with useCallback
   const fetchInstallments = useCallback(async () => {
     try {
-      console.log('🚨 FILTROS DA API (Detalhado):', {
-        page: page + 1,
+      const paginationParams = {
+        page: page + 1, // Ajustando para indexação baseada em 1
         limit: rowsPerPage,
+        sort: 'due_date',
+        order: 'asc'
+      };
+
+      const filterParams = {
         ...(filters.startDate ? { start_date: format(filters.startDate, 'yyyy-MM-dd') } : {}),
         ...(filters.endDate ? { end_date: format(filters.endDate, 'yyyy-MM-dd') } : {}),
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.full_name ? { full_name: filters.full_name } : {})
+      };
+
+      console.log('🚨 Parâmetros da API:', {
+        pagination: paginationParams,
+        filters: filterParams
       });
 
       const response = await installmentsService.list({
-        page: page + 1,
-        limit: rowsPerPage,
-        ...(filters.startDate ? { start_date: format(filters.startDate, 'yyyy-MM-dd') } : {}),
-        ...(filters.endDate ? { end_date: format(filters.endDate, 'yyyy-MM-dd') } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.full_name ? { full_name: filters.full_name } : {})
+        ...paginationParams,
+        ...filterParams
       });
 
       console.log('🚨 Resposta completa da API:', response);
 
-      // Verificação robusta da resposta
-      const items = response?.items || response?.data?.items || [];
-      const total = response?.total || response?.data?.total || 0;
-
-      console.log('🚨 Renderizando installments:', { items: items.length, total });
-
-      setInstallments(items);
-      setTotalItems(total);
+      setInstallments(response.items);
+      setTotalItems(response.total);
 
     } catch (error) {
       console.error('Erro ao buscar parcelas:', error);
@@ -300,6 +300,34 @@ export default function Installments() {
     console.log('🚨 FILTROS ATUALIZADOS:', filters);
     fetchInstallments();
   }, [filters, fetchInstallments]);
+
+  useEffect(() => {
+    // Definir filtro padrão para últimos 7 dias ao carregar a página
+    const today = new Date();
+    const sevenDaysAgo = subDays(today, 6);
+    
+    console.log('🚨 CONFIGURANDO FILTRO PADRÃO DE 7 DIAS', {
+      startDate: sevenDaysAgo,
+      endDate: today
+    });
+
+    // Atualizar estados de data
+    setStartDate(sevenDaysAgo);
+    setEndDate(today);
+
+    // Atualizar filtros
+    setFilters(prev => ({
+      ...prev,
+      startDate: sevenDaysAgo,
+      endDate: today
+    }));
+
+    // Buscar parcelas com o filtro padrão
+    fetchInstallments({
+      startDate: sevenDaysAgo,
+      endDate: today
+    });
+  }, []);
 
   // Renderização condicional da tabela
   const renderInstallmentsTable = useMemo(() => {
@@ -553,7 +581,8 @@ export default function Installments() {
   const handleChangePage = useCallback((event, newPage) => {
     console.log('🚨 PAGINAÇÃO: Nova página', newPage);
     setPage(newPage);
-  }, []);
+    fetchInstallments(); // Força o refresh dos dados ao mudar de página
+  }, [fetchInstallments]);
 
   const handleChangeRowsPerPage = useCallback((event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
@@ -840,38 +869,60 @@ export default function Installments() {
   };
 
   const getQuickDateRanges = () => {
-    // console.log('Obtendo faixas de datas rápidas');
+    console.log('🚨 OBTENDO FAIXAS DE DATAS RÁPIDAS');
     const today = new Date();
     return [
       {
         label: 'Hoje',
         startDate: today,
-        endDate: today
+        endDate: today,
+        onClick: () => {
+          console.log('🚨 CLICOU EM HOJE');
+          handleQuickDateFilter('Hoje');
+        }
       },
       {
         label: 'Semana Atual',
         startDate: startOfWeek(today, { locale: ptBR }),
-        endDate: endOfWeek(today, { locale: ptBR })
+        endDate: endOfWeek(today, { locale: ptBR }),
+        onClick: () => {
+          console.log('🚨 CLICOU EM SEMANA ATUAL');
+          handleQuickDateFilter('Esta Semana');
+        }
       },
       {
         label: 'Mês Atual',
         startDate: startOfMonth(today),
-        endDate: endOfMonth(today)
+        endDate: endOfMonth(today),
+        onClick: () => {
+          console.log('🚨 CLICOU EM MÊS ATUAL');
+          handleQuickDateFilter('Este Mês');
+        }
       },
       {
         label: 'Últimos 7 dias',
         startDate: subDays(today, 6),
-        endDate: today
+        endDate: today,
+        onClick: () => {
+          console.log('🚨 CLICOU EM ÚLTIMOS 7 DIAS');
+          handleQuickDateFilter('Últimos 7 dias');
+        }
       },
       {
         label: 'Últimos 30 dias',
         startDate: subDays(today, 29),
-        endDate: today
+        endDate: today,
+        onClick: () => {
+          console.log('🚨 CLICOU EM ÚLTIMOS 30 DIAS');
+          handleQuickDateFilter('Últimos 30 dias');
+        }
       }
     ];
   };
 
   const handleQuickDateFilter = useCallback((type) => {
+    console.log('🚨 INICIANDO FILTRO RÁPIDO:', type);
+
     let newStartDate = null;
     let newEndDate = null;
 
@@ -911,7 +962,7 @@ export default function Installments() {
         newEndDate = null;
     }
 
-    console.log('🚨 FILTRO RÁPIDO:', { 
+    console.log('🚨 DATAS CALCULADAS:', { 
       type, 
       startDate: newStartDate, 
       endDate: newEndDate 
@@ -922,18 +973,24 @@ export default function Installments() {
     setEndDate(newEndDate);
 
     // Atualiza os filtros para a busca na API
-    setFilters(prev => ({
-      ...prev,
-      startDate: newStartDate,
-      endDate: newEndDate
-    }));
+    setFilters(prev => {
+      const updatedFilters = {
+        ...prev,
+        startDate: newStartDate,
+        endDate: newEndDate
+      };
+      
+      console.log('🚨 FILTROS ATUALIZADOS:', updatedFilters);
+      
+      return updatedFilters;
+    });
 
     // Dispara a busca de parcelas
     fetchInstallments({
       startDate: newStartDate,
       endDate: newEndDate
     });
-  }, [fetchInstallments, startDate, endDate]);
+  }, [fetchInstallments]);
 
   const handleClearDateFilter = useCallback(() => {
     setFilters(prev => ({
@@ -1328,7 +1385,7 @@ export default function Installments() {
                     ? 'primary' 
                     : 'secondary'
                 }
-                onClick={() => handleQuickDateFilter(range.label)}
+                onClick={range.onClick}
               >
                 {range.label}
               </Button>

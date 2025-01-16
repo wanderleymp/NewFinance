@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled, useTheme, createTheme } from '@mui/material/styles';
 import { 
   Box, 
   Drawer, 
@@ -59,27 +59,52 @@ import { AppVersion } from './AppVersion'; // Adicionar import
 import NotificationsMenu from './NotificationsMenu';
 import UserMenu from './UserMenu';
 
-const Dashboard = ({ darkMode, setDarkMode, children }) => {
-  const theme = useTheme();
+const drawerWidth = 240;
+
+const openedMixin = (theme) => ({
+  width: drawerWidth,
+  transition: theme.transitions.create('width', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.enteringScreen,
+  }),
+  overflowX: 'hidden',
+});
+
+const closedMixin = (theme) => ({
+  transition: theme.transitions.create('width', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  overflowX: 'hidden',
+  width: `calc(${theme.spacing(7)} + 1px)`,
+  [theme.breakpoints.up('sm')]: {
+    width: `calc(${theme.spacing(8)} + 1px)`,
+  },
+});
+
+const Dashboard = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
-  const outletContext = useOutletContext();
-  const context = useMemo(() => ({
-    darkMode,
-    setDarkMode,
-    ...(outletContext || {})
-  }), [darkMode, setDarkMode, outletContext]);
+  const currentUser = authService.getCurrentUser();
 
   const [openDrawer, setOpenDrawer] = useState(true);
-  const [openSubMenus, setOpenSubMenus] = useState({});
-  const [userData, setUserData] = useState({
-    id: null,
-    name: 'Usuário',
-    username: 'usuario',
-    email: ''
-  });
+  const [darkMode, setDarkMode] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [theme, setTheme] = useState(createTheme());
 
+  const context = useMemo(() => ({
+    user: currentUser,
+    darkMode,
+    setDarkMode,
+    theme,
+    userData,
+  }), [currentUser, darkMode, theme, userData]);
+
+  console.log('Dashboard - Pathname atual:', location.pathname);
+  console.log('Dashboard - Context:', context);
+
+  const [openSubMenus, setOpenSubMenus] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -185,7 +210,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   ], []);
 
   console.log('Dashboard - Pathname atual:', location.pathname);
-  console.log('Dashboard - Outlet context:', outletContext);
+  console.log('Dashboard - Context:', context);
 
   const renderMenuItem = (item) => {
     const hasSubitems = item.subItems && item.subItems.length > 0;
@@ -251,7 +276,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
         const user = await authService.getCurrentUser();
         console.log('Dashboard - Usuário recuperado:', user);
         
-        if (user && user.id) {
+        if (user && (user.id || user.user_id)) {
           setUserData(user);
         } else {
           console.warn('Usuário inválido, redirecionando para login');
@@ -303,7 +328,9 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
     // Verificar status do sistema
     const checkSystemHealth = async () => {
       try {
-        await healthService.check();
+        // Temporariamente comentado para evitar erros
+        // await healthService.check();
+        console.warn('Verificação de saúde do sistema temporariamente desabilitada');
       } catch (error) {
         console.error('Erro de saúde do sistema:', error);
         enqueueSnackbar('Problemas com o sistema detectados', { variant: 'warning' });
@@ -399,14 +426,22 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar
-        position="fixed"
+      <AppBar 
+        position="fixed" 
+        open={openDrawer}
         sx={{
-          width: `calc(100% - ${openDrawer ? 240 : 73}px)`,
-          ml: `${openDrawer ? 240 : 73}px`,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+          ...(openDrawer && {
+            marginLeft: drawerWidth,
+            width: `calc(100% - ${drawerWidth}px)`,
+            transition: theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
           }),
         }}
       >
@@ -414,11 +449,14 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
           <IconButton
             color="inherit"
             aria-label="open drawer"
+            onClick={() => setOpenDrawer(true)}
             edge="start"
-            onClick={() => setOpenDrawer(!openDrawer)}
-            sx={{ marginRight: 5 }}
+            sx={{
+              marginRight: 5,
+              ...(openDrawer && { display: 'none' }),
+            }}
           >
-            {openDrawer ? <ChevronLeftIcon /> : <MenuIcon />}
+            <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {pageTitle}
@@ -436,21 +474,23 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
           </Box>
         </Toolbar>
       </AppBar>
-
-      <Drawer
+      
+      <Drawer 
         variant="permanent"
+        open={openDrawer}
         sx={{
-          width: openDrawer ? 240 : 73,
+          width: openDrawer ? drawerWidth : 73,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { 
-            width: openDrawer ? 240 : 73, 
-            boxSizing: 'border-box',
-            transition: theme.transitions.create('width', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-            position: 'relative'  
-          },
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box',
+          ...(openDrawer && {
+            ...openedMixin(theme),
+            '& .MuiDrawer-paper': openedMixin(theme),
+          }),
+          ...(!openDrawer && {
+            ...closedMixin(theme),
+            '& .MuiDrawer-paper': closedMixin(theme),
+          }),
         }}
       >
         <Toolbar>
@@ -470,7 +510,7 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
         sx={{ 
           flexGrow: 1, 
           p: 3, 
-          width: `calc(100% - ${openDrawer ? 240 : 73}px)`,
+          width: `calc(100% - ${openDrawer ? drawerWidth : 73}px)`,
           transition: theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -478,8 +518,8 @@ const Dashboard = ({ darkMode, setDarkMode, children }) => {
         }}
       >
         <Toolbar />
-        {/* Renderização do Outlet */}
-        <Outlet context={context} />
+        {/* Renderização do children ou Outlet */}
+        {children || <Outlet context={context} />}
       </Box>
     </Box>
   );

@@ -2,319 +2,49 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
-// Configurações de segurança
-const SECURITY_CONFIG = {
-  maxRetryAttempts: 3,
-  retryDelay: 1000,
-  csrfToken: null,
-  securityHeaders: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-XSS-Protection': '1; mode=block',
-    'X-Content-Type-Options': 'nosniff',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
-  }
-};
-
 // Configuração base do Axios
 const api = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
+  baseURL: import.meta.env.VITE_API_URL,
+  timeout: 15000, // 15 segundos
   timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.',
-  withCredentials: true,
-  headers: SECURITY_CONFIG.securityHeaders
+  withCredentials: true
 });
 
-// Interceptor para adicionar CSRF token
-api.interceptors.request.use(config => {
-  if (SECURITY_CONFIG.csrfToken) {
-    config.headers['X-CSRF-TOKEN'] = SECURITY_CONFIG.csrfToken;
-  }
-  return config;
-});
-
-// Função para obter CSRF token
-const fetchCsrfToken = async () => {
-  try {
-    const response = await api.get('/csrf-token');
-    SECURITY_CONFIG.csrfToken = response.data.csrfToken;
-  } catch (error) {
-    console.error('Erro ao obter CSRF token:', error);
-  }
-};
-
-// Obter CSRF token ao inicializar
-fetchCsrfToken();
-
-// Log da URL base para debug
-console.log('API Base URL:', api.defaults.baseURL);
-console.log('Variável de ambiente VITE_API_URL:', import.meta.env.VITE_API_URL);
-
-// Função para verificar se o token está próximo de expirar (menos de 5 minutos)
-const isTokenExpiringSoon = (token) => {
-  if (!token) return true;
-  
-  try {
-    const decoded = jwtDecode(token);
-    const expirationTime = decoded.exp * 1000; // Converter para milissegundos
-    const currentTime = Date.now();
-    const timeUntilExpiration = expirationTime - currentTime;
-    
-    return timeUntilExpiration < 5 * 60 * 1000; // 5 minutos em milissegundos
-  } catch (error) {
-    return true;
-  }
-};
-
-// Variável para controlar renovação em andamento
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  
-  failedQueue = [];
-};
-
-// Interceptor para adicionar o token e verificar expiração
+// Adicionar interceptor de requisição para incluir token
 api.interceptors.request.use(
-  async (config) => {
-    console.log('Iniciando interceptor de requisição:', {
-      url: config.url,
-      method: config.method,
-      timestamp: new Date().toISOString()
-    });
-
+  config => {
     const token = localStorage.getItem('accessToken');
-    
     if (token) {
-      console.log('Token encontrado, verificando expiração...', {
-        timestamp: new Date().toISOString()
-      });
-      
-      // Verificar se o token está próximo de expirar
-      if (isTokenExpiringSoon(token) && !config.url.includes('/auth/refresh-token')) {
-          console.log('Token próximo de expirar, tentando renovar...', {
-            timestamp: new Date().toISOString()
-          });
-        try {
-          const newToken = await refreshTokenIfNeeded();
-          console.log('Token renovado com sucesso', {
-            timestamp: new Date().toISOString()
-          });
-          config.headers.Authorization = `Bearer ${newToken}`;
-        } catch (error) {
-          console.error('Falha ao renovar token:', error);
-          // Se falhar em renovar o token, redirecionar para login
-          handleAuthError();
-          return Promise.reject(error);
-        }
-      } else {
-          console.log('Token válido, adicionando ao cabeçalho', {
-            timestamp: new Date().toISOString()
-          });
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-
-      // Verificar roles do usuário para endpoints protegidos
-      if (!config.url.includes('/auth/')) {
-        const userData = JSON.parse(localStorage.getItem('user'));
-        if (userData?.roles) {
-          console.log('Verificando roles do usuário:', {
-            roles: userData.roles,
-            endpoint: config.url,
-            timestamp: new Date().toISOString()
-          });
-
-          // Adicionar roles ao cabeçalho
-          config.headers['X-User-Roles'] = userData.roles.join(',');
-        }
-      }
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
-
-    // Remove undefined e null dos parâmetros
-    if (config.params) {
-      Object.keys(config.params).forEach(key => {
-        if (config.params[key] === undefined || config.params[key] === null) {
-          delete config.params[key];
-        }
-      });
-    }
-
-    // Log dos parâmetros enviados
-    if (config.params) {
-      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params:`, {
-        params: config.params,
-        timestamp: new Date().toISOString()
-      });
-      console.log(`[${config.method.toUpperCase()}] ${config.url}: Params (detailed):`, {
-        params: JSON.stringify(config.params, null, 2),
-        timestamp: new Date().toISOString()
-      });
-    }
-
     return config;
   },
-  (error) => {
+  error => {
     return Promise.reject(error);
   }
 );
 
-// Adicionar interceptor de erro de rede
+// Remover interceptores e verificações automáticas
+// Manter apenas o interceptor de resposta para tratamento de erros
 api.interceptors.response.use(
   response => response,
   error => {
-    console.error('🚨 ERRO DE REDE DETALHADO:', {
-      message: error.message,
-      code: error.code,
-      config: {
-        url: error.config?.url,
-        method: error.config?.method,
-        baseURL: error.config?.baseURL
-      },
-      response: error.response ? {
-        status: error.response.status,
-        data: error.response.data
-      } : null
-    });
-
-    // Verificar especificamente erros de rede
-    if (error.code === 'ERR_NETWORK') {
-      console.warn('🚨 POSSÍVEIS CAUSAS DE ERRO DE REDE:');
-      console.warn('1. Servidor não está rodando');
-      console.warn('2. URL incorreta');
-      console.warn('3. Problemas de firewall ou proxy');
-      console.warn('4. Conexão de internet instável');
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-// Função para renovar o token
-const refreshTokenIfNeeded = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  
-  if (!refreshToken) {
-    handleAuthError();
-    throw new Error('No refresh token available');
-  }
-  
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      failedQueue.push({ resolve, reject });
-    });
-  }
-  
-  isRefreshing = true;
-  
-  try {
-    const response = await api.post('/auth/refresh-token', { 
-      refresh_token: refreshToken
-    });
-    
-    const { 
-      accessToken = response.data.access_token, 
-      refreshToken: newRefreshToken = response.data.refresh_token 
-    } = response.data;
-    
-    if (!accessToken) {
-      throw new Error('Novo token de acesso não recebido');
-    }
-    
-    localStorage.setItem('accessToken', accessToken);
-    if (newRefreshToken) {
-      localStorage.setItem('refreshToken', newRefreshToken);
-    }
-    
-    isRefreshing = false;
-    processQueue(null, accessToken);
-    return accessToken;
-  } catch (error) {
-    isRefreshing = false;
-    processQueue(error, null);
-    handleAuthError(); // Redireciona para login
-    throw error;
-  }
-};
-
-// Função para lidar com erros de autenticação
-const handleAuthError = () => {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  
-  // Usar replace state para evitar voltar ao estado anterior após o login
-  window.history.replaceState(null, '', '/login');
-  window.location.reload();
-};
-
-// Interceptor para tratar erros de resposta
-api.interceptors.response.use(
-  (response) => {
-    console.log('Resposta recebida:', {
-      status: response.status,
-      url: response.config.url,
-      method: response.config.method,
-      timestamp: new Date().toISOString()
-    });
-    return response;
-  },
-  async (error) => {
-    console.error('Erro na resposta:', {
+    console.error('Erro na requisição:', {
       message: error.message,
       status: error.response?.status,
-      url: error.config?.url,
-      method: error.config?.method,
-      timestamp: new Date().toISOString()
+      url: error.config?.url
     });
-
-    const originalRequest = error.config;
-
-    // Se o erro for de autenticação (401) e não estamos tentando renovar o token
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      console.log('Erro 401 detectado, verificando se é endpoint de login...', {
-        timestamp: new Date().toISOString()
-      });
-      if (originalRequest.url === '/auth/login') {
-        console.log('Erro no endpoint de login, rejeitando...', {
-          timestamp: new Date().toISOString()
-        });
-        return Promise.reject(error);
-      }
-      
-      console.log('Tentando renovar token...', {
-        timestamp: new Date().toISOString()
-      });
-      return handleAuthError(error, originalRequest);
-    }
-
-    // Tratamento de erro 403 (Forbidden)
-    if (error.response?.status === 403) {
-      console.error('Acesso negado:', {
-        rolesRequired: error.response?.data?.required_roles,
-        userRoles: error.config.headers['X-User-Roles'],
-        timestamp: new Date().toISOString()
-      });
-      // Redirecionar para página de acesso negado
-      window.location.href = '/unauthorized';
-      return Promise.reject(error);
-    }
-
-      console.error('Erro não tratado, rejeitando...', {
-        timestamp: new Date().toISOString()
-      });
     return Promise.reject(error);
   }
 );
+
+// Função de verificação de conectividade opcional
+export const networkService = {
+  async checkHealth() {
+    console.warn('Verificação de saúde desabilitada temporariamente');
+    return true;
+  }
+};
 
 export const authService = {
   async login(username, password) {
@@ -322,140 +52,86 @@ export const authService = {
       const response = await api.post('/auth/login', { username, password });
       
       const { accessToken, refreshToken, user } = response.data;
-
-      if (!accessToken) {
-        throw new Error('Token de acesso não encontrado');
-      }
-
-      // Padronizar dados do usuário
-      const userData = {
-        id: user.user_id || user.id,
-        username: user.username,
-        email: user.email,
-        roles: user.roles || ['consulta'] // Adicionando roles com valor padrão
-      };
-
+      
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      return userData;
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      return response.data;
     } catch (error) {
-      console.error('Erro no login:', error.response?.data || error.message);
+      console.error('Erro no login:', error);
       throw error;
+    }
+  },
+  
+  isAuthenticated() {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return false;
+
+      const decoded = jwtDecode(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      return decoded.exp > currentTime;
+    } catch (error) {
+      console.error('Erro ao verificar autenticação:', error);
+      return false;
+    }
+  },
+
+  getCurrentUser() {
+    try {
+      const userString = localStorage.getItem('user');
+      const token = localStorage.getItem('accessToken');
+
+      // Verificar se o token é válido
+      if (!token || !this.isAuthenticated()) {
+        console.warn('Token inválido ou expirado');
+        return null;
+      }
+
+      // Se o usuário não estiver no localStorage, tentar decodificar o token
+      if (!userString) {
+        const decoded = jwtDecode(token);
+        return {
+          id: decoded.userId,
+          username: decoded.username,
+          roles: decoded.roles || []
+        };
+      }
+
+      const user = JSON.parse(userString);
+      
+      // Mapear usuário para estrutura padrão
+      return {
+        id: user.user_id || user.id,
+        username: user.username,
+        profile_id: user.profile_id || null,
+        enable_2fa: user.enable_2fa || false
+      };
+    } catch (error) {
+      console.error('Erro ao recuperar usuário atual:', error);
+      return null;
     }
   },
 
   logout() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userData');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
   },
 
-  async getCurrentUser() {
+  // Método para verificar autenticação
+  getTokenInfo() {
     try {
-      // Primeiro, verificar se o token é válido
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        throw new Error('Sem token de acesso');
-      }
-
-      // Tentar decodificar o token
-      const decodedToken = jwtDecode(accessToken);
-      const currentTime = Date.now() / 1000;
-
-      // Se o token estiver expirado, forçar renovação
-      if (decodedToken.exp < currentTime) {
-        throw new Error('Token expirado');
-      }
-
-      // Tentar recuperar do localStorage
-      const storedUserData = localStorage.getItem('user');
-      if (storedUserData) {
-        const parsedUserData = JSON.parse(storedUserData);
-        console.log('Dados do usuário recuperados do localStorage:', parsedUserData);
-        return parsedUserData;
-      }
-
-      // Se não estiver no localStorage, buscar da API
-      const response = await api.get('/users/me');
-      const userData = {
-        id: response.data.id || response.data.user_id,
-        username: response.data.username,
-        email: response.data.email,
-        name: response.data.name || `${response.data.first_name} ${response.data.last_name}`.trim(),
-        roles: response.data.roles || ['consulta'] // Adicionando roles com valor padrão
-      };
-
-      console.log('Dados do usuário recuperados da API:', userData);
-
-      // Armazenar dados do usuário no localStorage
-      localStorage.setItem('user', JSON.stringify(userData));
-
-      return userData;
+      const token = localStorage.getItem('accessToken');
+      return token ? jwtDecode(token) : null;
     } catch (error) {
-      console.error('Erro ao recuperar dados do usuário:', error);
-
-      // Limpar dados de autenticação em caso de erro
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-
-      // Retornar usuário padrão
-      return {
-        id: null,
-        name: 'Usuário',
-        username: 'usuario',
-        email: ''
-      };
+      console.error('Erro ao decodificar token:', error);
+      return null;
     }
-  },
-
-  isAuthenticated() {
-    const accessToken = localStorage.getItem('accessToken');
-    const refreshToken = localStorage.getItem('refreshToken');
-    const user = localStorage.getItem('user');
-
-    console.log('Verificando autenticação:', {
-      accessToken: !!accessToken,
-      refreshToken: !!refreshToken,
-      user: !!user
-    });
-
-    if (!accessToken || !refreshToken || !user) {
-      console.log('Não autenticado: tokens ou usuário ausentes');
-      return false;
-    }
-
-    try {
-      const decodedToken = jwtDecode(accessToken);
-      const currentTime = Date.now() / 1000; // Converter para segundos
-
-      console.log('Token info:', {
-        expiration: decodedToken.exp,
-        currentTime: currentTime,
-        roles: decodedToken.roles // Adicionando roles no log
-      });
-
-      // Verificar expiração do token
-      if (decodedToken.exp < currentTime) {
-        console.log('Token expirado');
-        return false;
-      }
-
-      // Verificar se o usuário tem roles válidas
-      const userData = JSON.parse(user);
-      if (!userData?.roles || userData.roles.length === 0) {
-        console.log('Usuário sem roles definidas');
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Erro ao verificar token:', error);
-      return false;
-    }
-  },
+  }
 };
 
 export const movementsService = {
@@ -682,11 +358,45 @@ export const movementsService = {
 
 export const installmentsService = {
   async list(params = {}) {
-    console.log('[GET] /installments/details: Params (limpos):', params);
-    return api.get('/installments/details', { params });
+    try {
+      // Parâmetros padrão para a listagem de parcelas
+      const defaultParams = {
+        page: 1,
+        limit: 10,
+        sort: 'due_date',
+        order: 'desc'
+      };
+
+      // Combina parâmetros padrão com os fornecidos, garantindo 'desc'
+      const finalParams = { 
+        ...defaultParams, 
+        ...params,
+        order: 'desc'  // Força ordem descendente
+      };
+
+      console.log('[GET] /installments/details: Params:', finalParams);
+      
+      const response = await api.get('/installments/details', { 
+        params: finalParams
+      });
+      
+      console.log('[GET] /installments/details: Resposta completa:', response);
+
+      return {
+        items: response.data?.items || [],
+        total: response.data?.total || 0,
+        page: response.data?.page || finalParams.page,
+        limit: response.data?.limit || finalParams.limit,
+        totalPages: response.data?.totalPages || 1
+      };
+    } catch (error) {
+      console.error('Erro ao buscar detalhes das parcelas:', error);
+      throw error;
+    }
   },
+  
   async search(query = '') {
-    return api.get(`/installments/details?query=${query}`);
+    return this.list({ search: query });
   }
 };
 
@@ -896,6 +606,7 @@ export const updateInstallmentDueDate = async (
         'Content-Type': 'application/json',
         ...apiConfig.headers
       },
+      withCredentials: true, // Adicionado withCredentials
       data: requestData
     });
 
