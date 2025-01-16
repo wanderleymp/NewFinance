@@ -374,23 +374,45 @@ export const installmentsService = {
         order: 'desc'  // Força ordem descendente
       };
 
-      console.log('[GET] /installments/details: Params:', finalParams);
+      console.log('[DEBUG] Parâmetros finais da requisição:', {
+        url: '/installments/details',
+        params: finalParams
+      });
       
       const response = await api.get('/installments/details', { 
         params: finalParams
       });
       
-      console.log('[GET] /installments/details: Resposta completa:', response);
+      // Log detalhado da resposta completa
+      console.log('[DEBUG] Resposta completa do servidor:', {
+        status: response.status,
+        headers: response.headers,
+        data: JSON.stringify(response.data, null, 2)
+      });
+
+      // Log específico para meta e items
+      console.log('[DEBUG] Detalhes de Paginação:', {
+        total: response.data?.meta?.total,
+        page: response.data?.meta?.page,
+        limit: response.data?.meta?.limit,
+        totalPages: response.data?.meta?.totalPages,
+        itemsCount: response.data?.items?.length
+      });
 
       return {
         items: response.data?.items || [],
-        total: response.data?.total || 0,
-        page: response.data?.page || finalParams.page,
-        limit: response.data?.limit || finalParams.limit,
-        totalPages: response.data?.totalPages || 1
+        total: response.data?.meta?.total || 0,
+        page: response.data?.meta?.page || finalParams.page,
+        limit: response.data?.meta?.limit || finalParams.limit,
+        totalPages: response.data?.meta?.totalPages || 1,
+        meta: response.data?.meta || {}  // Adiciona meta completo para debug
       };
     } catch (error) {
-      console.error('Erro ao buscar detalhes das parcelas:', error);
+      console.error('Erro detalhado ao buscar detalhes das parcelas:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       throw error;
     }
   },

@@ -169,6 +169,7 @@ export default function Installments() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [installments, setInstallments] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Memoize complex states and calculations
   const [loading, setLoading] = useState(true);
@@ -242,14 +243,14 @@ export default function Installments() {
     });
   }, [installments, filters]);
 
-  // Optimize data fetching with useCallback
-  const fetchInstallments = useCallback(async () => {
+  // Otimizar fetchInstallments para incluir paginação corretamente
+  const fetchInstallments = useCallback(async (params = {}) => {
     try {
       const paginationParams = {
-        page: page + 1, // Ajustando para indexação baseada em 1
-        limit: rowsPerPage,
+        page: (params.page || page + 1), // Prioriza parâmetros passados
+        limit: params.limit || rowsPerPage,
         sort: 'due_date',
-        order: 'asc'
+        order: 'desc'
       };
 
       const filterParams = {
@@ -261,45 +262,57 @@ export default function Installments() {
 
       console.log('🚨 Parâmetros da API:', {
         pagination: paginationParams,
-        filters: filterParams
+        filters: filterParams,
+        customParams: params
       });
 
       const response = await installmentsService.list({
         ...paginationParams,
-        ...filterParams
+        ...filterParams,
+        ...params
       });
 
       console.log('🚨 Resposta completa da API:', response);
 
-      setInstallments(response.items);
-      setTotalItems(response.total);
+      // Tratamento robusto para total e totalPages
+      const totalItems = response.meta?.total || response.total || 0;
+      const totalPages = response.meta?.totalPages || Math.ceil(totalItems / rowsPerPage) || 1;
+
+      console.log('🚨 DADOS DE PAGINAÇÃO PROCESSADOS:', {
+        totalItems,
+        totalPages,
+        itemsCount: response.items?.length || 0,
+        rowsPerPage
+      });
+
+      setInstallments(response.items || response.data?.items || []);
+      setTotalItems(totalItems);
+      setTotalPages(totalPages);
 
     } catch (error) {
       console.error('Erro ao buscar parcelas:', error);
       setInstallments([]);
       setTotalItems(0);
+      setTotalPages(0);
     }
   }, [page, rowsPerPage, filters]);
 
-  // Controlled effect for data fetching
+  // Efeito para disparar fetchInstallments quando página ou filtros mudarem
   useEffect(() => {
-    console.log('🚨 INSTALLMENTS: Dados de paginação', {
-      items: installments.length,
-      total: totalItems,
+    console.log('🚨 EFEITO DE PAGINAÇÃO:', {
       page,
       rowsPerPage,
-      filters: {
-        ...filters,
-        full_name: filters.full_name ? `"${filters.full_name}"` : null
-      }
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      status: filters.status,
+      full_name: filters.full_name
     });
-    fetchInstallments();
-  }, [fetchInstallments, filters, page, rowsPerPage]);
 
-  useEffect(() => {
-    console.log('🚨 FILTROS ATUALIZADOS:', filters);
-    fetchInstallments();
-  }, [filters, fetchInstallments]);
+    fetchInstallments({
+      page: page + 1,
+      limit: rowsPerPage
+    });
+  }, [page, rowsPerPage, filters.startDate, filters.endDate, filters.status, filters.full_name]);
 
   useEffect(() => {
     // Definir filtro padrão para últimos 7 dias ao carregar a página
@@ -579,17 +592,24 @@ export default function Installments() {
   }, [calculateInterestAndPenalty]);
 
   const handleChangePage = useCallback((event, newPage) => {
-    console.log('🚨 PAGINAÇÃO: Nova página', newPage);
+    console.log('🚨 MUDANÇA DE PÁGINA:', {
+      currentPage: page,
+      newPage: newPage
+    });
     setPage(newPage);
-    fetchInstallments(); // Força o refresh dos dados ao mudar de página
-  }, [fetchInstallments]);
+    fetchInstallments();
+  }, [page, fetchInstallments]);
 
   const handleChangeRowsPerPage = useCallback((event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
-    console.log('🚨 PAGINAÇÃO: Linhas por página', newRowsPerPage);
+    console.log('🚨 MUDANÇA DE LINHAS POR PÁGINA:', {
+      currentRowsPerPage: rowsPerPage,
+      newRowsPerPage: newRowsPerPage
+    });
     setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  }, []);
+    setPage(0); // Resetar para primeira página
+    fetchInstallments();
+  }, [rowsPerPage, fetchInstallments]);
 
   const calculateInstallmentsSummary = useCallback((installmentsData) => {
     let totalReceivable = 0;
@@ -1429,24 +1449,19 @@ export default function Installments() {
       </TableContainer>
 
       <TablePagination
-        rowsPerPageOptions={[5, 10, 25]}
+        rowsPerPageOptions={[5, 10, 25, 50]}
         component="div"
         count={totalItems}
         rowsPerPage={rowsPerPage}
         page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        labelRowsPerPage="Linhas por página"
         labelDisplayedRows={({ from, to, count }) => 
-          `${from}–${to} de ${count !== -1 ? count : `mais de ${to}`}`
+          `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
         }
-        onPageChange={(event, newPage) => {
-          console.log('🚨 PAGINAÇÃO: Nova página', newPage);
-          setPage(newPage);
-        }}
-        onRowsPerPageChange={(event) => {
-          const newRowsPerPage = parseInt(event.target.value, 10);
-          console.log('🚨 PAGINAÇÃO: Linhas por página', newRowsPerPage);
-          setRowsPerPage(newRowsPerPage);
-          setPage(0); // Resetar para primeira página
-        }}
+        showFirstButton
+        showLastButton
       />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
         <Typography variant="h6">Resumo:</Typography>
