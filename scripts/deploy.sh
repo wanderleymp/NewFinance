@@ -22,9 +22,9 @@ increment_version() {
     echo "${ADDR[0]}.${ADDR[1]}.${ADDR[2]}.${ADDR[3]}"
 }
 
-# Função para preparar novo build
-prepare_build() {
-    echo -e "${YELLOW}Iniciando processo de preparação de build${NC}"
+# Função para preparar deploy
+prepare_deploy() {
+    echo -e "${YELLOW}Iniciando processo de deploy para produção${NC}"
     
     # Atualizar branch develop
     echo -e "${GREEN}Atualizando branch develop${NC}"
@@ -47,25 +47,17 @@ prepare_build() {
     git add package.json
     git commit -m "Bump version to $new_version"
     
-    # Executar build
+    # Fazer push das mudanças
+    git push origin main
+    git push origin develop
+    
+    # Executar deploy
     echo -e "${GREEN}Executando npm run build${NC}"
     npm run build
     
-    # Criar tag de release
-    local release_tag="v$new_version-$(date +%Y%m%d_%H%M%S)"
-    git tag "$release_tag"
-    
-    # Push para repositório
-    git push origin main
-    git push origin develop
-    git push origin "$release_tag"
-    
-    # Deploy para Cloudflare
-    echo -e "${GREEN}Deploy iniciado no Cloudflare Pages${NC}"
-    
-    echo -e "${GREEN}Build e próximo ciclo preparados!${NC}"
-    echo -e "${YELLOW}Release criada: $release_tag${NC}"
-    echo -e "${YELLOW}Verifique o status do deploy no Cloudflare Pages${NC}"
+    # Deploy para produção
+    echo -e "${GREEN}Iniciando deploy para produção${NC}"
+    npm run deploy
 }
 
 # Função para otimizar build
@@ -100,12 +92,12 @@ EOL
 
 # Menu principal
 case "$1" in
-    "build")
+    "deploy")
         optimize_build
-        prepare_build
+        prepare_deploy
         ;;
     *)
-        echo -e "${RED}Uso: $0 {build}${NC}"
+        echo -e "${RED}Uso: $0 {deploy}${NC}"
         exit 1
         ;;
 esac
