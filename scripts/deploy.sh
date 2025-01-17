@@ -26,20 +26,27 @@ increment_version() {
 prepare_deploy() {
     echo -e "${YELLOW}Iniciando processo de deploy para repositório${NC}"
     
-    # Verificar se está na branch develop
+    # Obter nome da branch atual
     current_branch=$(git rev-parse --abbrev-ref HEAD)
-    if [ "$current_branch" != "develop" ]; then
-        echo -e "${RED}Erro: Você deve estar na branch develop${NC}"
-        exit 1
-    fi
     
-    # Atualizar branch develop
+    # Push da branch atual para remoto
+    echo -e "${GREEN}Fazendo push da branch atual: $current_branch${NC}"
+    git push -u origin "$current_branch"
+    
+    # Voltar para develop
     echo -e "${GREEN}Atualizando branch develop${NC}"
+    git checkout develop
     git pull origin develop
+    
+    # Fazer merge da branch atual para develop
+    echo -e "${GREEN}Fazendo merge da $current_branch para develop${NC}"
+    git merge "$current_branch"
+    git push origin develop
     
     # Fazer merge de develop para main
     echo -e "${GREEN}Fazendo merge de develop para main${NC}"
     git checkout main
+    git pull origin main
     git merge develop
     
     # Incrementar versão
@@ -55,9 +62,6 @@ prepare_deploy() {
     
     # Push para repositório
     git push origin main
-    
-    # Voltar para develop
-    git checkout develop
     
     # Criar nova branch com nome da versão completa
     new_branch_name="feature/$new_version"
