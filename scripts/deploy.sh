@@ -24,11 +24,17 @@ increment_version() {
 
 # Função para preparar deploy
 prepare_deploy() {
-    echo -e "${YELLOW}Iniciando processo de deploy para produção${NC}"
+    echo -e "${YELLOW}Iniciando processo de deploy para repositório${NC}"
+    
+    # Verificar se está na branch develop
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$current_branch" != "develop" ]; then
+        echo -e "${RED}Erro: Você deve estar na branch develop${NC}"
+        exit 1
+    fi
     
     # Atualizar branch develop
     echo -e "${GREEN}Atualizando branch develop${NC}"
-    git checkout develop
     git pull origin develop
     
     # Fazer merge de develop para main
@@ -36,73 +42,40 @@ prepare_deploy() {
     git checkout main
     git merge develop
     
-    # Fazer push das mudanças
+    # Incrementar versão
+    local current_version=$(node -p "require('./package.json').version")
+    local new_version=$(increment_version "$current_version" 3)
+    
+    # Atualizar package.json com nova versão
+    npm version "$new_version" --no-git-tag-version
+    
+    # Commitar mudanças de versão
+    git add package.json
+    git commit -m "Bump version to $new_version"
+    
+    # Push para repositório
     git push origin main
-    git push origin develop
     
-    # Executar build
-    echo -e "${GREEN}Executando npm run build${NC}"
-    npm run build
+    # Voltar para develop
+    git checkout develop
     
-    # Deploy para produção
-    echo -e "${GREEN}Iniciando deploy para produção${NC}"
-    npm run deploy
-
-    # Se o deploy for bem-sucedido, incrementa a versão
-    if [ $? -eq 0 ]; then
-        # Incrementar versão
-        local current_version=$(node -p "require('./package.json').version")
-        local new_version=$(increment_version "$current_version" 3)
-        
-        # Atualizar package.json com nova versão
-        npm version "$new_version" --no-git-tag-version
-        
-        # Commitar mudanças de versão
-        git add package.json
-        git commit -m "Bump version to $new_version"
-        git push origin main
-
-        echo -e "${GREEN}Versão incrementada para $new_version${NC}"
-    else
-        echo -e "${RED}Deploy falhou. Versão não incrementada.${NC}"
-        exit 1
-    fi
-}
-
-# Função para otimizar build
-optimize_build() {
-    echo -e "${YELLOW}Otimizando build...${NC}"
+    # Criar nova branch com nome da versão
+    new_branch_name="feature/version-$new_version"
+    git checkout -b "$new_branch_name"
     
-    # Adicionar configurações de otimização no vite.config.js
-    cat > vite.config.js << EOL
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            return 'vendor'
-          }
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1000,
-    sourcemap: false
-  }
-})
-EOL
-
-    echo -e "${GREEN}Configurações de otimização aplicadas!${NC}"
+    # Merge main para nova branch para trazer a versão atualizada
+    git merge main
+    
+    # Push da nova branch
+    git push -u origin "$new_branch_name"
+    
+    echo -e "${GREEN}Deploy concluído. Nova versão: $new_version${NC}"
+    echo -e "${GREEN}Nova branch criada: $new_branch_name${NC}"
 }
 
 # Menu principal
 case "$1" in
     "deploy")
-        optimize_build
         prepare_deploy
         ;;
     *)
