@@ -3,9 +3,11 @@ import { Typography, Box } from '@mui/material';
 import packageJson from '../../package.json';
 
 export const AppVersion = () => {
+  const apiHost = import.meta.env.VITE_API_URL || 'Não configurado';
+
   return (
     <Box 
-      sx={{
+      sx={{ 
         position: 'absolute', 
         bottom: 10, 
         left: 10,
@@ -16,7 +18,7 @@ export const AppVersion = () => {
       }}
     >
       <Typography variant="caption" color="text.secondary">
-        v{packageJson.version}
+        v{packageJson.version} | {apiHost.replace(/^https?:\/\//, '')}
       </Typography>
     </Box>
   );
