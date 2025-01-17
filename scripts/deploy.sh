@@ -36,28 +36,37 @@ prepare_deploy() {
     git checkout main
     git merge develop
     
-    # Incrementar versão
-    local current_version=$(node -p "require('./package.json').version")
-    local new_version=$(increment_version "$current_version" 3)
-    
-    # Atualizar package.json com nova versão
-    npm version "$new_version" --no-git-tag-version
-    
-    # Commitar mudanças de versão
-    git add package.json
-    git commit -m "Bump version to $new_version"
-    
     # Fazer push das mudanças
     git push origin main
     git push origin develop
     
-    # Executar deploy
+    # Executar build
     echo -e "${GREEN}Executando npm run build${NC}"
     npm run build
     
     # Deploy para produção
     echo -e "${GREEN}Iniciando deploy para produção${NC}"
     npm run deploy
+
+    # Se o deploy for bem-sucedido, incrementa a versão
+    if [ $? -eq 0 ]; then
+        # Incrementar versão
+        local current_version=$(node -p "require('./package.json').version")
+        local new_version=$(increment_version "$current_version" 3)
+        
+        # Atualizar package.json com nova versão
+        npm version "$new_version" --no-git-tag-version
+        
+        # Commitar mudanças de versão
+        git add package.json
+        git commit -m "Bump version to $new_version"
+        git push origin main
+
+        echo -e "${GREEN}Versão incrementada para $new_version${NC}"
+    else
+        echo -e "${RED}Deploy falhou. Versão não incrementada.${NC}"
+        exit 1
+    fi
 }
 
 # Função para otimizar build
