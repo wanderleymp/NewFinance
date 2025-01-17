@@ -25,7 +25,7 @@
     "release:minor": "./scripts/release.sh release minor",
     "release:patch": "./scripts/release.sh release patch",
     "release:build": "./scripts/release.sh build",
-    "deploy": "npx wrangler pages deploy dist --project-name=agile-finance"
+    "deploy": "./scripts/deploy.sh deploy"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
