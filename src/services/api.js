@@ -145,24 +145,49 @@ export const authService = {
 export const movementsService = {
   async list(params = {}) {
     try {
-      console.log('[GET] /movements: Params:', params);
+      console.log('[GET] /movements: Params completos:', {
+        ...params,
+        include: 'payments.installments.boletos'
+      });
+      
       const response = await api.get('/movements', { 
         params: {
           ...params,
-          include: 'payments.installments.boletos' // Incluindo pagamentos, parcelas e boletos
+          include: 'payments.installments.boletos',
+          ...(params.orderBySecondary && {
+            orderBySecondary: params.orderBySecondary,
+            orderDirectionSecondary: params.orderDirectionSecondary || 'desc'
+          })
         }
       });
-      console.log('Raw API response:', response);
+      
+      // Parse da resposta JSON
+      const parsedData = typeof response.data === 'string' 
+        ? JSON.parse(response.data) 
+        : response.data;
+      
+      console.log('🔍 Estrutura COMPLETA da resposta:', {
+        responseType: typeof response,
+        responseKeys: Object.keys(response),
+        parsedData,
+        status: response.status,
+        headers: response.headers
+      });
       
       return {
-        items: response.data,
-        total: response.pagination?.total || 0,
-        page: response.pagination?.currentPage || 1,
-        limit: response.pagination?.limit || 10,
-        totalPages: response.pagination?.totalPages || 1
+        items: parsedData?.items || parsedData?.data || [], 
+        total: parsedData?.total || parsedData?.pagination?.total || parsedData?.length || 0,
+        page: parsedData?.current_page || parsedData?.pagination?.currentPage || 1,
+        limit: parsedData?.per_page || parsedData?.pagination?.limit || 10,
+        totalPages: parsedData?.last_page || parsedData?.pagination?.totalPages || 1
       };
     } catch (error) {
-      console.error('[GET] /movements:', error);
+      console.error('[GET] /movements: Erro detalhado', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
       throw error;
     }
   },

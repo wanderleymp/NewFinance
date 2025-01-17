@@ -37,7 +37,8 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
-  Fab
+  Fab,
+  Checkbox,
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -71,6 +72,7 @@ import {
   RocketLaunch as AIIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
+import FilterListIcon from '@mui/icons-material/FilterList'; // Importação correta do ícone
 import { useState, useEffect } from 'react';
 import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -895,6 +897,104 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
   );
 };
 
+const MOVEMENT_STATUS = {
+  DRAFT: 1,
+  CONFIRMED: 2,
+  CANCELED: 99
+};
+
+const MOVEMENT_STATUS_LABELS = {
+  [MOVEMENT_STATUS.DRAFT]: 'Rascunho',
+  [MOVEMENT_STATUS.CONFIRMED]: 'Confirmado',
+  [MOVEMENT_STATUS.CANCELED]: 'Cancelado'
+};
+
+const MovementStatusFilter = ({ 
+  selectedStatuses, 
+  onStatusChange 
+}) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleStatusToggle = (status) => {
+    const newSelectedStatuses = selectedStatuses.includes(status)
+      ? selectedStatuses.filter(s => s !== status)
+      : [...selectedStatuses, status];
+    
+    onStatusChange(newSelectedStatuses);
+  };
+
+  const allNonCanceledStatuses = [
+    MOVEMENT_STATUS.DRAFT, 
+    MOVEMENT_STATUS.CONFIRMED
+  ];
+
+  const isAllSelected = allNonCanceledStatuses
+    .every(status => selectedStatuses.includes(status));
+
+  const handleSelectAll = () => {
+    onStatusChange(
+      isAllSelected ? [] : [...allNonCanceledStatuses]
+    );
+  };
+
+  return (
+    <Box>
+      <Button
+        id="status-filter-button"
+        aria-controls={open ? 'status-filter-menu' : undefined}
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+        onClick={handleClick}
+        variant="outlined"
+        endIcon={<FilterListIcon />}
+      >
+        Status ({selectedStatuses.length} selecionados)
+      </Button>
+      <Menu
+        id="status-filter-menu"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+      >
+        <MenuItem onClick={handleSelectAll}>
+          <Checkbox
+            checked={isAllSelected}
+            indeterminate={
+              selectedStatuses.length > 0 && 
+              selectedStatuses.length < allNonCanceledStatuses.length
+            }
+          />
+          Selecionar Todos
+        </MenuItem>
+        {[
+          { status: MOVEMENT_STATUS.DRAFT, label: 'Rascunho' },
+          { status: MOVEMENT_STATUS.CONFIRMED, label: 'Confirmado' },
+          { status: MOVEMENT_STATUS.CANCELED, label: 'Cancelado' }
+        ].map(({ status, label }) => (
+          <MenuItem 
+            key={status} 
+            onClick={() => handleStatusToggle(status)}
+          >
+            <Checkbox 
+              checked={selectedStatuses.includes(status)}
+            />
+            {label}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
+  );
+};
+
 const Movements = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -907,7 +1007,10 @@ const Movements = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedStatuses, setSelectedStatuses] = useState([
+    MOVEMENT_STATUS.DRAFT, 
+    MOVEMENT_STATUS.CONFIRMED
+  ]); // Padrão: Rascunho e Confirmado, excluindo Cancelado
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTimeout, setSearchTimeout] = useState(null);
@@ -918,40 +1021,60 @@ const Movements = () => {
   const fetchMovements = async () => {
     try {
       setLoading(true);
+      
+      const allNonCanceledStatuses = [
+        MOVEMENT_STATUS.DRAFT, 
+        MOVEMENT_STATUS.CONFIRMED
+      ];
+
       const params = {
-        page: page + 1, // Backend espera página começando em 1
+        page: page + 1,
         limit: rowsPerPage,
-        orderBy,
-        orderDirection,
-        startDate: format(dateRange[0], 'yyyy-MM-dd'), // Formato de string
-        endDate: format(dateRange[1], 'yyyy-MM-dd'), // Formato de string
+        orderBy: orderBy || 'date',
+        orderDirection: orderDirection || 'desc',
+        startDate: format(dateRange[0], 'yyyy-MM-dd'),
+        endDate: format(dateRange[1], 'yyyy-MM-dd'),
         include: 'payments.installments.boletos',
-        search: searchQuery || undefined, // Adiciona o parâmetro de busca apenas se existir
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        type: typeFilter !== 'all' ? typeFilter : undefined
+        search: searchQuery || undefined,
+        movement_status_id: selectedStatuses.length > 0 
+          ? selectedStatuses 
+          : allNonCanceledStatuses,
+        type: typeFilter !== 'all' ? typeFilter : undefined,
+        orderBySecondary: 'movement_id',
+        orderDirectionSecondary: 'desc'
       };
 
-      console.log('Parâmetros da requisição:', params);
+      console.log('🔍 Parâmetros detalhados da requisição:', {
+        ...params,
+        selectedStatuses,
+        allNonCanceledStatuses
+      });
 
       const response = await movementsService.list(params);
       
-      console.log('Resposta completa da API:', response);
+      console.log('🚨 Estrutura da resposta:', {
+        items: response.items,
+        total: response.total,
+        page: response.page,
+        limit: response.limit,
+        totalPages: response.totalPages,
+        itemsType: typeof response.items,
+        itemsLength: response.items?.length || 0
+      });
       
-      // Extração correta dos dados
-      const movementsData = response.items?.items || [];
-      const totalCount = response.total || response.items?.meta?.total || 0;
+      const movementsData = response.items || [];
+      const totalCount = response.total || movementsData.length || 0;
 
-      console.log('Items recebidos:', movementsData);
-      console.log('Total de itens:', totalCount);
-      
-      // Correção aqui: use movementsData e totalCount
       setMovements(movementsData);
       setTotalCount(totalCount);
+      setPage(response.page - 1); // Ajuste para página baseada em 0
+      setRowsPerPage(response.limit);
       
     } catch (error) {
-      console.error('Erro ao buscar movimentos:', error);
-      console.error('Detalhes do erro:', error.response?.data);
+      console.error('🔴 Erro na busca de movimentações:', error);
       enqueueSnackbar('Erro ao carregar movimentos', { variant: 'error' });
+      setMovements([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -977,7 +1100,7 @@ const Movements = () => {
 
   useEffect(() => {
     fetchMovements();
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, statusFilter, typeFilter, searchQuery]); // Adicionado searchQuery
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter, searchQuery]); // Adicionado searchQuery
 
   // Limpa o timeout ao desmontar o componente
   useEffect(() => {
@@ -1091,19 +1214,14 @@ const Movements = () => {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="1">Rascunho</MenuItem>
-                <MenuItem value="2">Confirmado</MenuItem>
-                <MenuItem value="3">Cancelado</MenuItem>
-              </Select>
-            </FormControl>
+            <MovementStatusFilter 
+              selectedStatuses={selectedStatuses}
+              onStatusChange={(newStatuses) => {
+                setSelectedStatuses(newStatuses);
+                // Refetch movements quando status mudar
+                fetchMovements();
+              }}
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
