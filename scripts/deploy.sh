@@ -19,7 +19,7 @@ increment_version() {
         ADDR[$i]=0
     done
     
-    echo "${ADDR[0]}.${ADDR[1]}.${ADDR[2]}.${ADDR[3]}"
+    echo "${ADDR[0]}.${ADDR[1]}.${ADDR[2]}"
 }
 
 # Função para preparar deploy
@@ -33,6 +33,12 @@ prepare_deploy() {
     echo -e "${GREEN}Fazendo push da branch atual: $current_branch${NC}"
     git push -u origin "$current_branch"
     
+    # Verificar se o push foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer push da branch${NC}"
+        exit 1
+    fi
+    
     # Voltar para develop
     echo -e "${GREEN}Atualizando branch develop${NC}"
     git checkout develop
@@ -41,7 +47,20 @@ prepare_deploy() {
     # Fazer merge da branch atual para develop
     echo -e "${GREEN}Fazendo merge da $current_branch para develop${NC}"
     git merge "$current_branch"
+    
+    # Verificar se o merge foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer merge para develop${NC}"
+        exit 1
+    fi
+    
     git push origin develop
+    
+    # Verificar se o push foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer push para develop${NC}"
+        exit 1
+    fi
     
     # Fazer merge de develop para main
     echo -e "${GREEN}Fazendo merge de develop para main${NC}"
@@ -49,25 +68,60 @@ prepare_deploy() {
     git pull origin main
     git merge develop
     
-    # Incrementar versão
+    # Verificar se o merge foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer merge para main${NC}"
+        exit 1
+    fi
+    
+    git push origin main
+    
+    # Verificar se o push foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer push para main${NC}"
+        exit 1
+    fi
+    
+    # Se tudo funcionar, incrementar versão
     local current_version=$(node -p "require('./package.json').version")
-    local new_version=$(increment_version "$current_version" 3)
+    local new_version=$(increment_version "$current_version" 2)
     
     # Atualizar package.json com nova versão
     npm version "$new_version"
     
-    # Push para repositório
-    git push origin main
+    # Verificar se a atualização foi bem-sucedida
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao atualizar package.json${NC}"
+        exit 1
+    fi
     
     # Criar nova branch com nome da versão completa
     new_branch_name="feature/$new_version"
     git checkout -b "$new_branch_name"
     
+    # Verificar se a criação da branch foi bem-sucedida
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao criar branch $new_branch_name${NC}"
+        exit 1
+    fi
+    
     # Merge main para nova branch para trazer a versão atualizada
     git merge main
     
+    # Verificar se o merge foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer merge para $new_branch_name${NC}"
+        exit 1
+    fi
+    
     # Push da nova branch
     git push -u origin "$new_branch_name"
+    
+    # Verificar se o push foi bem-sucedido
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Erro ao fazer push para $new_branch_name${NC}"
+        exit 1
+    fi
     
     echo -e "${GREEN}Deploy concluído. Nova versão: $new_version${NC}"
     echo -e "${GREEN}Nova branch criada: $new_branch_name${NC}"
