@@ -54,11 +54,7 @@ prepare_deploy() {
     local new_version=$(increment_version "$current_version" 3)
     
     # Atualizar package.json com nova versão
-    npm version "$new_version" --no-git-tag-version
-    
-    # Commitar mudanças de versão
-    git add package.json
-    git commit -m "Bump version to $new_version"
+    npm version "$new_version"
     
     # Push para repositório
     git push origin main
