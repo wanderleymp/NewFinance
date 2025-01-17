@@ -246,6 +246,18 @@ export default function Installments() {
   // Otimizar fetchInstallments para incluir paginação corretamente
   const fetchInstallments = useCallback(async (params = {}) => {
     try {
+      console.log('🚨 DEBUG Filtros antes da chamada:', {
+        filters,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        page,
+        rowsPerPage
+      });
+
+      // Garantir que startDate e endDate sempre tenham valores
+      const safeStartDate = filters.startDate || subDays(new Date(), 6);
+      const safeEndDate = filters.endDate || new Date();
+
       const paginationParams = {
         page: (params.page || page + 1), // Prioriza parâmetros passados
         limit: params.limit || rowsPerPage,
@@ -254,13 +266,13 @@ export default function Installments() {
       };
 
       const filterParams = {
-        ...(filters.startDate ? { start_date: format(filters.startDate, 'yyyy-MM-dd') } : {}),
-        ...(filters.endDate ? { end_date: format(filters.endDate, 'yyyy-MM-dd') } : {}),
+        ...(safeStartDate ? { start_date: format(safeStartDate, 'yyyy-MM-dd') } : {}),
+        ...(safeEndDate ? { end_date: format(safeEndDate, 'yyyy-MM-dd') } : {}),
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.full_name ? { full_name: filters.full_name } : {})
       };
 
-      console.log('🚨 Parâmetros da API:', {
+      console.log('🚨 Parâmetros da API com datas seguras:', {
         pagination: paginationParams,
         filters: filterParams,
         customParams: params

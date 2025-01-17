@@ -33,6 +33,10 @@ import Installments from './pages/Installments';
 import PersonForm from './pages/PersonForm';
 import ImportCNPJ from './pages/ImportCNPJ';
 
+// Importações adicionais
+import NewMovementExpress from './pages/NewMovementExpress';
+import NewMovementDetailed from './pages/NewMovementDetailed';
+
 // Componentes
 import AIChat from './components/AIChat';
 import { AIAssistant } from './components/AIAssistant';
@@ -91,6 +95,8 @@ function App() {
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route index path="home" element={<Home />} />
                 <Route path="movements" element={<Movements />} />
+                <Route path="movements/new-express" element={<NewMovementExpress />} />
+                <Route path="movements/new-detailed" element={<NewMovementDetailed />} />
                 <Route path="persons" element={<Persons />} />
                 <Route path="persons/new" element={<PersonForm />} />
                 <Route path="persons/:id/edit" element={<PersonForm />} />

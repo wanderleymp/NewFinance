@@ -84,31 +84,39 @@ export const authService = {
       const userString = localStorage.getItem('user');
       const token = localStorage.getItem('accessToken');
 
-      // Verificar se o token é válido
-      if (!token || !this.isAuthenticated()) {
-        console.warn('Token inválido ou expirado');
-        return null;
-      }
+      console.log('🕵️ DEBUG getCurrentUser:', {
+        userString,
+        tokenExists: !!token
+      });
 
-      // Se o usuário não estiver no localStorage, tentar decodificar o token
       if (!userString) {
-        const decoded = jwtDecode(token);
-        return {
-          id: decoded.userId,
-          username: decoded.username,
-          roles: decoded.roles || []
-        };
+        console.error('❌ Usuário não encontrado no localStorage');
+        return null;
       }
 
       const user = JSON.parse(userString);
       
+      // Tentar extrair user_id do token se não estiver no usuário
+      if (!user.id && token) {
+        try {
+          const decodedToken = jwtDecode(token);
+          user.id = decodedToken.user_id || decodedToken.sub;
+        } catch (tokenError) {
+          console.error('Erro ao decodificar token:', tokenError);
+        }
+      }
+
       // Mapear usuário para estrutura padrão
-      return {
-        id: user.user_id || user.id,
+      const mappedUser = {
+        id: user.user_id || user.id || user.sub,
         username: user.username,
         profile_id: user.profile_id || null,
         enable_2fa: user.enable_2fa || false
       };
+
+      console.log('🔍 Usuário mapeado:', mappedUser);
+
+      return mappedUser;
     } catch (error) {
       console.error('Erro ao recuperar usuário atual:', error);
       return null;
@@ -232,8 +240,8 @@ export const movementsService = {
   },
 
   create(data) {
-    // Obter o usuário atual
-    const currentUser = JSON.parse(localStorage.getItem('user'));
+    // Obter o usuário atual de forma mais robusta
+    const currentUser = authService.getCurrentUser();
     const userId = currentUser?.id;
 
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
@@ -254,6 +262,10 @@ export const movementsService = {
     // Validação adicional para garantir user_id
     if (!userId) {
       console.error('❌ Erro: user_id não encontrado');
+      console.error('🚨 Detalhes do localStorage:', {
+        user: localStorage.getItem('user'),
+        token: localStorage.getItem('accessToken')
+      });
       throw new Error('Usuário não autenticado ou ID não encontrado');
     }
 

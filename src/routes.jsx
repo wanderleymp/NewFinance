@@ -132,7 +132,14 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="movements/new" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
         <Route path="movements/:id" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
         <Route path="movements/edit/:id" element={<Suspense fallback={<Loading />}><MovementEdit /></Suspense>} />
-        <Route path="movements/new-express" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
+        <Route path="movements/new-express" element={
+          <PrivateRoute>
+            <Suspense fallback={<Loading />}>
+              {console.log('🚨 DEBUG: Renderizando rota de movimento express', window.location.pathname)}
+              <NewMovementExpress />
+            </Suspense>
+          </PrivateRoute>
+        } />
         <Route path="movements/new-detailed" element={<Suspense fallback={<Loading />}><NewMovementDetailed /></Suspense>} />
         <Route path="persons" element={<Suspense fallback={<Loading />}><Persons /></Suspense>} />
         <Route path="persons/new" element={<Suspense fallback={<Loading />}><PersonForm /></Suspense>} />

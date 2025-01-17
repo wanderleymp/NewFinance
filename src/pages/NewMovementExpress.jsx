@@ -36,6 +36,19 @@ const NewMovement = () => {
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
 
+  console.log('🚨 NEW MOVEMENT EXPRESS - LOCATION:', {
+    pathname: location.pathname,
+    search: location.search,
+    state: location.state
+  });
+
+  useEffect(() => {
+    console.log('🚨 NEW MOVEMENT EXPRESS - MOUNTED:', {
+      pathname: location.pathname,
+      search: location.search
+    });
+  }, [location]);
+
   const [formData, setFormData] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     description: '',
