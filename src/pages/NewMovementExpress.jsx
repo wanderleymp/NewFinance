@@ -36,14 +36,14 @@ const NewMovement = () => {
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
 
-  console.log('🚨 NEW MOVEMENT EXPRESS - LOCATION:', {
+  console.log(' NEW MOVEMENT EXPRESS - LOCATION:', {
     pathname: location.pathname,
     search: location.search,
     state: location.state
   });
 
   useEffect(() => {
-    console.log('🚨 NEW MOVEMENT EXPRESS - MOUNTED:', {
+    console.log(' NEW MOVEMENT EXPRESS - MOUNTED:', {
       pathname: location.pathname,
       search: location.search
     });
@@ -178,6 +178,14 @@ const NewMovement = () => {
 
       try {
         setLoading(prev => ({ ...prev, persons: true }));
+        
+        // Log adicional de diagnóstico
+        console.log(' Iniciando busca de pessoas', {
+          query,
+          apiUrl: import.meta.env.VITE_API_URL,
+          token: localStorage.getItem('accessToken') ? 'Token presente' : 'Sem token'
+        });
+
         const response = await personsService.search(query);
         console.log('Resposta da busca de pessoas:', response);
         
@@ -193,8 +201,25 @@ const NewMovement = () => {
         console.error('Erro detalhado ao buscar pessoas:', {
           message: error.message,
           response: error.response?.data,
-          status: error.response?.status
+          status: error.response?.status,
+          // Informações adicionais de diagnóstico
+          config: {
+            url: error.config?.url,
+            method: error.config?.method,
+            headers: error.config?.headers
+          }
         });
+
+        // Verificações específicas de erro
+        if (error.message === 'Network Error') {
+          enqueueSnackbar('Erro de conexão. Verifique sua internet.', { variant: 'error' });
+        } else if (error.response?.status === 401) {
+          enqueueSnackbar('Sessão expirada. Faça login novamente.', { variant: 'warning' });
+          // Lógica de logout
+          authService.logout();
+          navigate('/login');
+        }
+
         setPersonOptions([]);
       } finally {
         setLoading(prev => ({ ...prev, persons: false }));
@@ -258,7 +283,7 @@ const NewMovement = () => {
         notificar: formData.notificar
       };
 
-      console.log('🚀 Detalhes da Submissão');
+      console.log(' Detalhes da Submissão');
       console.log('Payload completo:', payload);
 
       const response = await movementsService.create(payload);
@@ -278,7 +303,7 @@ const NewMovement = () => {
         notificar: true,
       });
     } catch (error) {
-      console.error('🚨 Erro detalhado:', error);
+      console.error(' Erro detalhado:', error);
       
       // Tratamento de erro específico
       let errorMessage = 'Erro desconhecido ao criar movimento';

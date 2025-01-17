@@ -462,7 +462,14 @@ export const installmentsService = {
 export const personsService = {
   async search(query = '') {
     try {
-      console.log('Buscando pessoas com query:', query);
+      console.log('🔍 Buscando pessoas com query:', query);
+      
+      // Verificar configuração base do Axios
+      console.log('🚨 Configuração Axios:', {
+        baseURL: api.defaults.baseURL,
+        headers: api.defaults.headers
+      });
+
       const response = await api.get('/persons', {
         params: {
           search: query,
@@ -470,13 +477,17 @@ export const personsService = {
         }
       });
       
-      console.log('Resposta completa da busca de pessoas:', response.data);
+      console.log('🔍 Resposta completa da busca de pessoas:', {
+        status: response.status,
+        headers: response.headers,
+        data: response.data
+      });
       
       // Verificações robustas para diferentes estruturas de resposta
       const data = response.data || {};
       const personItems = data.data || data.items || [];
       
-      console.log('Pessoas encontradas:', personItems);
+      console.log('👥 Pessoas encontradas:', personItems);
       
       return {
         items: personItems,
@@ -487,11 +498,21 @@ export const personsService = {
         }
       };
     } catch (error) {
-      console.error('Erro na busca de pessoas:', {
+      console.error('❌ Erro DETALHADO na busca de pessoas:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers
       });
+
+      // Verificar se é erro de rede
+      if (error.message === 'Network Error') {
+        console.error('🌐 Possível problema de conexão de rede');
+        // Você pode adicionar lógica adicional aqui, como verificar conexão
+      }
+
       throw error;
     }
   }
