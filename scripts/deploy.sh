@@ -59,8 +59,8 @@ prepare_deploy() {
     # Voltar para develop
     git checkout develop
     
-    # Criar nova branch com nome da versão
-    new_branch_name="feature/version-$new_version"
+    # Criar nova branch com nome da versão completa
+    new_branch_name="feature/$new_version"
     git checkout -b "$new_branch_name"
     
     # Merge main para nova branch para trazer a versão atualizada
