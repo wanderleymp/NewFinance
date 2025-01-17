@@ -456,7 +456,7 @@ export const installmentsService = {
   
   async search(query = '') {
     return this.list({ search: query });
-  }
+  },
 };
 
 export const personsService = {

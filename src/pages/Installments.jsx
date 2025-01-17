@@ -71,7 +71,7 @@ import { ptBR } from 'date-fns/locale';
 import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
-import axios from 'axios';
+import api from '../services/api'; // Import the api instance
 
 // Adicionar log de diagnóstico global
 // console.error('🚨 INSTALLMENTS MODULE LOADED GLOBALLY');
@@ -496,7 +496,18 @@ export default function Installments() {
                 <IconButton 
                   size="small"
                   color="success"
-                  onClick={() => handleSettleInstallment(installment)}
+                  onClick={() => {
+                    setSelectedInstallmentForPayment(installment);
+                    const valorPagamento = formatCurrency(installment.balance || installment.amount);
+                    setPaymentValue(valorPagamento);
+                    setPaymentMethod('');
+                    setPaymentObservation('');
+                    setBankId('2');
+                    setPaymentDate(new Date());
+                    setJuros('0');
+                    setDescontos('0');
+                    setPaymentDialogOpen(true);
+                  }}
                   title="Liquidar Parcela"
                   sx={{ 
                     border: '1px solid', 
@@ -868,27 +879,30 @@ export default function Installments() {
         return;
       }
 
-      // Preparar dados de pagamento
       const paymentData = {
-        installmentId: selectedInstallmentForPayment.installment_id,
-        paymentValue: cleanCurrencyValue(paymentValue),
-        bankId: bankId || '2',
-        paymentMethod: paymentMethod || 'TRANSFERENCIA',
-        paymentDate: paymentDate || new Date(),
-        observation: paymentObservation,
+        valor: cleanCurrencyValue(paymentValue),
+        date: format(paymentDate || new Date(), 'yyyy-MM-dd'),
+        bank_id: parseInt(bankId || '2', 10),
         juros: cleanCurrencyValue(juros),
         descontos: cleanCurrencyValue(descontos)
       };
 
+      console.log('🚨 Dados de pagamento:', {
+        installmentId: selectedInstallmentForPayment.installment_id,
+        paymentData
+      });
+
       // Chamar serviço de pagamento
-      const result = await installmentsService.confirmPayment(paymentData);
+      const result = await api.put(`/installments/${selectedInstallmentForPayment.installment_id}/payment`, paymentData);
       
+      console.log('✅ Resposta do pagamento:', result);
+
       enqueueSnackbar('Pagamento confirmado com sucesso!', { variant: 'success' });
       fetchInstallments();
       setPaymentDialogOpen(false);
     } catch (error) {
-      enqueueSnackbar('Erro ao confirmar pagamento', { variant: 'error' });
-      console.error('Erro no pagamento:', error);
+      console.error('❌ Erro no pagamento:', error);
+      enqueueSnackbar(`Erro ao confirmar pagamento: ${error.response?.data?.message || error.message}`, { variant: 'error' });
     } finally {
       // Limpar estados
       setBankId('2');
@@ -1082,7 +1096,7 @@ export default function Installments() {
 
     try {
       console.log('🚨 PREPARANDO ENVIO DE NOTIFICAÇÃO');
-      const response = await axios.post(
+      const response = await api.post(
         'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
         { 
           installment_id: installment.installment_id,
@@ -1669,8 +1683,9 @@ export default function Installments() {
                 fullWidth
                 value={paymentValue}
                 onChange={(e) => {
-                  const cleanedValue = cleanCurrencyValue(e.target.value);
-                  setPaymentValue(formatCurrency(cleanedValue));
+                  const inputValue = e.target.value.replace(/[^\d]/g, '');
+                  const numericValue = parseInt(inputValue, 10) / 100;
+                  setPaymentValue(formatCurrency(numericValue));
                 }}
                 margin="normal"
                 InputProps={{
