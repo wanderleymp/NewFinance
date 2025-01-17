@@ -621,7 +621,8 @@ const DUE_DATE_APIS = {
     url: 'https://n8n.webhook.agilefinance.com.br/webhook/instalment/due_date',
     method: 'PUT',
     headers: {
-      'apikey': 'ffcaa89a3e19bd98e911475c7974309b'
+      'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+      'Content-Type': 'application/json'
     }
   },
   MAIN: {
@@ -633,74 +634,79 @@ const DUE_DATE_APIS = {
 
 // Função para alterar data de vencimento
 export const updateInstallmentDueDate = async (
-  installmentId, 
-  newDueDate, 
+  payloadOrInstallmentId, 
+  newDueDate = null, 
   newAmount = null, 
-  updateBoletoWithFees = false, 
-  updateBoletoOnly = false, 
-  apiSource = 'N8N',
-  additionalData = {}
+  updateBoletoWithFees = true, 
+  updateBoletoOnly = false,
+  source = 'DEFAULT',
+  additionalConfig = {}
 ) => {
-  try {
-    console.log('Preparando atualização de data de vencimento via API:', {
-      installmentId,
-      newDueDate,
-      newAmount,
-      updateBoletoWithFees,
-      updateBoletoOnly,
-      apiSource,
-      additionalData
-    });
+    try {
+      // Normalização do payload
+      let requestPayload;
 
-    // Seleciona a configuração da API
-    const apiConfig = DUE_DATE_APIS[apiSource];
+      // Se for um objeto, usa diretamente
+      if (payloadOrInstallmentId && typeof payloadOrInstallmentId === 'object') {
+        requestPayload = {
+          installment_id: payloadOrInstallmentId.installmentId || payloadOrInstallmentId.id,
+          new_due_date: payloadOrInstallmentId.newDueDate || payloadOrInstallmentId.dueDate,
+          new_amount: payloadOrInstallmentId.newAmount || payloadOrInstallmentId.amount,
+          update_boleto_with_fees: payloadOrInstallmentId.updateBoletoWithFees ?? true,
+          update_boleto_only: payloadOrInstallmentId.updateBoletoOnly ?? false,
+          ...additionalConfig
+        };
+      } 
+      // Se for número/string, constrói payload com parâmetros
+      else if (typeof payloadOrInstallmentId === 'number' || typeof payloadOrInstallmentId === 'string') {
+        requestPayload = {
+          installment_id: payloadOrInstallmentId,
+          new_due_date: newDueDate,
+          new_amount: newAmount,
+          update_boleto_with_fees: updateBoletoWithFees,
+          update_boleto_only: updateBoletoOnly,
+          ...additionalConfig
+        };
+      } else {
+        throw new Error('Payload inválido. Deve ser um ID ou um objeto com detalhes da parcela.');
+      }
 
-    console.log('Configuração da API selecionada:', apiConfig);
+      // Log detalhado do payload
+      console.log(`🚨 PREPARANDO ATUALIZAÇÃO DE DATA DE VENCIMENTO (${source})`, requestPayload);
 
-    // Prepara os dados da requisição
-    const requestData = {
-      installment_id: installmentId,
-      new_due_date: newDueDate,
-      new_amount: newAmount,
-      update_boleto_with_fees: updateBoletoWithFees,
-      update_boleto_only: updateBoletoOnly,
-      ...additionalData
-    };
+      // Validação final do payload
+      if (!requestPayload.installment_id) {
+        console.error('🚨 ID DA PARCELA NÃO ENCONTRADO');
+        throw new Error('ID da parcela é obrigatório');
+      }
 
-    console.log('Dados da requisição:', requestData);
-    console.log('Detalhes completos da requisição:', {
-      method: apiConfig.method,
-      url: apiConfig.url,
-      headers: {
-        'Content-Type': 'application/json',
-        ...apiConfig.headers
-      },
-      data: requestData
-    });
+      const response = await axios.put(
+        'https://n8n.webhook.agilefinance.com.br/webhook/instalment/due_date', 
+        requestPayload,
+        {
+          headers: {
+            'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      );
 
-    // Realiza a requisição
-    const response = await axios({
-      method: apiConfig.method,
-      url: apiConfig.url,
-      headers: {
-        'Content-Type': 'application/json',
-        ...apiConfig.headers
-      },
-      withCredentials: true, // Adicionado withCredentials
-      data: requestData
-    });
+      console.log('🚨 RESPOSTA DA ATUALIZAÇÃO:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('🚨 ERRO DETALHADO NA ATUALIZAÇÃO:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        config: error.config
+      });
 
-    console.log('Resposta da API:', {
-      status: response.status,
-      data: response.data
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error('Erro ao atualizar data de vencimento:', error);
-    throw error;
-  }
-};
+      throw error;
+    }
+  };
 
 export const paymentMethodService = {
   async getAll(params = {}) {
