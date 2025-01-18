@@ -1,9 +1,19 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import { 
+  Modal, 
+  Box, 
+  Typography, 
+  TextField, 
+  Button, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem 
+} from '@mui/material';
 import { X } from 'lucide-react';
 import { Contract } from '../types/contract';
 import { mockData } from '../services/mockData';
-import { format } from 'date-fns';
 
 interface EditContractModalProps {
   isOpen: boolean;
@@ -12,220 +22,299 @@ interface EditContractModalProps {
   contract: Contract;
 }
 
-export function EditContractModal({ isOpen, onClose, onSubmit, contract }: EditContractModalProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<Partial<Contract>>({
+export function EditContractModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  contract 
+}: EditContractModalProps) {
+  const { 
+    control, 
+    handleSubmit, 
+    formState: { errors } 
+  } = useForm<Partial<Contract>>({
     defaultValues: {
-      name: contract.name,
-      initialValue: contract.initialValue,
-      recurrencePeriod: contract.recurrencePeriod,
-      status: contract.status,
-      dueDay: contract.dueDay,
-      group: contract.group,
-      billingReference: contract.billingReference,
-      personId: contract.personId,
-      representativePersonId: contract.representativePersonId,
-    },
+      name: contract.name || '',
+      initialValue: contract.initialValue || 0,
+      recurrencePeriod: contract.recurrencePeriod || 'monthly',
+      status: contract.status || 'ativo',
+      dueDay: contract.dueDay || 1,
+      group: contract.group || '',
+      billingReference: contract.billingReference || 'current',
+      personId: contract.personId || '',
+      representativePersonId: contract.representativePersonId || '',
+    }
   });
 
-  if (!isOpen) return null;
+  const submitForm = (data: Partial<Contract>) => {
+    console.warn(' Submetendo contrato:', data);
+    onSubmit(data);
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center animate-fadeIn">
-      <div className="bg-white rounded-lg w-full max-w-4xl mx-4 transform transition-all animate-slideIn">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">Editar Contrato</h2>
-          <button
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      aria-labelledby="edit-contract-modal"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999
+      }}
+    >
+      <Box 
+        sx={{
+          width: '90%',
+          maxWidth: 800,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          bgcolor: 'background.paper',
+          boxShadow: 24,
+          p: 4,
+          borderRadius: 2,
+        }}
+      >
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3 
+          }}
+        >
+          <Typography variant="h6">
+            Editar Contrato: {contract.name}
+          </Typography>
+          <Button 
+            variant="text" 
+            color="secondary" 
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 transition-colors"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <X />
+          </Button>
+        </Box>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nome do Contrato
-              </label>
-              <input
-                {...register('name', { required: 'Nome é obrigatório' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder="Digite o nome do contrato"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+        <form onSubmit={handleSubmit(submitForm)}>
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { 
+              xs: '1fr', 
+              md: 'repeat(2, 1fr)' 
+            }, 
+            gap: 2 
+          }}>
+            <Controller
+              name="name"
+              control={control}
+              rules={{ required: 'Nome do contrato é obrigatório' }}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Nome do Contrato"
+                  variant="outlined"
+                  error={!!errors.name}
+                  helperText={errors.name?.message}
+                />
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Valor Inicial
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                {...register('initialValue', { 
-                  required: 'Valor inicial é obrigatório',
-                  min: { value: 0.01, message: 'Valor deve ser maior que zero' }
-                })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder="0.00"
-              />
-              {errors.initialValue && (
-                <p className="mt-1 text-sm text-red-600">{errors.initialValue.message}</p>
+            <Controller
+              name="initialValue"
+              control={control}
+              rules={{ 
+                required: 'Valor inicial é obrigatório',
+                min: { value: 0, message: 'Valor deve ser positivo' }
+              }}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  type="number"
+                  label="Valor Inicial"
+                  variant="outlined"
+                  error={!!errors.initialValue}
+                  helperText={errors.initialValue?.message}
+                />
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Período de Recorrência
-              </label>
-              <select
-                {...register('recurrencePeriod', { required: 'Período é obrigatório' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="monthly">Mensal</option>
-                <option value="quarterly">Trimestral</option>
-                <option value="yearly">Anual</option>
-              </select>
-              {errors.recurrencePeriod && (
-                <p className="mt-1 text-sm text-red-600">{errors.recurrencePeriod.message}</p>
+            <Controller
+              name="recurrencePeriod"
+              control={control}
+              rules={{ required: 'Período de recorrência é obrigatório' }}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Período de Recorrência</InputLabel>
+                  <Select
+                    {...field}
+                    label="Período de Recorrência"
+                    error={!!errors.recurrencePeriod}
+                  >
+                    <MenuItem value="monthly">Mensal</MenuItem>
+                    <MenuItem value="quarterly">Trimestral</MenuItem>
+                    <MenuItem value="yearly">Anual</MenuItem>
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                {...register('status', { required: 'Status é obrigatório' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="ativo">Ativo</option>
-                <option value="inativo">Inativo</option>
-                <option value="encerrado">Encerrado</option>
-              </select>
-              {errors.status && (
-                <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
+            <Controller
+              name="status"
+              control={control}
+              rules={{ required: 'Status é obrigatório' }}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    {...field}
+                    label="Status"
+                    error={!!errors.status}
+                  >
+                    <MenuItem value="ativo">Ativo</MenuItem>
+                    <MenuItem value="inativo">Inativo</MenuItem>
+                    <MenuItem value="encerrado">Encerrado</MenuItem>
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Grupo
-              </label>
-              <select
-                {...register('group', { required: 'Grupo é obrigatório' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">Selecione um grupo</option>
-                {['Grupo A', 'Grupo B', 'Grupo C'].map(group => (
-                  <option key={group} value={group}>
-                    {group}
-                  </option>
-                ))}
-              </select>
-              {errors.group && (
-                <p className="mt-1 text-sm text-red-600">{errors.group.message}</p>
+            <Controller
+              name="group"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Grupo</InputLabel>
+                  <Select
+                    {...field}
+                    label="Grupo"
+                  >
+                    <MenuItem value="">Selecione um grupo</MenuItem>
+                    {['Grupo A', 'Grupo B', 'Grupo C'].map(group => (
+                      <MenuItem key={group} value={group}>
+                        {group}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Pessoa Associada
-              </label>
-              <select
-                {...register('personId', { required: 'Pessoa associada é obrigatória' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">Selecione uma pessoa</option>
-                {mockData.people.map(person => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} - {person.document}
-                  </option>
-                ))}
-              </select>
-              {errors.personId && (
-                <p className="mt-1 text-sm text-red-600">{errors.personId.message}</p>
+            <Controller
+              name="personId"
+              control={control}
+              rules={{ required: 'Pessoa associada é obrigatória' }}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Pessoa Associada</InputLabel>
+                  <Select
+                    {...field}
+                    label="Pessoa Associada"
+                    error={!!errors.personId}
+                  >
+                    <MenuItem value="">Selecione uma pessoa</MenuItem>
+                    {mockData.people.map(person => (
+                      <MenuItem key={person.id} value={person.id}>
+                        {person.name} - {person.document}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Responsável
-              </label>
-              <select
-                {...register('representativePersonId', { required: 'Responsável é obrigatório' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">Selecione um responsável</option>
-                {mockData.people.map(person => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </select>
-              {errors.representativePersonId && (
-                <p className="mt-1 text-sm text-red-600">{errors.representativePersonId.message}</p>
+            <Controller
+              name="representativePersonId"
+              control={control}
+              rules={{ required: 'Responsável é obrigatório' }}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Responsável</InputLabel>
+                  <Select
+                    {...field}
+                    label="Responsável"
+                    error={!!errors.representativePersonId}
+                  >
+                    <MenuItem value="">Selecione um responsável</MenuItem>
+                    {mockData.people.map(person => (
+                      <MenuItem key={person.id} value={person.id}>
+                        {person.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Referência de Faturamento
-              </label>
-              <select
-                {...register('billingReference', { required: 'Referência é obrigatória' })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="current">Período Atual</option>
-                <option value="advance">Antecipado</option>
-              </select>
-              {errors.billingReference && (
-                <p className="mt-1 text-sm text-red-600">{errors.billingReference.message}</p>
+            <Controller
+              name="billingReference"
+              control={control}
+              rules={{ required: 'Referência de faturamento é obrigatória' }}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>Referência de Faturamento</InputLabel>
+                  <Select
+                    {...field}
+                    label="Referência de Faturamento"
+                    error={!!errors.billingReference}
+                  >
+                    <MenuItem value="current">Período Atual</MenuItem>
+                    <MenuItem value="advance">Antecipado</MenuItem>
+                  </Select>
+                </FormControl>
               )}
-            </div>
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Dia de Vencimento
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                {...register('dueDay', { 
-                  required: 'Dia de vencimento é obrigatório',
-                  min: { value: 1, message: 'Dia deve ser entre 1 e 31' },
-                  max: { value: 31, message: 'Dia deve ser entre 1 e 31' }
-                })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder="Dia do mês"
-              />
-              {errors.dueDay && (
-                <p className="mt-1 text-sm text-red-600">{errors.dueDay.message}</p>
+            <Controller
+              name="dueDay"
+              control={control}
+              rules={{ 
+                required: 'Dia de vencimento é obrigatório',
+                min: { value: 1, message: 'Dia deve estar entre 1 e 31' },
+                max: { value: 31, message: 'Dia deve estar entre 1 e 31' }
+              }}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  type="number"
+                  label="Dia de Vencimento"
+                  variant="outlined"
+                  inputProps={{ min: 1, max: 31 }}
+                  error={!!errors.dueDay}
+                  helperText={errors.dueDay?.message}
+                />
               )}
-            </div>
-          </div>
+            />
+          </Box>
 
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <button
-              type="button"
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              gap: 2, 
+              mt: 3 
+            }}
+          >
+            <Button 
+              variant="outlined" 
+              color="secondary" 
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
             >
               Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-105"
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              color="primary"
             >
               Salvar Alterações
-            </button>
-          </div>
+            </Button>
+          </Box>
         </form>
-      </div>
-    </div>
+      </Box>
+    </Modal>
   );
 }

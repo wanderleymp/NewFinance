@@ -48,7 +48,7 @@ interface ContractCardProps {
   contract: Contract;
   onManageServices: (contract: Contract) => void;
   onManageAdjustments: () => void;
-  onEdit: () => void;
+  onEdit: (contract: Contract) => void;
   onDelete: () => void;
   onView: () => void;
 }
@@ -111,6 +111,29 @@ export function ContractCard({
     }
     
     handleMenuClose();
+  };
+
+  const handleEditClick = () => {
+    console.group('🖊️ ContractCard - Botão Editar');
+    console.log('Contrato:', {
+      id: contract.id,
+      name: contract.name
+    });
+    console.log('onEdit type:', typeof onEdit);
+    console.log('onEdit exists:', !!onEdit);
+    
+    try {
+      if (onEdit) {
+        console.log('🔓 Chamando onEdit com contrato');
+        onEdit(contract);
+      } else {
+        console.warn('⚠️ Função onEdit não definida');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao chamar onEdit:', error);
+    } finally {
+      console.groupEnd();
+    }
   };
 
   return (
@@ -257,7 +280,7 @@ export function ContractCard({
           </ListItemIcon>
           Gerenciar Serviços
         </MenuItem>
-        <MenuItem onClick={() => { onEdit(); handleMenuClose(); }}>
+        <MenuItem onClick={handleEditClick}>
           <ListItemIcon>
             <EditIcon fontSize="small" />
           </ListItemIcon>
@@ -271,13 +294,18 @@ export function ContractCard({
         </MenuItem>
       </Menu>
 
-      <BillingConfirmationModal 
-        open={isConfirmationOpen} 
-        onClose={() => setIsConfirmationOpen(false)}
-        onConfirm={handleBillContract}
-        contractName={contract.name}
-        billingValue={contract.totalValue}
-      />
+      {isConfirmationOpen && (
+        <BillingConfirmationModal 
+          open={isConfirmationOpen} 
+          onClose={() => {
+            console.log('🔒 Fechando modal de confirmação de faturamento');
+            setIsConfirmationOpen(false);
+          }}
+          onConfirm={handleBillContract}
+          contractName={contract.name}
+          billingValue={contract.totalValue}
+        />
+      )}
     </>
   );
 }

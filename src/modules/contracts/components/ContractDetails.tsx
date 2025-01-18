@@ -45,11 +45,14 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
 
   const handleBillContract = async () => {
     try {
+      console.log('🚨 Iniciando faturamento do contrato');
       // Simulating API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Faturamento realizado com sucesso!');
+      console.log('🎉 Faturamento concluído, fechando modal');
       setIsConfirmationOpen(false);
     } catch (error) {
+      console.error('❌ Erro no faturamento:', error);
       toast.error('Erro ao realizar faturamento. Tente novamente.');
     }
   };
@@ -57,15 +60,21 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
   const canBill = contract.status === 'ativo';
 
   const renderDebugInfo = () => {
-    console.log('Estado atual:', {
+    console.log('🔍 Estado atual:', {
       activeTab,
-      canBill
+      canBill,
+      isConfirmationOpen: isConfirmationOpen
     });
   };
 
   useEffect(() => {
     renderDebugInfo();
-  }, [activeTab, canBill]);
+    console.log('🌟 Estado dos Modais:', {
+      isServiceModalOpen,
+      isModificationModalOpen,
+      isConfirmationOpen
+    });
+  }, [activeTab, canBill, isServiceModalOpen, isModificationModalOpen, isConfirmationOpen]);
 
   return (
     <div style={{ marginBottom: '1.5rem' }}>
@@ -170,7 +179,13 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
 
         <button
           type="button"
-          onClick={() => canBill && setIsConfirmationOpen(true)}
+          onClick={() => {
+            console.log('💰 Botão Faturar clicado', { canBill });
+            if (canBill) {
+              console.log('🔓 Abrindo modal de confirmação');
+              setIsConfirmationOpen(true);
+            }
+          }}
           disabled={!canBill}
           style={{
             display: 'inline-flex',
@@ -197,7 +212,10 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
         {activeTab === 'summary' && (
           <ContractSummary
             contract={contract}
-            onAddModification={() => setIsModificationModalOpen(true)}
+            onAddModification={() => {
+              console.log('➕ Botão Adicionar Modificação clicado');
+              setIsModificationModalOpen(true);
+            }}
           />
         )}
         {activeTab === 'adjustments' && (
@@ -230,7 +248,10 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
       {isConfirmationOpen && (
         <BillingConfirmationModal
           open={isConfirmationOpen}
-          onClose={() => setIsConfirmationOpen(false)}
+          onClose={() => {
+            console.log('Fechando modal de confirmação');
+            setIsConfirmationOpen(false);
+          }}
           onConfirm={handleBillContract}
           contractName={contract.name}
           billingValue={contract.currentValue}
