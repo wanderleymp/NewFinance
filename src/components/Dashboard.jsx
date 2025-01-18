@@ -50,7 +50,8 @@ import {
   Assessment as AssessmentIcon,
   BarChart as BarChartIcon,
   Person as PersonIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService, authService } from '../services/api';
@@ -156,6 +157,25 @@ const Dashboard = ({ children }) => {
           icon: <CreditCardIcon />,
         },
       ],
+    },
+    {
+      id: 'contracts',
+      title: 'Contratos',
+      icon: <AssignmentIcon />,
+      subItems: [
+        {
+          id: 'contract-list',
+          title: 'Lista de Contratos',
+          path: '/contracts',
+          icon: <ListAltIcon />,
+        },
+        {
+          id: 'contract-dashboard',
+          title: 'Dashboard de Contratos',
+          path: '/contracts/dashboard',
+          icon: <DashboardIcon />,
+        }
+      ]
     },
     {
       id: 'register',

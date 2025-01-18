@@ -30,6 +30,7 @@ const SystemStatus = lazy(() => import('./pages/SystemStatus'));
 const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
 const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
+const Contracts = lazy(() => import('./modules/contracts/pages/ContractsPage'));
 
 const PrivateRoute = ({ children, requiredRoles = [] }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -192,6 +193,27 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="tasks" element={<Suspense fallback={<Loading />}><TaskMonitoring /></Suspense>} />
+        {/* Rotas de Contratos */}
+        <Route 
+          path="contracts" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <Contracts />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/dashboard" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <Dashboard />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
       </Route>
     </Routes>
   );

@@ -1,6 +1,13 @@
-# Estratégia de Migração para TypeScript
+# Estratégia de Migração e Padronização de Projeto
 
-## Objetivo
+## Seções
+- [Migração TypeScript](#migração-typescript)
+- [Padronização de Design](#padronização-de-design)
+- [Estrutura de Pastas](#estrutura-de-pastas)
+
+## Migração TypeScript
+
+### Objetivo
 Migrar gradualmente o projeto de JavaScript para TypeScript, mantendo a estabilidade e funcionalidade do sistema.
 
 ## Fases de Migração
@@ -65,6 +72,55 @@ npm install -D typescript @types/react @types/react-dom
 }
 ```
 
+## Padronização de Design
+
+### Objetivos
+- Manter consistência com Material UI
+- Incorporar boas práticas de design
+- Criar componentes reutilizáveis
+- Design system robusto
+
+### Estratégia de Implementação
+- Fase 1: Novos componentes seguem novo padrão
+- Fase 2: Refatorar componentes existentes
+- Priorizar consistência visual
+- Manter experiência do usuário
+
+### Diretrizes de Design
+- Usar paleta de cores definida
+- Componentes com estados claros
+- Responsividade
+- Acessibilidade
+- Animações sutis
+
+## Estrutura de Pastas
+
+### Novo Padrão de Organização
+```
+src/
+├── components/
+│   ├── common/           # Componentes genéricos
+│   ├── contracts/        # Componentes de contratos
+│   └── dashboard/        # Componentes de dashboard
+├── pages/                # Páginas completas
+├── services/             # Camada de serviços
+├── types/                # Definições de tipos
+├── utils/                # Funções utilitárias
+└── styles/               # Estilos globais
+```
+
+### Estratégia de Migração
+- Fase 1: Criar nova estrutura
+- Fase 2: Migrar componentes existentes
+- Manter retrocompatibilidade
+- Documentar mudanças
+
+### Boas Práticas
+- Imports absolutos
+- Nomenclatura consistente
+- Separação de responsabilidades
+- Modularidade
+
 ## Boas Práticas
 - Converter arquivos para .tsx gradualmente
 - Manter compatibilidade com versões anteriores
@@ -87,6 +143,21 @@ npm install -D typescript @types/react @types/react-dom
 - Configurar ESLint para TypeScript
 - Atualizar configurações de build
 - Migrar dependências
+
+### Design System
+- [ ] Definir paleta de cores
+- [ ] Criar componentes base
+- [ ] Documentar guidelines
+
+### Estrutura
+- [ ] Criar nova estrutura de pastas
+- [ ] Migrar componentes
+- [ ] Atualizar imports
+
+## Observações
+- Migração incremental
+- Manter funcionalidade
+- Comunicar mudanças à equipe
 
 ## Contato
 Em caso de dúvidas, consultar documentação ou equipe de desenvolvimento.

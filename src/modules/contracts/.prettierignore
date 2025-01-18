@@ -1,0 +1,16 @@
+# Ignorar arquivos de build e dependências
+node_modules
+dist
+build
+coverage
+
+# Ignorar arquivos de configuração
+*.config.js
+*.json
+
+# Ignorar arquivos gerados
+*.generated.ts
+*.d.ts
+
+# Ignorar arquivos de teste
+tests/**/*

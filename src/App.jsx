@@ -19,6 +19,7 @@ import '@fontsource/inter/700.css'
 
 import { lightTheme, darkTheme } from './theme/theme';
 import { authService } from './services/api';
+import { QueryProvider } from './providers/QueryProvider';
 
 // Páginas
 import Login from './pages/Login';
@@ -36,6 +37,9 @@ import ImportCNPJ from './pages/ImportCNPJ';
 // Importações adicionais
 import NewMovementExpress from './pages/NewMovementExpress';
 import NewMovementDetailed from './pages/NewMovementDetailed';
+
+// Importações de contratos
+import Contracts from './modules/contracts/pages/ContractsPage';
 
 // Componentes
 import AIChat from './components/AIChat';
@@ -77,53 +81,59 @@ function App() {
   console.log('Renderizando App - Autenticado:', authService.isAuthenticated());
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <SnackbarProvider 
-        maxSnack={3} 
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-      >
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route element={<PrivateRoute />}>
-              <Route element={<AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />}>
-                <Route path="/" element={<Navigate to="/home" replace />} />
-                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-                <Route index path="home" element={<Home />} />
-                <Route path="movements" element={<Movements />} />
-                <Route path="movements/new-express" element={<NewMovementExpress />} />
-                <Route path="movements/new-detailed" element={<NewMovementDetailed />} />
-                <Route path="persons" element={<Persons />} />
-                <Route path="persons/new" element={<PersonForm />} />
-                <Route path="persons/:id/edit" element={<PersonForm />} />
-                <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
-                <Route path="contacts" element={<Contacts />} />
-                <Route path="users" element={<Users />} />
-                <Route path="system-status" element={<SystemStatus />} />
-                <Route path="installments" element={<Installments />} />
+    <QueryProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <SnackbarProvider 
+          maxSnack={3} 
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<PrivateRoute />}>
+                <Route element={<AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />}>
+                  <Route path="/" element={<Navigate to="/home" replace />} />
+                  <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+                  <Route index path="home" element={<Home />} />
+                  <Route path="movements" element={<Movements />} />
+                  <Route path="movements/new-express" element={<NewMovementExpress />} />
+                  <Route path="movements/new-detailed" element={<NewMovementDetailed />} />
+                  <Route path="persons" element={<Persons />} />
+                  <Route path="persons/new" element={<PersonForm />} />
+                  <Route path="persons/:id/edit" element={<PersonForm />} />
+                  <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
+                  <Route path="contacts" element={<Contacts />} />
+                  <Route path="system/status" element={<SystemStatus />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path="installments" element={<Installments />} />
+                  
+                  {/* Rotas de Contratos */}
+                  <Route path="contracts" element={<Contracts />} />
+                  <Route path="contracts/dashboard" element={<Home />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-          <AIAssistant />
-          <ToastContainer 
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
-          <AppVersion />
-        </BrowserRouter>
-      </SnackbarProvider>
-    </ThemeProvider>
+            </Routes>
+            <AIAssistant />
+            <ToastContainer 
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+            <AppVersion />
+          </BrowserRouter>
+        </SnackbarProvider>
+      </ThemeProvider>
+    </QueryProvider>
   );
 }
 
