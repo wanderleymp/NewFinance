@@ -249,6 +249,22 @@ export function ContractCard({
                   </IconButton>
                 </span>
               </Tooltip>
+              <Tooltip title="Visualizar Contrato">
+                <IconButton onClick={onView} size="small">
+                  <ViewIcon />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem />
+              <Tooltip title="Editar Contrato">
+                <IconButton onClick={() => onEdit(contract)} size="small">
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Deletar Contrato">
+                <IconButton onClick={onDelete} size="small" color="error">
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
             </Box>
 
             <Tooltip title="Mais Ações">
@@ -268,29 +284,11 @@ export function ContractCard({
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={onView}>
-          <ListItemIcon>
-            <ViewIcon fontSize="small" />
-          </ListItemIcon>
-          Visualizar
-        </MenuItem>
         <MenuItem onClick={handleManageServices}>
           <ListItemIcon>
             <ManageServicesIcon fontSize="small" />
           </ListItemIcon>
           Gerenciar Serviços
-        </MenuItem>
-        <MenuItem onClick={handleEditClick}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          Editar
-        </MenuItem>
-        <MenuItem onClick={() => { onDelete(); handleMenuClose(); }} sx={{ color: 'error.main' }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" />
-          </ListItemIcon>
-          Excluir
         </MenuItem>
       </Menu>
 

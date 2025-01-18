@@ -37,6 +37,7 @@ import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
 import { toast } from 'react-hot-toast';
 import ContractForm from '../components/ContractForm';
+import ManageContractServicesModal from '../components/ManageContractServicesModal';
 
 export default function ContractsPage() {
   const { 
@@ -54,6 +55,7 @@ export default function ContractsPage() {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [isCreatingContract, setIsCreatingContract] = useState(false);
+  const [isManageServicesModalOpen, setIsManageServicesModalOpen] = useState(false);
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
@@ -106,6 +108,11 @@ export default function ContractsPage() {
     setBillingConfirmationOpen(true);
   };
 
+  const handleManageServices = (contract: Contract) => {
+    setSelectedContract(contract);
+    setIsManageServicesModalOpen(true);
+  };
+
   const confirmDelete = async () => {
     if (!selectedContract) return;
 
@@ -150,6 +157,23 @@ export default function ContractsPage() {
     setIsEditingContract(false);
     setIsCreatingContract(false);
     setSelectedContract(null);
+  };
+
+  const handleCloseManageServicesModal = () => {
+    setSelectedContract(null);
+    setIsManageServicesModalOpen(false);
+  };
+
+  const handleSaveServices = async (services: any[]) => {
+    if (!selectedContract) return;
+
+    try {
+      // Implementar lógica de salvar serviços
+      console.log('Salvando serviços para o contrato:', selectedContract.id, services);
+      toast.success('Serviços atualizados com sucesso!');
+    } catch (err) {
+      toast.error('Erro ao atualizar serviços');
+    }
   };
 
   const clearFilters = () => {
@@ -282,6 +306,7 @@ export default function ContractsPage() {
                   onDelete={() => handleDeleteClick(contract)}
                   onView={() => handleViewClick(contract)}
                   onBilling={() => handleBillingClick(contract)}
+                  onManageServices={() => handleManageServices(contract)}
                 />
               </Grid>
             ))}
@@ -383,6 +408,13 @@ export default function ContractsPage() {
           }}
         />
       )}
+
+      <ManageContractServicesModal
+        isOpen={isManageServicesModalOpen}
+        contract={selectedContract}
+        onClose={handleCloseManageServicesModal}
+        onSave={handleSaveServices}
+      />
     </Container>
   );
 }
