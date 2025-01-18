@@ -30,14 +30,13 @@ import {
   Clear as ClearIcon
 } from '@mui/icons-material';
 import { ContractCard } from '../components/ContractCard';
-import { NewContractModal } from '../components/NewContractModal';
-import { EditContractModal } from '../components/EditContractModal';
 import { ContractDetails } from '../components/ContractDetails';
 import { BillingConfirmationModal } from '../components/BillingConfirmationModal';
 import { useContracts } from '../hooks/useContracts';
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
 import { toast } from 'react-hot-toast';
+import ContractForm from '../components/ContractForm';
 
 export default function ContractsPage() {
   const { 
@@ -53,9 +52,10 @@ export default function ContractsPage() {
   } = useContracts();
 
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [isEditingContract, setIsEditingContract] = useState(false);
+  const [isCreatingContract, setIsCreatingContract] = useState(false);
+  
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [newContractModalOpen, setNewContractModalOpen] = useState(false);
-  const [editContractModalOpen, setEditContractModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [billingConfirmationOpen, setBillingConfirmationOpen] = useState(false);
   
@@ -93,7 +93,7 @@ export default function ContractsPage() {
 
   const handleEditClick = (contract: Contract) => {
     setSelectedContract(contract);
-    setEditContractModalOpen(true);
+    setIsEditingContract(true);
   };
 
   const handleViewClick = (contract: Contract) => {
@@ -118,10 +118,15 @@ export default function ContractsPage() {
     }
   };
 
+  const handleCreateNewContract = () => {
+    setSelectedContract(null);
+    setIsCreatingContract(true);
+  };
+
   const handleCreateContract = async (data: ContractFormData) => {
     try {
       await createContract(data);
-      setNewContractModalOpen(false);
+      setIsCreatingContract(false);
       toast.success('Contrato criado com sucesso!');
     } catch (err) {
       toast.error('Erro ao criar contrato');
@@ -133,12 +138,18 @@ export default function ContractsPage() {
 
     try {
       await updateContract(selectedContract.id, data);
-      setEditContractModalOpen(false);
+      setIsEditingContract(false);
       setSelectedContract(null);
       toast.success('Contrato atualizado com sucesso!');
     } catch (err) {
       toast.error('Erro ao atualizar contrato');
     }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingContract(false);
+    setIsCreatingContract(false);
+    setSelectedContract(null);
   };
 
   const clearFilters = () => {
@@ -148,150 +159,158 @@ export default function ContractsPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          mb: 4 
-        }}
-      >
-        <Typography variant="h4" component="h1" gutterBottom>
-          Contratos
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />}
-          onClick={() => setNewContractModalOpen(true)}
-        >
-          Novo Contrato
-        </Button>
-      </Box>
-
-      {/* Área de Filtros e Busca */}
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexWrap: 'wrap',
-          gap: 2, 
-          mb: 3,
-          alignItems: 'center' 
-        }}
-      >
-        <TextField
-          label="Buscar Contratos"
-          variant="outlined"
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 250 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm && (
-              <InputAdornment position="end">
-                <IconButton 
-                  size="small" 
-                  onClick={() => setSearchTerm('')}
-                  edge="end"
-                >
-                  <ClearIcon />
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-        />
-
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={statusFilter}
-            label="Status"
-            onChange={(e) => setStatusFilter(e.target.value)}
-            startAdornment={<FilterListIcon />}
+      {!isEditingContract && !isCreatingContract ? (
+        <>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              mb: 4 
+            }}
           >
-            <MenuItem value="todos">Todos</MenuItem>
-            <MenuItem value="ativo">Ativos</MenuItem>
-            <MenuItem value="inativo">Inativos</MenuItem>
-          </Select>
-        </FormControl>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Contratos
+            </Typography>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<AddIcon />}
+              onClick={handleCreateNewContract}
+            >
+              Novo Contrato
+            </Button>
+          </Box>
 
-        {(searchTerm !== '' || statusFilter !== 'todos') && (
-          <Tooltip title="Limpar Filtros">
-            <IconButton onClick={clearFilters}>
-              <ClearIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
-
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <Typography>Carregando contratos...</Typography>
-        </Box>
-      )}
-
-      {error && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <Typography color="error">Erro ao carregar contratos</Typography>
-        </Box>
-      )}
-
-      {!loading && !error && filteredContracts.length === 0 && (
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: 4, 
-            textAlign: 'center', 
-            backgroundColor: 'background.default' 
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            Nenhum contrato encontrado
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Não há contratos que correspondam aos filtros selecionados
-          </Typography>
-        </Paper>
-      )}
-
-      <Grid container spacing={3}>
-        {filteredContracts.map(contract => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={contract.id}>
-            <ContractCard 
-              contract={contract}
-              onManageServices={() => {/* Implementar gerenciamento de serviços */}}
-              onManageAdjustments={() => {/* Implementar ajustes */}}
-              onEdit={() => handleEditClick(contract)}
-              onDelete={() => handleDeleteClick(contract)}
-              onView={() => handleViewClick(contract)}
-              onBill={() => handleBillingClick(contract)}
+          {/* Área de Filtros e Busca */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap',
+              gap: 2, 
+              mb: 3,
+              alignItems: 'center' 
+            }}
+          >
+            <TextField
+              label="Buscar Contratos"
+              variant="outlined"
+              size="small"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 250 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => setSearchTerm('')}
+                      edge="end"
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
             />
-          </Grid>
-        ))}
-      </Grid>
 
-      {totalPages > 1 && (
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            mt: 4 
-          }}
-        >
-          <Pagination 
-            count={totalPages} 
-            page={page} 
-            onChange={handlePageChange} 
-            color="primary"
-            variant="outlined" 
-            shape="rounded"
-          />
-        </Box>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="todos">Todos</MenuItem>
+                <MenuItem value="ativo">Ativos</MenuItem>
+                <MenuItem value="inativo">Inativos</MenuItem>
+                <MenuItem value="encerrado">Encerrados</MenuItem>
+              </Select>
+            </FormControl>
+
+            {(searchTerm !== '' || statusFilter !== 'todos') && (
+              <Chip 
+                label="Limpar Filtros" 
+                onDelete={clearFilters} 
+                color="primary" 
+                variant="outlined" 
+              />
+            )}
+          </Box>
+
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <Typography>Carregando contratos...</Typography>
+            </Box>
+          )}
+
+          {error && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <Typography color="error">Erro ao carregar contratos</Typography>
+            </Box>
+          )}
+
+          {!loading && !error && filteredContracts.length === 0 && (
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center', 
+                backgroundColor: 'background.default' 
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Nenhum contrato encontrado
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Não há contratos que correspondam aos filtros selecionados
+              </Typography>
+            </Paper>
+          )}
+
+          <Grid container spacing={3}>
+            {filteredContracts.map((contract) => (
+              <Grid item xs={12} sm={6} md={4} key={contract.id}>
+                <ContractCard
+                  contract={contract}
+                  onEdit={() => handleEditClick(contract)}
+                  onDelete={() => handleDeleteClick(contract)}
+                  onView={() => handleViewClick(contract)}
+                  onBilling={() => handleBillingClick(contract)}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
+          {totalPages > 1 && (
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                mt: 4 
+              }}
+            >
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+              />
+            </Box>
+          )}
+        </>
+      ) : (
+        <ContractForm
+          contract={selectedContract || undefined}
+          onSubmit={isEditingContract ? handleUpdateContract : handleCreateContract}
+          onCancel={handleCancelEdit}
+          isEditing={isEditingContract}
+        />
       )}
 
       {/* Modais */}
@@ -319,24 +338,6 @@ export default function ContractsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <NewContractModal
-        isOpen={newContractModalOpen}
-        onClose={() => setNewContractModalOpen(false)}
-        onSubmit={handleCreateContract}
-      />
-
-      {selectedContract && (
-        <EditContractModal
-          isOpen={editContractModalOpen}
-          onClose={() => {
-            setEditContractModalOpen(false);
-            setSelectedContract(null);
-          }}
-          contract={selectedContract}
-          onSubmit={handleUpdateContract}
-        />
-      )}
 
       <Modal
         open={detailsModalOpen}
