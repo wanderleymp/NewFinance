@@ -1,82 +1,126 @@
-import { api } from '../../../services/api';
-import { mockData } from './mockData';
+import api from '../../../services/api';
+import mockContractsData from './mockContracts.json' assert { type: 'json' };
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
 
+type ContractDataSource = 'api' | 'mock';
+
 export const contractService = {
-  async getContracts(page = 1, limit = 10): Promise<{ 
-    contracts: Contract[], 
-    total: number, 
-    totalPages: number 
+  dataSource: 'mock' as ContractDataSource,
+
+  setDataSource(source: ContractDataSource) {
+    this.dataSource = source;
+  },
+
+  async getContracts(page = 1, limit = 10): Promise<{
+    contracts: Contract[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
   }> {
     try {
-      // Simular chamada à API com dados mock
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      
-      const paginatedContracts = mockData.contracts.slice(startIndex, endIndex);
-      const totalContracts = mockData.contracts.length;
-      const totalPages = Math.ceil(totalContracts / limit);
+      if (this.dataSource === 'api') {
+        const response = await api.get('/contracts_recurring', { 
+          params: { page, limit } 
+        });
 
-      return {
-        contracts: paginatedContracts,
-        total: totalContracts,
-        totalPages
-      };
+        return {
+          contracts: response.data.data,
+          total: response.data.meta.totalItems,
+          totalPages: response.data.meta.totalPages,
+          currentPage: response.data.meta.currentPage
+        };
+      } else {
+        // Dados mock
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        
+        const paginatedContracts = mockContractsData.data.slice(startIndex, endIndex);
+        const totalContracts = mockContractsData.data.length;
+        const totalPages = mockContractsData.meta.totalPages;
+
+        return {
+          contracts: paginatedContracts,
+          total: totalContracts,
+          totalPages,
+          currentPage: page
+        };
+      }
     } catch (error) {
       console.error('Erro ao buscar contratos:', error);
       throw error;
     }
   },
 
-  async createContract(contractData: ContractFormData): Promise<Contract> {
+  async createContract(contractData: Partial<Contract>): Promise<Contract> {
     try {
-      // Simular criação de contrato com dados mock
-      const newContract: Contract = {
-        id: `contract-${Date.now()}`,
-        ...contractData,
-        personId: '', // Adicionar lógica para associar pessoa
-        nextBillingDate: new Date().toISOString()
-      };
+      if (this.dataSource === 'api') {
+        const response = await api.post('/contracts_recurring', contractData);
+        return response.data;
+      } else {
+        // Simular criação de contrato com dados mock
+        const newContract: Contract = {
+          ...contractData,
+          contract_id: mockContractsData.data.length + 1,
+          contract_name: contractData.contract_name || 'Novo Contrato',
+          contract_value: contractData.contract_value || '0.00',
+          start_date: contractData.start_date || new Date().toISOString(),
+          status: contractData.status || 'active'
+        } as Contract;
 
-      mockData.contracts.push(newContract);
-      return newContract;
+        mockContractsData.data.push(newContract);
+        return newContract;
+      }
     } catch (error) {
       console.error('Erro ao criar contrato:', error);
       throw error;
     }
   },
 
-  async updateContract(id: string, contractData: ContractFormData): Promise<Contract> {
+  async updateContract(id: number, contractData: Partial<Contract>): Promise<Contract> {
     try {
-      const contractIndex = mockData.contracts.findIndex(c => c.id === id);
-      
-      if (contractIndex === -1) {
-        throw new Error('Contrato não encontrado');
+      if (this.dataSource === 'api') {
+        const response = await api.put(`/contracts_recurring/${id}`, contractData);
+        return response.data;
+      } else {
+        // Atualizar contrato nos dados mock
+        const contractIndex = mockContractsData.data.findIndex(
+          contract => contract.contract_id === id
+        );
+
+        if (contractIndex === -1) {
+          throw new Error('Contrato não encontrado');
+        }
+
+        mockContractsData.data[contractIndex] = {
+          ...mockContractsData.data[contractIndex],
+          ...contractData
+        };
+
+        return mockContractsData.data[contractIndex];
       }
-
-      const updatedContract: Contract = {
-        ...mockData.contracts[contractIndex],
-        ...contractData
-      };
-
-      mockData.contracts[contractIndex] = updatedContract;
-      return updatedContract;
     } catch (error) {
       console.error('Erro ao atualizar contrato:', error);
       throw error;
     }
   },
 
-  async deleteContract(id: string): Promise<void> {
+  async deleteContract(id: number): Promise<void> {
     try {
-      const contractIndex = mockData.contracts.findIndex(c => c.id === id);
-      
-      if (contractIndex === -1) {
-        throw new Error('Contrato não encontrado');
-      }
+      if (this.dataSource === 'api') {
+        await api.delete(`/contracts_recurring/${id}`);
+      } else {
+        // Remover contrato dos dados mock
+        const contractIndex = mockContractsData.data.findIndex(
+          contract => contract.contract_id === id
+        );
 
-      mockData.contracts.splice(contractIndex, 1);
+        if (contractIndex === -1) {
+          throw new Error('Contrato não encontrado');
+        }
+
+        mockContractsData.data.splice(contractIndex, 1);
+      }
     } catch (error) {
       console.error('Erro ao deletar contrato:', error);
       throw error;

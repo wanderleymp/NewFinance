@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Contract } from '../types/contract';
-import { ContractSummary } from '../components/ContractSummary';
-import { BillingAdjustmentsTab } from './BillingAdjustmentsTab';
-import { ContractAdjustmentsTab } from './ContractAdjustmentsTab';
-import { BillingsTab } from './BillingsTab';
-import { ServiceModal } from './ServiceModal';
-import { ModificationModal } from './ModificationModal';
-import { BillingConfirmationModal } from './BillingConfirmationModal';
+import React, { useState } from 'react';
 import { 
+  Box, 
+  Typography, 
+  IconButton, 
+  Button 
+} from '@mui/material';
+import { 
+  Close as CloseIcon,
   Receipt as ReceiptIcon, 
   AddCircleOutline as AddIcon,
   Edit as EditIcon,
@@ -19,25 +18,24 @@ import {
   BuildOutlined as ContractAdjustmentsIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
-
-// Log detalhado de importação de ícones
-console.log('Detalhes dos Ícones:', {
-  ReceiptIcon: typeof ReceiptIcon,
-  AddIcon: typeof AddIcon,
-  EditIcon: typeof EditIcon,
-  ViewIcon: typeof ViewIcon,
-  ManageServicesIcon: typeof ManageServicesIcon,
-  SummaryIcon: typeof SummaryIcon,
-  AdjustmentsIcon: typeof AdjustmentsIcon,
-  BillingsIcon: typeof BillingsIcon,
-  ContractAdjustmentsIcon: typeof ContractAdjustmentsIcon
-});
+import { Contract } from '../types/contract';
+import { ContractSummary } from '../components/ContractSummary';
+import { BillingAdjustmentsTab } from './BillingAdjustmentsTab';
+import { ContractAdjustmentsTab } from './ContractAdjustmentsTab';
+import { BillingsTab } from './BillingsTab';
+import { ServiceModal } from './ServiceModal';
+import { ModificationModal } from './ModificationModal';
+import { BillingConfirmationModal } from './BillingConfirmationModal';
 
 interface ContractDetailsProps {
   contract: Contract;
+  onClose: () => void;
 }
 
-export function ContractDetails({ contract }: ContractDetailsProps) {
+export function ContractDetails({ 
+  contract, 
+  onClose 
+}: ContractDetailsProps) {
   const [activeTab, setActiveTab] = useState<'summary' | 'adjustments' | 'contract-adjustments' | 'billings'>('summary');
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isModificationModalOpen, setIsModificationModalOpen] = useState(false);
@@ -46,7 +44,6 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
   const handleBillContract = async () => {
     try {
       console.log('🚨 Iniciando faturamento do contrato');
-      // Simulating API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Faturamento realizado com sucesso!');
       console.log('🎉 Faturamento concluído, fechando modal');
@@ -59,25 +56,63 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
 
   const canBill = contract.status === 'ativo';
 
-  const renderDebugInfo = () => {
-    console.log('🔍 Estado atual:', {
-      activeTab,
-      canBill,
-      isConfirmationOpen: isConfirmationOpen
-    });
+  const renderActiveTab = () => {
+    switch(activeTab) {
+      case 'summary':
+        return (
+          <ContractSummary 
+            contract={contract} 
+            onAddModification={() => setIsModificationModalOpen(true)} 
+          />
+        );
+      case 'adjustments':
+        return <BillingAdjustmentsTab contract={contract} />;
+      case 'contract-adjustments':
+        return <ContractAdjustmentsTab contract={contract} />;
+      case 'billings':
+        return <BillingsTab contract={contract} />;
+      default:
+        return null;
+    }
   };
 
-  useEffect(() => {
-    renderDebugInfo();
-    console.log('🌟 Estado dos Modais:', {
-      isServiceModalOpen,
-      isModificationModalOpen,
-      isConfirmationOpen
-    });
-  }, [activeTab, canBill, isServiceModalOpen, isModificationModalOpen, isConfirmationOpen]);
+  const handleClose = () => {
+    console.log('🚪 Fechando detalhes do contrato');
+    if (onClose) {
+      onClose();
+    }
+  };
 
   return (
-    <div style={{ marginBottom: '1.5rem' }}>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: 1200, 
+      margin: 'auto', 
+      position: 'relative' 
+    }}>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 2,
+        position: 'relative'
+      }}>
+        <Typography variant="h4" color="primary">
+          Detalhes do Contrato
+        </Typography>
+        <IconButton 
+          onClick={handleClose} 
+          aria-label="Fechar"
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: -10
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -199,64 +234,47 @@ export function ContractDetails({ contract }: ContractDetailsProps) {
             transition: 'all 0.3s ease',
             backgroundColor: canBill ? '#059669' : '#D1D5DB',
             color: canBill ? 'white' : '#6B7280',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-            cursor: canBill ? 'pointer' : 'not-allowed'
+            border: 'none',
+            cursor: canBill ? 'pointer' : 'not-allowed',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
           }}
         >
-          <ReceiptIcon style={{ width: '1.25rem', height: '1.25rem' }} />
           Faturar
         </button>
       </div>
 
-      <div style={{ marginTop: '1.5rem' }}>
-        {activeTab === 'summary' && (
-          <ContractSummary
-            contract={contract}
-            onAddModification={() => {
-              console.log('➕ Botão Adicionar Modificação clicado');
-              setIsModificationModalOpen(true);
-            }}
-          />
-        )}
-        {activeTab === 'adjustments' && (
-          <BillingAdjustmentsTab contract={contract} />
-        )}
-        {activeTab === 'contract-adjustments' && (
-          <ContractAdjustmentsTab contract={contract} />
-        )}
-        {activeTab === 'billings' && (
-          <BillingsTab contract={contract} />
-        )}
-      </div>
+      <Box mt={3}>
+        {renderActiveTab()}
+      </Box>
 
-      <ServiceModal
-        isOpen={isServiceModalOpen}
-        onClose={() => setIsServiceModalOpen(false)}
-        contract={contract}
-      />
+      {isServiceModalOpen && (
+        <ServiceModal 
+          open={isServiceModalOpen}
+          onClose={() => setIsServiceModalOpen(false)}
+          contract={contract}
+        />
+      )}
 
-      <ModificationModal
-        isOpen={isModificationModalOpen}
-        onClose={() => setIsModificationModalOpen(false)}
-        contract={contract}
-        onSubmit={(data) => {
-          console.log('Nova modificação:', data);
-          setIsModificationModalOpen(false);
-        }}
-      />
+      {isModificationModalOpen && (
+        <ModificationModal 
+          open={isModificationModalOpen}
+          onClose={() => setIsModificationModalOpen(false)}
+          contract={contract}
+        />
+      )}
 
       {isConfirmationOpen && (
-        <BillingConfirmationModal
-          open={isConfirmationOpen}
+        <BillingConfirmationModal 
+          open={isConfirmationOpen} 
           onClose={() => {
-            console.log('Fechando modal de confirmação');
+            console.log('🔒 Fechando modal de confirmação de faturamento');
             setIsConfirmationOpen(false);
           }}
           onConfirm={handleBillContract}
-          contractName={contract.name}
-          billingValue={contract.currentValue}
+          contractName={contract.contract_name}
+          billingValue={contract.contract_value}
         />
       )}
-    </div>
+    </Box>
   );
 }

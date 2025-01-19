@@ -1,12 +1,5 @@
-import axios from 'axios';
+import api from '../../../services/api';
 import { Contract, ExtraService, Adjustment, HistoryEntry, ContractModification, ContractSummary } from '../types/contract';
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
 
 export const contractsApi = {
   list: async () => {
@@ -70,5 +63,81 @@ export const contractsApi = {
   getBilling: async (id: string) => {
     const response = await api.get(`/contracts/${id}/billing`);
     return response.data;
+  },
+
+  listRecurring: async (page = 1, limit = 10) => {
+    try {
+      console.log('🔍 Iniciando listagem de contratos recorrentes', { page, limit });
+      
+      // Método padrão de recuperação do token
+      const token = localStorage.getItem('accessToken');
+      
+      console.group('🔐 Verificação de Token');
+      console.log('Token accessToken:', token);
+      console.groupEnd();
+      
+      if (!token) {
+        console.error('🚨 Nenhum token encontrado');
+        throw new Error('Token de autorização não encontrado');
+      }
+
+      // Log detalhado da requisição
+      console.group('📡 Detalhes da Requisição');
+      console.log('URL:', '/contracts_recurring');
+      console.log('Método: GET');
+      console.log('Parâmetros:', { page, limit });
+      console.log('Headers:', {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      console.groupEnd();
+
+      const response = await api.get<{
+        contracts: Contract[];
+        total: number;
+        totalPages: number;
+        currentPage: number;
+      }>('/contracts_recurring', {
+        params: { page, limit },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('✅ Resposta completa do servidor:', {
+        status: response.status,
+        data: response.data,
+        headers: response.headers
+      });
+
+      return {
+        contracts: response.data?.data || [],
+        total: response.data?.meta?.totalItems || 0,
+        totalPages: response.data?.meta?.totalPages || 1,
+        currentPage: response.data?.meta?.currentPage || page
+      };
+    } catch (error) {
+      console.error('🚨 Erro DETALHADO na requisição:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        requestConfig: error.config,
+        fullErrorObject: JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+      });
+      
+      // Log adicional para erros 500
+      if (error.response?.status === 500) {
+        console.error('🚨 ERRO INTERNO DO SERVIDOR COMPLETO:', {
+          errorData: error.response?.data,
+          errorMessage: error.response?.data?.message || 'Erro desconhecido',
+          errorStack: error.stack,
+          serverResponse: JSON.stringify(error.response, null, 2)
+        });
+      }
+      
+      throw error;
+    }
   },
 };

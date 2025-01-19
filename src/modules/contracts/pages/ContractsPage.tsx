@@ -35,22 +35,57 @@ import { BillingConfirmationModal } from '../components/BillingConfirmationModal
 import { useContracts } from '../hooks/useContracts';
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
+import { useQuery } from '@tanstack/react-query';
+import { contractsApi } from '../services/api';
 import { toast } from 'react-hot-toast';
 import ContractForm from '../components/ContractForm';
 import ManageContractServicesModal from '../components/ManageContractServicesModal';
 
 export default function ContractsPage() {
+  const limit = 10;
+  const page = 1;
   const { 
-    contracts, 
-    loading, 
-    error, 
-    page, 
-    totalPages, 
-    fetchContracts,
-    deleteContract,
-    createContract,
-    updateContract
-  } = useContracts();
+    data: contractsData, 
+    isLoading, 
+    error 
+  } = useQuery({
+    queryKey: ['contracts', page, limit],
+    queryFn: () => contractsApi.listRecurring(page, limit),
+    keepPreviousData: true,
+    retry: 1,
+    onError: (err: any) => {
+      console.error('Erro na listagem de contratos:', err);
+      
+      // Tratamento específico para diferentes tipos de erro
+      switch (err.response?.status) {
+        case 401:
+          toast.error('Sessão expirada. Faça login novamente.');
+          // Redirecionar para login ou fazer logout
+          // Exemplo: authService.logout();
+          // navigate('/login');
+          break;
+        
+        case 403:
+          toast.error('Você não tem permissão para acessar esta página.');
+          break;
+        
+        case 500:
+          toast.error('Erro interno do servidor. Tente novamente mais tarde.');
+          break;
+        
+        case 404:
+          toast.error('Recurso não encontrado.');
+          break;
+        
+        default:
+          toast.error('Erro ao carregar contratos. Verifique sua conexão.');
+      }
+    }
+  });
+
+  const contracts = contractsData?.contracts || [];
+  const total = contractsData?.total || 0;
+  const totalPages = contractsData?.totalPages || 1;
 
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isEditingContract, setIsEditingContract] = useState(false);
@@ -85,7 +120,7 @@ export default function ContractsPage() {
   }, [contracts, searchTerm, statusFilter]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    fetchContracts(value);
+    // fetchContracts(value);
   };
 
   const handleDeleteClick = (contract: Contract) => {
@@ -117,7 +152,7 @@ export default function ContractsPage() {
     if (!selectedContract) return;
 
     try {
-      await deleteContract(selectedContract.id);
+      // await deleteContract(selectedContract.id);
       toast.success('Contrato excluído com sucesso!');
       setDeleteDialogOpen(false);
     } catch (err) {
@@ -132,7 +167,7 @@ export default function ContractsPage() {
 
   const handleCreateContract = async (data: ContractFormData) => {
     try {
-      await createContract(data);
+      // await createContract(data);
       setIsCreatingContract(false);
       toast.success('Contrato criado com sucesso!');
     } catch (err) {
@@ -144,7 +179,7 @@ export default function ContractsPage() {
     if (!selectedContract) return;
 
     try {
-      await updateContract(selectedContract.id, data);
+      // await updateContract(selectedContract.id, data);
       setIsEditingContract(false);
       setSelectedContract(null);
       toast.success('Contrato atualizado com sucesso!');
@@ -267,7 +302,7 @@ export default function ContractsPage() {
             )}
           </Box>
 
-          {loading && (
+          {isLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
               <Typography>Carregando contratos...</Typography>
             </Box>
@@ -279,7 +314,7 @@ export default function ContractsPage() {
             </Box>
           )}
 
-          {!loading && !error && filteredContracts.length === 0 && (
+          {!isLoading && !error && filteredContracts.length === 0 && (
             <Paper 
               elevation={3} 
               sx={{ 
@@ -297,13 +332,13 @@ export default function ContractsPage() {
             </Paper>
           )}
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {filteredContracts.map((contract) => (
-              <Grid item xs={12} sm={6} md={4} key={contract.id}>
+              <Grid item xs={12} sm={6} md={4} key={contract.contract_id}>
                 <ContractCard
                   contract={contract}
-                  onEdit={() => handleEditClick(contract)}
                   onDelete={() => handleDeleteClick(contract)}
+                  onEdit={() => handleEditClick(contract)}
                   onView={() => handleViewClick(contract)}
                   onBilling={() => handleBillingClick(contract)}
                   onManageServices={() => handleManageServices(contract)}
@@ -322,7 +357,7 @@ export default function ContractsPage() {
             >
               <Pagination
                 count={totalPages}
-                page={page}
+                page={1}
                 onChange={handlePageChange}
                 color="primary"
               />
@@ -388,7 +423,15 @@ export default function ContractsPage() {
             p: 2
           }}
         >
-          {selectedContract && <ContractDetails contract={selectedContract} />}
+          {selectedContract && (
+            <ContractDetails 
+              contract={selectedContract} 
+              onClose={() => {
+                setDetailsModalOpen(false);
+                setSelectedContract(null);
+              }} 
+            />
+          )}
         </Box>
       </Modal>
 

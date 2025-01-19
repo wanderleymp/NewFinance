@@ -1,49 +1,9 @@
-import { faker } from '@faker-js/faker/locale/pt_BR';
-import fs from 'fs';
-import path from 'path';
+const { faker } = require('@faker-js/faker/locale/pt_BR');
+const fs = require('fs');
+const path = require('path');
 
-interface Contract {
-  contract_id: number;
-  contract_name: string;
-  contract_value: string;
-  start_date: string;
-  end_date: string | null;
-  recurrence_period: string;
-  due_day: number;
-  days_before_due: number;
-  status: string;
-  model_movement_id: number;
-  last_billing_date: string;
-  next_billing_date: string;
-  contract_group_id: number;
-  billing_reference: string;
-  representative_person_id: number | null;
-  commissioned_value: number | null;
-  account_entry_id: number | null;
-  last_decimo_billing_year: number | null;
-  group_name: string;
-  full_name: string;
-}
-
-interface ApiResponse {
-  data: Contract[];
-  meta: {
-    currentPage: number;
-    itemCount: number;
-    itemsPerPage: number;
-    totalItems: number;
-    totalPages: number;
-  };
-  links: {
-    first: string;
-    previous: string | null;
-    next: string;
-    last: string;
-  };
-}
-
-function generateMockContracts(count: number): ApiResponse {
-  const contracts: Contract[] = Array.from({ length: count }, (_, index) => {
+function generateMockContracts(count) {
+  const contracts = Array.from({ length: count }, (_, index) => {
     const startDate = faker.date.past({ years: 5 });
     const lastBillingDate = faker.date.recent();
     const nextBillingDate = faker.date.future();

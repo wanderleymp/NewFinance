@@ -12,7 +12,8 @@ import {
   Tooltip,
   useMediaQuery,
   useTheme,
-  ListItemIcon
+  ListItemIcon,
+  Stack
 } from '@mui/material';
 import { 
   AddCircleOutline as AddServicesIcon,
@@ -25,46 +26,33 @@ import {
   Person as PersonIcon,
   AttachMoney as MoneyIcon,
   CalendarToday as CalendarIcon,
-  Build as ManageServicesIcon
+  Build as ManageServicesIcon,
+  CheckCircle as ActiveIcon,
+  Block as InactiveIcon
 } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Contract } from '../types/contract';
-import { mockData } from '../services/mockData';
-import { BillingConfirmationModal } from './BillingConfirmationModal';
-import toast from 'react-hot-toast';
-
-// Log de importação de ícones
-console.log('Ícones importados:', {
-  AddServicesIcon: AddServicesIcon ? 'Importado' : 'Não importado',
-  AdjustmentsIcon: AdjustmentsIcon ? 'Importado' : 'Não importado',
-  BillingIcon: BillingIcon ? 'Importado' : 'Não importado',
-  MoreVertIcon: MoreVertIcon ? 'Importado' : 'Não importado',
-  ViewIcon: ViewIcon ? 'Importado' : 'Não importado',
-  ManageServicesIcon: ManageServicesIcon ? 'Importado' : 'Não importado',
-  EditIcon: EditIcon ? 'Importado' : 'Não importado'
-});
 
 interface ContractCardProps {
   contract: Contract;
   onManageServices: (contract: Contract) => void;
-  onManageAdjustments: () => void;
   onEdit: (contract: Contract) => void;
   onDelete: () => void;
   onView: () => void;
+  onBilling?: () => void;
 }
 
 export function ContractCard({ 
   contract, 
   onManageServices, 
-  onManageAdjustments,
   onEdit,
   onDelete,
-  onView 
+  onView,
+  onBilling
 }: ContractCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -74,236 +62,222 @@ export function ContractCard({
     setAnchorEl(null);
   };
 
-  const handleBillContract = async () => {
+  const formatDate = (dateString: string | Date | null | undefined) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Faturamento realizado com sucesso!');
-      setIsConfirmationOpen(false);
+      if (!dateString) return 'N/A';
+      
+      const date = typeof dateString === 'string' 
+        ? parseISO(dateString)
+        : dateString;
+      
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) return 'Data inválida';
+      
+      return format(date, 'dd/MM/yyyy');
     } catch (error) {
-      toast.error('Erro ao realizar faturamento. Tente novamente.');
+      console.error('Erro ao formatar data:', error);
+      return 'Data inválida';
     }
   };
 
-  const canBill = contract.status === 'ativo';
-  const person = mockData.people.find(p => p.id === contract.personId);
-
-  const getStatusColor = () => {
-    switch(contract.status) {
-      case 'ativo': return 'success';
-      case 'inativo': return 'warning';
-      default: return 'error';
-    }
-  };
-
-  const handleManageServices = () => {
-    console.log('Gerenciar serviços no card', contract);
-    console.log('onManageServices type:', typeof onManageServices);
-    console.log('onManageServices exists:', !!onManageServices);
-    
-    if (typeof onManageServices === 'function') {
-      try {
-        onManageServices(contract);
-      } catch (error) {
-        console.error('Erro ao chamar onManageServices:', error);
-      }
-    } else {
-      console.warn('onManageServices não é uma função');
-    }
-    
-    handleMenuClose();
-  };
-
-  const handleEditClick = () => {
-    console.group('🖊️ ContractCard - Botão Editar');
-    console.log('Contrato:', {
-      id: contract.id,
-      name: contract.name
-    });
-    console.log('onEdit type:', typeof onEdit);
-    console.log('onEdit exists:', !!onEdit);
-    
+  const formatCurrency = (value: string | number | null | undefined) => {
     try {
-      if (onEdit) {
-        console.log('🔓 Chamando onEdit com contrato');
-        onEdit(contract);
-      } else {
-        console.warn('⚠️ Função onEdit não definida');
-      }
+      if (value === null || value === undefined) return 'R$ 0,00';
+      
+      const numericValue = typeof value === 'string' 
+        ? parseFloat(value) 
+        : value;
+      
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(numericValue);
     } catch (error) {
-      console.error('❌ Erro ao chamar onEdit:', error);
-    } finally {
-      console.groupEnd();
+      console.error('Erro ao formatar valor:', error);
+      return 'R$ 0,00';
     }
   };
+
+  const getStatusInfo = () => {
+    switch(contract.status?.toLowerCase()) {
+      case 'active': return { 
+        color: 'success', 
+        label: 'Ativo' 
+      };
+      case 'inactive': return { 
+        color: 'warning', 
+        label: 'Inativo' 
+      };
+      default: return { 
+        color: 'default', 
+        label: 'Status desconhecido' 
+      };
+    }
+  };
+
+  const statusInfo = getStatusInfo();
 
   return (
-    <>
-      <Card 
-        variant="outlined"
-        sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          justifyContent: 'space-between'
-        }}
-      >
-        <CardContent sx={{ 
-          flexGrow: 1, 
-          display: 'flex', 
-          flexDirection: 'column',
-          gap: 2
-        }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography 
-              variant="h6" 
-              component="div" 
-              noWrap 
-              sx={{ 
-                maxWidth: isMobile ? '200px' : '250px', 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis' 
-              }}
-            >
-              {contract.name}
-            </Typography>
-            <Chip 
-              label={contract.status} 
-              color={getStatusColor()} 
-              size="small" 
-              variant="outlined"
-            />
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={1}>
-            <PersonIcon fontSize="small" color="action" />
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              noWrap
-              sx={{ 
-                maxWidth: isMobile ? '180px' : '250px', 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis' 
-              }}
-            >
-              {person?.name || 'N/A'}
-            </Typography>
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={1}>
-            <MoneyIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">
-              {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              }).format(contract.currentValue)}
-            </Typography>
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={1}>
-            <CalendarIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">
-              Próximo Faturamento: {format(new Date(contract.nextBillingDate), 'dd/MM/yyyy')}
-            </Typography>
-          </Box>
-
-          <Divider sx={{ my: 1 }} />
-
-          <Box 
-            display="flex" 
-            justifyContent="space-between" 
-            alignItems="center"
+    <Card 
+      variant="outlined"
+      sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        transition: 'transform 0.2s',
+        '&:hover': {
+          transform: 'scale(1.02)',
+          boxShadow: theme.shadows[4]
+        }
+      }}
+    >
+      <CardContent sx={{ 
+        flexGrow: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        gap: 2
+      }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography 
+            variant="h6" 
+            component="div" 
+            noWrap 
             sx={{ 
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: isMobile ? 1 : 0
+              maxWidth: isMobile ? '200px' : '250px', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis' 
             }}
           >
-            <Box display="flex" gap={1}>
-              <Tooltip title="Adicionar Serviços">
-                <IconButton 
-                  onClick={onManageServices} 
-                  size="small" 
-                  color="primary"
-                >
-                  <AddServicesIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Ajustar Contrato">
-                <IconButton 
-                  onClick={onManageAdjustments} 
-                  size="small" 
-                  color="primary"
-                >
-                  <AdjustmentsIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={canBill ? "Faturar Contrato" : "Contrato não pode ser faturado"}>
-                <span>
-                  <IconButton 
-                    onClick={() => canBill && setIsConfirmationOpen(true)}
-                    disabled={!canBill}
-                    size="small" 
-                    color={canBill ? 'primary' : 'default'}
-                  >
-                    <BillingIcon />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title="Visualizar Contrato">
-                <IconButton onClick={onView} size="small">
-                  <ViewIcon />
-                </IconButton>
-              </Tooltip>
-              <Divider orientation="vertical" flexItem />
-              <Tooltip title="Editar Contrato">
-                <IconButton onClick={() => onEdit(contract)} size="small">
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Deletar Contrato">
-                <IconButton onClick={onDelete} size="small" color="error">
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
+            {contract.contract_name || 'Contrato sem nome'}
+          </Typography>
+          <Chip 
+            label={statusInfo.label} 
+            color={statusInfo.color as any} 
+            size="small" 
+            variant="outlined"
+          />
+        </Box>
 
-            <Tooltip title="Mais Ações">
+        <Box display="flex" alignItems="center" gap={1}>
+          <PersonIcon fontSize="small" color="action" />
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            noWrap
+            sx={{ 
+              maxWidth: isMobile ? '250px' : '300px', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis' 
+            }}
+          >
+            {contract.full_name || 'Pessoa não identificada'}
+          </Typography>
+        </Box>
+
+        <Box display="flex" alignItems="center" gap={1}>
+          <MoneyIcon fontSize="small" color="action" />
+          <Typography variant="body2" color="text.secondary">
+            {formatCurrency(contract.contract_value)}
+          </Typography>
+        </Box>
+
+        <Box display="flex" alignItems="center" gap={1}>
+          <CalendarIcon fontSize="small" color="action" />
+          <Typography variant="body2" color="text.secondary">
+            Próximo Faturamento: {formatDate(contract.next_billing_date)}
+          </Typography>
+        </Box>
+
+        <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="Adicionar Serviços">
               <IconButton 
-                onClick={handleMenuOpen}
-                size="small"
+                onClick={() => onManageServices(contract)} 
+                size="small" 
+                color="primary"
               >
-                <MoreVertIcon />
+                <AddServicesIcon />
               </IconButton>
             </Tooltip>
-          </Box>
-        </CardContent>
-      </Card>
+            <Tooltip title="Ajustar Contrato">
+              <IconButton 
+                onClick={() => onEdit(contract)} 
+                size="small" 
+                color="primary"
+              >
+                <AdjustmentsIcon />
+              </IconButton>
+            </Tooltip>
+            {onBilling && (
+              <Tooltip title="Faturar Contrato">
+                <IconButton 
+                  onClick={onBilling}
+                  size="small" 
+                  color="primary"
+                >
+                  <BillingIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="Visualizar Contrato">
+              <IconButton 
+                onClick={onView} 
+                size="small" 
+                color="secondary"
+              >
+                <ViewIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <IconButton 
+            aria-label="Mais opções"
+            onClick={handleMenuOpen}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </Box>
+      </CardContent>
 
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={handleManageServices}>
+        <MenuItem onClick={() => { onView(); handleMenuClose(); }}>
+          <ListItemIcon>
+            <ViewIcon fontSize="small" />
+          </ListItemIcon>
+          Visualizar
+        </MenuItem>
+        <MenuItem onClick={() => { onEdit(contract); handleMenuClose(); }}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          Editar
+        </MenuItem>
+        {onBilling && (
+          <MenuItem onClick={() => { onBilling(); handleMenuClose(); }}>
+            <ListItemIcon>
+              <BillingIcon fontSize="small" />
+            </ListItemIcon>
+            Faturar
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => { onManageServices(contract); handleMenuClose(); }}>
           <ListItemIcon>
             <ManageServicesIcon fontSize="small" />
           </ListItemIcon>
           Gerenciar Serviços
         </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { onDelete(); handleMenuClose(); }} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Excluir
+        </MenuItem>
       </Menu>
-
-      {isConfirmationOpen && (
-        <BillingConfirmationModal 
-          open={isConfirmationOpen} 
-          onClose={() => {
-            console.log('🔒 Fechando modal de confirmação de faturamento');
-            setIsConfirmationOpen(false);
-          }}
-          onConfirm={handleBillContract}
-          contractName={contract.name}
-          billingValue={contract.totalValue}
-        />
-      )}
-    </>
+    </Card>
   );
 }
