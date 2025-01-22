@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -48,11 +48,41 @@ export function ContractTable({
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
+    try {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(value || 0);
+    } catch (error) {
+      console.error('Erro ao formatar valor:', error);
+      return 'R$ 0,00';
+    }
   };
+
+  const formatDate = (date: Date | null | undefined) => {
+    try {
+      if (!date) return 'N/A';
+      return format(date, 'dd/MM/yyyy');
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return 'N/A';
+    }
+  };
+
+  useEffect(() => {
+    console.group('🔍 Contratos na Tabela');
+    console.log('Total de contratos:', contracts.length);
+    contracts.forEach((contract, index) => {
+      console.log(`Contrato #${index + 1}:`, {
+        id: contract.id,
+        name: contract.name,
+        value: contract.value,
+        status: contract.status,
+        fullDetails: contract
+      });
+    });
+    console.groupEnd();
+  }, [contracts]);
 
   const columns = [
     columnHelper.accessor('name', {
@@ -85,7 +115,7 @@ export function ContractTable({
     }),
     columnHelper.accessor('nextBillingDate', {
       header: 'Próximo Faturamento',
-      cell: info => format(new Date(info.getValue()), 'dd/MM/yyyy'),
+      cell: info => formatDate(info.getValue()),
     }),
     columnHelper.accessor('group', {
       header: 'Grupo',

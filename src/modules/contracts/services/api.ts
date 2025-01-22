@@ -80,30 +80,58 @@ export const contractsApi = {
     console.log('🔍 Iniciando listagem de contratos recorrentes', { page, limit });
     
     const response = await api.get(`/contracts-recurring?page=${page}&limit=${limit}`);
-    console.log('📦 Resposta da API:', response.data);
 
-    const contracts = response.data.data.map((item: any) => ({
-      id: item.contract_id,
-      name: item.contract_name,
-      value: parseFloat(item.contract_value),
-      startDate: new Date(item.start_date),
-      endDate: item.end_date ? new Date(item.end_date) : null,
-      status: item.status,
-      groupName: item.group_name,
-      fullName: item.full_name,
-      recurrencePeriod: item.recurrence_period,
-      dueDay: item.due_day,
-      daysBefore: item.days_before_due,
-      lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
-      nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
-      billingReference: item.billing_reference,
-      contractGroupId: item.contract_group_id,
-      modelMovementId: item.model_movement_id,
-      representativePersonId: item.representative_person_id,
-      commissionedValue: item.commissioned_value,
-      accountEntryId: item.account_entry_id,
-      lastDecimoBillingYear: item.last_decimo_billing_year
-    }));
+    console.group('🕵️ Dados Brutos da API');
+    console.log('Resposta completa:', response.data);
+    console.log('Dados:', response.data.data);
+    console.log('Metadados:', response.data.meta);
+    console.groupEnd();
+
+    const contracts: Contract[] = response.data.data.map((item: ContractResponse['items'][0]) => {
+      // Tratamento de valor do contrato
+      let contractValue = 0;
+      try {
+        const cleanValue = String(item.contract_value)
+          .replace(/[^\d.,]/g, '')  // Remove caracteres não numéricos
+          .replace(',', '.');  // Substitui vírgula por ponto
+        contractValue = parseFloat(cleanValue) || 0;
+      } catch (error) {
+        console.warn(`⚠️ Erro ao converter valor do contrato: ${item.contract_name}`, error);
+      }
+
+      // Tratamento de datas
+      const parseDate = (dateString: string | null) => {
+        return dateString ? new Date(dateString) : null;
+      };
+
+      const contract: Contract = {
+        id: item.contract_id,
+        name: item.contract_name,
+        value: contractValue,
+        total_amount: item.contract_value,
+        startDate: parseDate(item.start_date) || new Date(),
+        endDate: parseDate(item.end_date),
+        status: item.status,
+        groupName: item.group_name,
+        fullName: item.full_name,
+        recurrencePeriod: item.recurrence_period === 'yearly' ? 'yearly' : 'monthly',
+        dueDay: item.due_day,
+        daysBefore: item.days_before_due,
+        lastBillingDate: parseDate(item.last_billing_date),
+        nextBillingDate: parseDate(item.next_billing_date),
+        billingReference: item.billing_reference,
+        contractGroupId: item.contract_group_id,
+        modelMovementId: item.model_movement_id,
+        representativePersonId: item.representative_person_id,
+        commissionedValue: item.commissioned_value,
+        accountEntryId: item.account_entry_id,
+        lastDecimoBillingYear: item.last_decimo_billing_year
+      };
+
+      console.log('🔍 Contrato Mapeado:', contract);
+
+      return contract;
+    });
 
     return {
       data: contracts,

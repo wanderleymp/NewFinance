@@ -13,6 +13,7 @@ export interface Contract {
   id: number;
   name: string;
   value: number;
+  total_amount: string; // Valor original do contrato
   startDate: Date;
   endDate: Date | null;
   status: string;

@@ -62,39 +62,25 @@ export function ContractCard({
     setAnchorEl(null);
   };
 
-  const formatDate = (dateString: string | Date | null | undefined) => {
+  const formatCurrency = (value: number) => {
     try {
-      if (!dateString) return 'N/A';
-      
-      const date = typeof dateString === 'string' 
-        ? parseISO(dateString)
-        : dateString;
-      
-      // Verificar se a data é válida
-      if (isNaN(date.getTime())) return 'Data inválida';
-      
-      return format(date, 'dd/MM/yyyy');
-    } catch (error) {
-      console.error('Erro ao formatar data:', error);
-      return 'Data inválida';
-    }
-  };
-
-  const formatCurrency = (value: string | number | null | undefined) => {
-    try {
-      if (value === null || value === undefined) return 'R$ 0,00';
-      
-      const numericValue = typeof value === 'string' 
-        ? parseFloat(value) 
-        : value;
-      
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-      }).format(numericValue);
+      }).format(value || 0);
     } catch (error) {
       console.error('Erro ao formatar valor:', error);
       return 'R$ 0,00';
+    }
+  };
+
+  const formatDate = (date: Date | null | undefined) => {
+    try {
+      if (!date) return 'N/A';
+      return format(date, 'dd/MM/yyyy');
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return 'N/A';
     }
   };
 
@@ -185,7 +171,7 @@ export function ContractCard({
         <Box display="flex" alignItems="center" gap={1}>
           <CalendarIcon fontSize="small" color="action" />
           <Typography variant="body2" color="text.secondary">
-            Próximo Faturamento: {formatDate(contract.next_billing_date)}
+            Próximo Faturamento: {formatDate(parseISO(contract.next_billing_date))}
           </Typography>
         </Box>
 
