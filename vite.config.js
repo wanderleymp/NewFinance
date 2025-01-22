@@ -15,6 +15,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/auth/, '')
+      },
+      '/contracts-recurring': {
+        target: 'https://dev.agilefinance.com.br',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

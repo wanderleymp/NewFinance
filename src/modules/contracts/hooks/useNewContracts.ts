@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Contract } from '../types/contract';
+import { Contract, ContractListResponse } from '../types/contract';
 import { contractsApi } from '../services/api';
 
 interface UseContractsReturn {
@@ -32,21 +32,51 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
     setLoading(true);
     setError(null);
     try {
-      const result = await contractsApi.list({
-        page: pagination.page,
-        limit: pagination.limit
-      });
+      console.log(' Iniciando busca de contratos...', { page: pagination.page, limit: pagination.limit });
       
-      setContracts(result.data || []);
+      const result: ContractListResponse = await contractsApi.listRecurring(pagination.page, pagination.limit);
+      
+      console.log(' Resultado da busca:', result);
+      
+      if (!Array.isArray(result.data)) {
+        console.error(' Dados retornados não são um array:', result.data);
+        setContracts([]);
+      } else {
+        console.log(' Contratos carregados:', result.data.length);
+        setContracts(result.data);
+      }
+      
       setPagination(prev => ({
         ...prev,
         totalPages: result.totalPages || 1,
         total: result.total || 0
       }));
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 
-                           err.message || 
-                           'Erro ao carregar contratos';
+      console.group(' Erro ao Buscar Contratos');
+      console.error('Tipo:', err.name);
+      console.error('Mensagem:', err.message);
+      console.error('Status:', err.response?.status);
+      
+      // Formatar mensagem de erro para o usuário
+      let errorMessage = 'Erro ao carregar contratos. ';
+      
+      if (err.response?.status === 500) {
+        errorMessage += 'Erro interno no servidor. Por favor, tente novamente mais tarde.';
+        console.error('Detalhes do Erro 500:', {
+          data: err.response?.data,
+          headers: err.response?.headers
+        });
+      } else if (err.response?.status === 401) {
+        errorMessage += 'Sua sessão expirou. Por favor, faça login novamente.';
+      } else if (err.response?.status === 403) {
+        errorMessage += 'Você não tem permissão para acessar estes dados.';
+      } else {
+        errorMessage += err.response?.data?.message || err.message || 'Erro desconhecido';
+      }
+      
+      console.error('Mensagem para o usuário:', errorMessage);
+      console.groupEnd();
+      
       setError(errorMessage);
       setContracts([]);
     } finally {
@@ -54,17 +84,20 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
     }
   }, [pagination.page, pagination.limit]);
 
-  useEffect(() => {
-    fetchContracts();
-  }, [fetchContracts]);
-
   const changePage = useCallback((newPage: number) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    setPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
 
   return {
     contracts,

@@ -3,14 +3,18 @@ import { Contract, ExtraService, Adjustment, HistoryEntry, ContractModification,
 
 export const contractsApi = {
   list: async ({ page = 1, limit = 10 }: { page?: number, limit?: number } = {}) => {
-    const response = await api.get<Contract[]>('/contracts', {
+    const response = await api.get<{ data: Contract[] }>('/contracts-recurring', {
       params: { page, limit }
     });
+    
+    // Garantir que data seja sempre um array
+    const contracts = Array.isArray(response.data.data) ? response.data.data : [];
+    
     return {
-      data: response.data,
+      data: contracts,
       page: page,
       totalPages: response.headers['x-total-pages'] || 1,
-      total: response.headers['x-total-count'] || response.data.length
+      total: response.headers['x-total-count'] || contracts.length
     };
   },
 
@@ -72,79 +76,40 @@ export const contractsApi = {
     return response.data;
   },
 
-  listRecurring: async (page = 1, limit = 10) => {
-    try {
-      console.log('🔍 Iniciando listagem de contratos recorrentes', { page, limit });
-      
-      // Método padrão de recuperação do token
-      const token = localStorage.getItem('accessToken');
-      
-      console.group('🔐 Verificação de Token');
-      console.log('Token accessToken:', token);
-      console.groupEnd();
-      
-      if (!token) {
-        console.error('🚨 Nenhum token encontrado');
-        throw new Error('Token de autorização não encontrado');
-      }
+  listRecurring: async (page = 1, limit = 10): Promise<ContractListResponse> => {
+    console.log('🔍 Iniciando listagem de contratos recorrentes', { page, limit });
+    
+    const response = await api.get(`/contracts-recurring?page=${page}&limit=${limit}`);
+    console.log('📦 Resposta da API:', response.data);
 
-      // Log detalhado da requisição
-      console.group('📡 Detalhes da Requisição');
-      console.log('URL:', '/contracts_recurring');
-      console.log('Método: GET');
-      console.log('Parâmetros:', { page, limit });
-      console.log('Headers:', {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      });
-      console.groupEnd();
+    const contracts = response.data.data.map((item: any) => ({
+      id: item.contract_id,
+      name: item.contract_name,
+      value: parseFloat(item.contract_value),
+      startDate: new Date(item.start_date),
+      endDate: item.end_date ? new Date(item.end_date) : null,
+      status: item.status,
+      groupName: item.group_name,
+      fullName: item.full_name,
+      recurrencePeriod: item.recurrence_period,
+      dueDay: item.due_day,
+      daysBefore: item.days_before_due,
+      lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
+      nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
+      billingReference: item.billing_reference,
+      contractGroupId: item.contract_group_id,
+      modelMovementId: item.model_movement_id,
+      representativePersonId: item.representative_person_id,
+      commissionedValue: item.commissioned_value,
+      accountEntryId: item.account_entry_id,
+      lastDecimoBillingYear: item.last_decimo_billing_year
+    }));
 
-      const response = await api.get<{
-        contracts: Contract[];
-        total: number;
-        totalPages: number;
-        currentPage: number;
-      }>('/contracts_recurring', {
-        params: { page, limit },
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('✅ Resposta completa do servidor:', {
-        status: response.status,
-        data: response.data,
-        headers: response.headers
-      });
-
-      return {
-        contracts: response.data?.data || [],
-        total: response.data?.meta?.totalItems || 0,
-        totalPages: response.data?.meta?.totalPages || 1,
-        currentPage: response.data?.meta?.currentPage || page
-      };
-    } catch (error) {
-      console.error('🚨 Erro DETALHADO na requisição:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-        requestConfig: error.config,
-        fullErrorObject: JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
-      });
-      
-      // Log adicional para erros 500
-      if (error.response?.status === 500) {
-        console.error('🚨 ERRO INTERNO DO SERVIDOR COMPLETO:', {
-          errorData: error.response?.data,
-          errorMessage: error.response?.data?.message || 'Erro desconhecido',
-          errorStack: error.stack,
-          serverResponse: JSON.stringify(error.response, null, 2)
-        });
-      }
-      
-      throw error;
-    }
+    return {
+      data: contracts,
+      page: response.data.meta.currentPage,
+      totalPages: response.data.meta.totalPages,
+      total: response.data.meta.totalItems
+    };
   },
 };

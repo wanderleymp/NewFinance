@@ -52,16 +52,20 @@ const ContractsPage: React.FC = () => {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [contractForm, setContractForm] = useState<Partial<Contract>>({
     name: '',
+    fullName: '',
     value: 0,
-    status: 'ativo'
+    status: 'ATIVO',
+    groupName: ''
   });
 
   const handleOpenCreateModal = () => {
     setSelectedContract(null);
     setContractForm({
       name: '',
+      fullName: '',
       value: 0,
-      status: 'ativo'
+      status: 'ATIVO',
+      groupName: ''
     });
     setOpenModal(true);
   };
@@ -70,8 +74,10 @@ const ContractsPage: React.FC = () => {
     setSelectedContract(contract);
     setContractForm({
       name: contract.name,
+      fullName: contract.fullName,
       value: contract.value,
-      status: contract.status
+      status: contract.status,
+      groupName: contract.groupName
     });
     setOpenModal(true);
   };
@@ -81,9 +87,13 @@ const ContractsPage: React.FC = () => {
       const contractData: Partial<Contract> = {
         ...contractForm,
         value: typeof contractForm.value === 'string' 
-          ? parseFloat(contractForm.value.replace(',', '.')) 
+          ? parseFloat(contractForm.value.replace(/[^\d,]/g, '').replace(',', '.')) 
           : contractForm.value
       };
+
+      if (!ContractValidator.validate(contractData)) {
+        throw new Error('Dados do contrato inválidos');
+      }
 
       if (selectedContract) {
         await updateContract(selectedContract.id, contractData);
@@ -110,24 +120,29 @@ const ContractsPage: React.FC = () => {
   };
 
   const renderStatusChip = useCallback((status: string) => {
-    const statusColors: { [key: string]: 'success' | 'warning' | 'error' | 'default' } = {
-      'ativo': 'success',
-      'pendente': 'warning',
-      'cancelado': 'error'
+    const statusConfig: { [key: string]: { color: 'success' | 'warning' | 'error' | 'default', label: string } } = {
+      'ATIVO': { color: 'success', label: 'Ativo' },
+      'PENDENTE': { color: 'warning', label: 'Pendente' },
+      'CANCELADO': { color: 'error', label: 'Cancelado' },
+      'SUSPENSO': { color: 'warning', label: 'Suspenso' }
     };
 
-    return status ? (
+    const config = statusConfig[status?.toUpperCase()] || { color: 'default', label: status };
+
+    return (
       <Chip 
-        label={status} 
-        color={statusColors[status.toLowerCase()] || 'default'}
+        label={config.label}
+        color={config.color}
         size="small"
       />
-    ) : null;
+    );
   }, []);
 
-  const formatCurrency = (value: number | string) => {
+  const formatCurrency = useCallback((value: number | string | undefined) => {
+    if (value === undefined || value === null) return 'R$ 0,00';
+    
     const numericValue = typeof value === 'string' 
-      ? parseFloat(value.replace(',', '.')) 
+      ? parseFloat(value.replace(/[^\d,]/g, '').replace(',', '.')) 
       : value;
     
     return new Intl.NumberFormat('pt-BR', {
@@ -135,8 +150,8 @@ const ContractsPage: React.FC = () => {
       currency: 'BRL',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(numericValue);
-  };
+    }).format(numericValue || 0);
+  }, []);
 
   if (loading) return <CircularProgress />;
   if (error) return (
@@ -173,25 +188,27 @@ const ContractsPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Número</TableCell>
-                <TableCell>Cliente</TableCell>
-                <TableCell>Valor</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Ações</TableCell>
+                <TableCell>Nome do Contrato</TableCell>
+                <TableCell>Nome Completo</TableCell>
+                <TableCell align="right">Valor</TableCell>
+                <TableCell align="center">Situação</TableCell>
+                <TableCell>Grupo</TableCell>
+                <TableCell align="center">Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {contracts.map((contract) => (
                 <TableRow key={contract.id}>
-                  <TableCell>{contract.number}</TableCell>
-                  <TableCell>{contract.client}</TableCell>
-                  <TableCell>
+                  <TableCell>{contract.name}</TableCell>
+                  <TableCell>{contract.fullName}</TableCell>
+                  <TableCell align="right">
                     {formatCurrency(contract.value)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="center">
                     {renderStatusChip(contract.status)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell>{contract.groupName}</TableCell>
+                  <TableCell align="center">
                     <Tooltip title="Editar">
                       <IconButton 
                         color="primary"
@@ -203,7 +220,7 @@ const ContractsPage: React.FC = () => {
                     <Tooltip title="Excluir">
                       <IconButton 
                         color="error"
-                        onClick={() => handleDelete(contract.id)}
+                        onClick={() => handleDelete(contract.id.toString())}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -250,7 +267,21 @@ const ContractsPage: React.FC = () => {
                   }))}
                   required
                   error={!contractForm.name}
-                  helperText={!contractForm.name ? 'Nome é obrigatório' : ''}
+                  helperText={!contractForm.name ? 'Nome do Contrato é obrigatório' : ''}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Nome Completo"
+                  fullWidth
+                  value={contractForm.fullName || ''}
+                  onChange={(e) => setContractForm(prev => ({
+                    ...prev, 
+                    fullName: e.target.value
+                  }))}
+                  required
+                  error={!contractForm.fullName}
+                  helperText={!contractForm.fullName ? 'Nome Completo é obrigatório' : ''}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -278,16 +309,31 @@ const ContractsPage: React.FC = () => {
                   select
                   label="Status"
                   fullWidth
-                  value={contractForm.status || 'ativo'}
+                  value={contractForm.status || 'ATIVO'}
                   onChange={(e) => setContractForm(prev => ({
                     ...prev, 
                     status: e.target.value
                   }))}
                 >
-                  <MenuItem value="ativo">Ativo</MenuItem>
-                  <MenuItem value="inativo">Inativo</MenuItem>
-                  <MenuItem value="encerrado">Encerrado</MenuItem>
+                  <MenuItem value="ATIVO">Ativo</MenuItem>
+                  <MenuItem value="PENDENTE">Pendente</MenuItem>
+                  <MenuItem value="CANCELADO">Cancelado</MenuItem>
+                  <MenuItem value="SUSPENSO">Suspenso</MenuItem>
                 </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Grupo"
+                  fullWidth
+                  value={contractForm.groupName || ''}
+                  onChange={(e) => setContractForm(prev => ({
+                    ...prev, 
+                    groupName: e.target.value
+                  }))}
+                  required
+                  error={!contractForm.groupName}
+                  helperText={!contractForm.groupName ? 'Grupo é obrigatório' : ''}
+                />
               </Grid>
             </Grid>
           </DialogContent>
@@ -301,8 +347,10 @@ const ContractsPage: React.FC = () => {
               onClick={handleSubmit}
               disabled={
                 !contractForm.name || 
+                !contractForm.fullName || 
                 !contractForm.value || 
-                contractForm.value <= 0
+                contractForm.value <= 0 || 
+                !contractForm.groupName
               }
             >
               {selectedContract ? 'Atualizar' : 'Criar'}

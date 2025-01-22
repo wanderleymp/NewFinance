@@ -6,7 +6,7 @@ import { ContractFormData } from '../types/contractForm';
 type ContractDataSource = 'api' | 'mock';
 
 export const contractService = {
-  dataSource: 'mock' as ContractDataSource,
+  dataSource: 'api' as ContractDataSource,
 
   setDataSource(source: ContractDataSource) {
     this.dataSource = source;

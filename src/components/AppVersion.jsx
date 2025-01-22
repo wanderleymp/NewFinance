@@ -3,7 +3,13 @@ import { Typography, Box } from '@mui/material';
 import packageJson from '../../package.json';
 
 export const AppVersion = () => {
-  const apiHost = import.meta.env.VITE_API_URL || 'Não configurado';
+  const apiHost = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const environment = apiHost.includes('localhost') ? 'local' : 
+                     apiHost.includes('dev.') ? 'dev' : 
+                     apiHost.includes('staging.') ? 'staging' : 'prod';
+
+  // Remove protocolo e path, deixa só o host
+  const displayHost = apiHost.replace(/^https?:\/\//, '').split('/')[0];
 
   return (
     <Box 
@@ -18,7 +24,7 @@ export const AppVersion = () => {
       }}
     >
       <Typography variant="caption" color="text.secondary">
-        v{packageJson.version} | {apiHost.replace(/^https?:\/\//, '')}
+        v{packageJson.version} | {displayHost} ({environment})
       </Typography>
     </Box>
   );
