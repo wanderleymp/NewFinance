@@ -1,463 +1,317 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   Box, 
   Button, 
   Container, 
-  Grid, 
   Typography, 
-  Pagination, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogContentText,
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
   DialogActions,
-  Paper,
+  TextField,
+  Grid,
   Chip,
   IconButton,
   Tooltip,
-  TextField,
-  Select,
   MenuItem,
-  FormControl,
-  InputLabel,
-  InputAdornment,
-  Modal
+  CircularProgress,
+  Alert,
+  TablePagination
 } from '@mui/material';
 import { 
   Add as AddIcon, 
-  Search as SearchIcon,
-  FilterList as FilterListIcon,
-  Clear as ClearIcon
+  Edit as EditIcon, 
+  Delete as DeleteIcon 
 } from '@mui/icons-material';
-import { ContractCard } from '../components/ContractCard';
-import { ContractDetails } from '../components/ContractDetails';
-import { BillingConfirmationModal } from '../components/BillingConfirmationModal';
-import { useContracts } from '../hooks/useContracts';
+import { useNewContracts } from '../hooks/useNewContracts';
 import { Contract } from '../types/contract';
-import { ContractFormData } from '../types/contractForm';
-import { useQuery } from '@tanstack/react-query';
-import { contractsApi } from '../services/api';
-import { toast } from 'react-hot-toast';
-import ContractForm from '../components/ContractForm';
-import ManageContractServicesModal from '../components/ManageContractServicesModal';
+import { ContractValidator } from '../utils/contractValidation';
 
-export default function ContractsPage() {
-  const limit = 10;
-  const page = 1;
+const ContractsPage: React.FC = () => {
   const { 
-    data: contractsData, 
-    isLoading, 
-    error 
-  } = useQuery({
-    queryKey: ['contracts', page, limit],
-    queryFn: () => contractsApi.listRecurring(page, limit),
-    keepPreviousData: true,
-    retry: 1,
-    onError: (err: any) => {
-      console.error('Erro na listagem de contratos:', err);
-      
-      // Tratamento específico para diferentes tipos de erro
-      switch (err.response?.status) {
-        case 401:
-          toast.error('Sessão expirada. Faça login novamente.');
-          // Redirecionar para login ou fazer logout
-          // Exemplo: authService.logout();
-          // navigate('/login');
-          break;
-        
-        case 403:
-          toast.error('Você não tem permissão para acessar esta página.');
-          break;
-        
-        case 500:
-          toast.error('Erro interno do servidor. Tente novamente mais tarde.');
-          break;
-        
-        case 404:
-          toast.error('Recurso não encontrado.');
-          break;
-        
-        default:
-          toast.error('Erro ao carregar contratos. Verifique sua conexão.');
-      }
-    }
+    contracts, 
+    loading, 
+    error, 
+    pagination,
+    changePage,
+    clearError,
+    createContract, 
+    updateContract, 
+    deleteContract,
+    refetch
+  } = useNewContracts();
+
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [contractForm, setContractForm] = useState<Partial<Contract>>({
+    name: '',
+    value: 0,
+    status: 'ativo'
   });
 
-  const contracts = contractsData?.contracts || [];
-  const total = contractsData?.total || 0;
-  const totalPages = contractsData?.totalPages || 1;
+  const handleOpenCreateModal = () => {
+    setSelectedContract(null);
+    setContractForm({
+      name: '',
+      value: 0,
+      status: 'ativo'
+    });
+    setOpenModal(true);
+  };
 
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
-  const [isEditingContract, setIsEditingContract] = useState(false);
-  const [isCreatingContract, setIsCreatingContract] = useState(false);
-  const [isManageServicesModalOpen, setIsManageServicesModalOpen] = useState(false);
-  
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [billingConfirmationOpen, setBillingConfirmationOpen] = useState(false);
-  
-  // Novos estados para filtro e busca
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos');
-  const [filteredContracts, setFilteredContracts] = useState<Contract[]>([]);
+  const handleOpenEditModal = (contract: Contract) => {
+    setSelectedContract(contract);
+    setContractForm({
+      name: contract.name,
+      value: contract.value,
+      status: contract.status
+    });
+    setOpenModal(true);
+  };
 
-  React.useEffect(() => {
-    // Lógica de filtragem
-    let result = contracts;
+  const handleSubmit = async () => {
+    try {
+      const contractData: Partial<Contract> = {
+        ...contractForm,
+        value: typeof contractForm.value === 'string' 
+          ? parseFloat(contractForm.value.replace(',', '.')) 
+          : contractForm.value
+      };
+
+      if (selectedContract) {
+        await updateContract(selectedContract.id, contractData);
+      } else {
+        await createContract(contractData);
+      }
+
+      setOpenModal(false);
+      refetch();
+    } catch (error) {
+      console.error('Erro ao salvar contrato:', error);
+      // Adicionar tratamento de erro para o usuário
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
+      try {
+        await deleteContract(id);
+      } catch (err) {
+        console.error('Erro ao deletar contrato', err);
+      }
+    }
+  };
+
+  const renderStatusChip = useCallback((status: string) => {
+    const statusColors: { [key: string]: 'success' | 'warning' | 'error' | 'default' } = {
+      'ativo': 'success',
+      'pendente': 'warning',
+      'cancelado': 'error'
+    };
+
+    return status ? (
+      <Chip 
+        label={status} 
+        color={statusColors[status.toLowerCase()] || 'default'}
+        size="small"
+      />
+    ) : null;
+  }, []);
+
+  const formatCurrency = (value: number | string) => {
+    const numericValue = typeof value === 'string' 
+      ? parseFloat(value.replace(',', '.')) 
+      : value;
     
-    if (searchTerm) {
-      result = result.filter(contract => 
-        contract.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contract.group.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== 'todos') {
-      result = result.filter(contract => contract.status === statusFilter);
-    }
-
-    setFilteredContracts(result);
-  }, [contracts, searchTerm, statusFilter]);
-
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    // fetchContracts(value);
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(numericValue);
   };
 
-  const handleDeleteClick = (contract: Contract) => {
-    setSelectedContract(contract);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleEditClick = (contract: Contract) => {
-    setSelectedContract(contract);
-    setIsEditingContract(true);
-  };
-
-  const handleViewClick = (contract: Contract) => {
-    setSelectedContract(contract);
-    setDetailsModalOpen(true);
-  };
-
-  const handleBillingClick = (contract: Contract) => {
-    setSelectedContract(contract);
-    setBillingConfirmationOpen(true);
-  };
-
-  const handleManageServices = (contract: Contract) => {
-    setSelectedContract(contract);
-    setIsManageServicesModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedContract) return;
-
-    try {
-      // await deleteContract(selectedContract.id);
-      toast.success('Contrato excluído com sucesso!');
-      setDeleteDialogOpen(false);
-    } catch (err) {
-      toast.error('Erro ao excluir contrato');
-    }
-  };
-
-  const handleCreateNewContract = () => {
-    setSelectedContract(null);
-    setIsCreatingContract(true);
-  };
-
-  const handleCreateContract = async (data: ContractFormData) => {
-    try {
-      // await createContract(data);
-      setIsCreatingContract(false);
-      toast.success('Contrato criado com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao criar contrato');
-    }
-  };
-
-  const handleUpdateContract = async (data: ContractFormData) => {
-    if (!selectedContract) return;
-
-    try {
-      // await updateContract(selectedContract.id, data);
-      setIsEditingContract(false);
-      setSelectedContract(null);
-      toast.success('Contrato atualizado com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao atualizar contrato');
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditingContract(false);
-    setIsCreatingContract(false);
-    setSelectedContract(null);
-  };
-
-  const handleCloseManageServicesModal = () => {
-    setSelectedContract(null);
-    setIsManageServicesModalOpen(false);
-  };
-
-  const handleSaveServices = async (services: any[]) => {
-    if (!selectedContract) return;
-
-    try {
-      // Implementar lógica de salvar serviços
-      console.log('Salvando serviços para o contrato:', selectedContract.id, services);
-      toast.success('Serviços atualizados com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao atualizar serviços');
-    }
-  };
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('todos');
-  };
+  if (loading) return <CircularProgress />;
+  if (error) return (
+    <Alert 
+      severity="error" 
+      onClose={clearError}
+    >
+      {error}
+    </Alert>
+  );
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {!isEditingContract && !isCreatingContract ? (
-        <>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              mb: 4 
-            }}
-          >
-            <Typography variant="h4" component="h1" gutterBottom>
-              Contratos
-            </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<AddIcon />}
-              onClick={handleCreateNewContract}
-            >
-              Novo Contrato
-            </Button>
-          </Box>
+    <Container maxWidth="lg">
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        mt: 4 
+      }}>
+        <Typography variant="h4" gutterBottom>
+          Contratos
+        </Typography>
 
-          {/* Área de Filtros e Busca */}
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap',
-              gap: 2, 
-              mb: 3,
-              alignItems: 'center' 
-            }}
-          >
-            <TextField
-              label="Buscar Contratos"
-              variant="outlined"
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flexGrow: 1, minWidth: 250 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => setSearchTerm('')}
-                      edge="end"
-                    >
-                      <ClearIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />}
+          onClick={handleOpenCreateModal}
+        >
+          Novo Contrato
+        </Button>
 
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="todos">Todos</MenuItem>
-                <MenuItem value="ativo">Ativos</MenuItem>
-                <MenuItem value="inativo">Inativos</MenuItem>
-                <MenuItem value="encerrado">Encerrados</MenuItem>
-              </Select>
-            </FormControl>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Número</TableCell>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Valor</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {contracts.map((contract) => (
+                <TableRow key={contract.id}>
+                  <TableCell>{contract.number}</TableCell>
+                  <TableCell>{contract.client}</TableCell>
+                  <TableCell>
+                    {formatCurrency(contract.value)}
+                  </TableCell>
+                  <TableCell>
+                    {renderStatusChip(contract.status)}
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title="Editar">
+                      <IconButton 
+                        color="primary"
+                        onClick={() => handleOpenEditModal(contract)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton 
+                        color="error"
+                        onClick={() => handleDelete(contract.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-            {(searchTerm !== '' || statusFilter !== 'todos') && (
-              <Chip 
-                label="Limpar Filtros" 
-                onDelete={clearFilters} 
-                color="primary" 
-                variant="outlined" 
-              />
-            )}
-          </Box>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50]}
+          component="div"
+          count={pagination.total}
+          rowsPerPage={pagination.limit}
+          page={pagination.page - 1}
+          onPageChange={(_, newPage) => changePage(newPage + 1)}
+          onRowsPerPageChange={(event) => {
+            // Implementar lógica de mudança de limite
+          }}
+        />
 
-          {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <Typography>Carregando contratos...</Typography>
-            </Box>
-          )}
-
-          {error && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <Typography color="error">Erro ao carregar contratos</Typography>
-            </Box>
-          )}
-
-          {!isLoading && !error && filteredContracts.length === 0 && (
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                p: 4, 
-                textAlign: 'center', 
-                backgroundColor: 'background.default' 
-              }}
-            >
-              <Typography variant="h6" gutterBottom>
-                Nenhum contrato encontrado
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Não há contratos que correspondam aos filtros selecionados
-              </Typography>
-            </Paper>
-          )}
-
-          <Grid container spacing={2}>
-            {filteredContracts.map((contract) => (
-              <Grid item xs={12} sm={6} md={4} key={contract.contract_id}>
-                <ContractCard
-                  contract={contract}
-                  onDelete={() => handleDeleteClick(contract)}
-                  onEdit={() => handleEditClick(contract)}
-                  onView={() => handleViewClick(contract)}
-                  onBilling={() => handleBillingClick(contract)}
-                  onManageServices={() => handleManageServices(contract)}
+        {/* Modal de Criação/Edição */}
+        <Dialog 
+          open={openModal} 
+          onClose={() => setOpenModal(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            {selectedContract ? 'Editar Contrato' : 'Novo Contrato'}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  label="Nome do Contrato"
+                  fullWidth
+                  value={contractForm.name || ''}
+                  onChange={(e) => setContractForm(prev => ({
+                    ...prev, 
+                    name: e.target.value
+                  }))}
+                  required
+                  error={!contractForm.name}
+                  helperText={!contractForm.name ? 'Nome é obrigatório' : ''}
                 />
               </Grid>
-            ))}
-          </Grid>
-
-          {totalPages > 1 && (
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                mt: 4 
-              }}
+              <Grid item xs={12}>
+                <TextField
+                  label="Valor"
+                  type="number"
+                  fullWidth
+                  value={contractForm.value || 0}
+                  onChange={(e) => setContractForm(prev => ({
+                    ...prev, 
+                    value: Number(e.target.value)
+                  }))}
+                  required
+                  inputProps={{ min: 0 }}
+                  error={!contractForm.value || contractForm.value <= 0}
+                  helperText={
+                    !contractForm.value || contractForm.value <= 0 
+                      ? 'Valor deve ser positivo' 
+                      : ''
+                  }
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  label="Status"
+                  fullWidth
+                  value={contractForm.status || 'ativo'}
+                  onChange={(e) => setContractForm(prev => ({
+                    ...prev, 
+                    status: e.target.value
+                  }))}
+                >
+                  <MenuItem value="ativo">Ativo</MenuItem>
+                  <MenuItem value="inativo">Inativo</MenuItem>
+                  <MenuItem value="encerrado">Encerrado</MenuItem>
+                </TextField>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenModal(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              color="primary" 
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={
+                !contractForm.name || 
+                !contractForm.value || 
+                contractForm.value <= 0
+              }
             >
-              <Pagination
-                count={totalPages}
-                page={1}
-                onChange={handlePageChange}
-                color="primary"
-              />
-            </Box>
-          )}
-        </>
-      ) : (
-        <ContractForm
-          contract={selectedContract || undefined}
-          onSubmit={isEditingContract ? handleUpdateContract : handleCreateContract}
-          onCancel={handleCancelEdit}
-          isEditing={isEditingContract}
-        />
-      )}
-
-      {/* Modais */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="delete-contract-dialog-title"
-        aria-describedby="delete-contract-dialog-description"
-      >
-        <DialogTitle id="delete-contract-dialog-title">
-          Excluir Contrato
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-contract-dialog-description">
-            Tem certeza que deseja excluir o contrato "{selectedContract?.name}"? 
-            Esta ação não pode ser desfeita.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Modal
-        open={detailsModalOpen}
-        onClose={() => {
-          setDetailsModalOpen(false);
-          setSelectedContract(null);
-        }}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'auto'
-        }}
-      >
-        <Box 
-          sx={{ 
-            width: '90%', 
-            maxWidth: 1200, 
-            maxHeight: '90vh', 
-            overflow: 'auto',
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            p: 2
-          }}
-        >
-          {selectedContract && (
-            <ContractDetails 
-              contract={selectedContract} 
-              onClose={() => {
-                setDetailsModalOpen(false);
-                setSelectedContract(null);
-              }} 
-            />
-          )}
-        </Box>
-      </Modal>
-
-      {selectedContract && (
-        <BillingConfirmationModal
-          open={billingConfirmationOpen}
-          onClose={() => {
-            setBillingConfirmationOpen(false);
-            setSelectedContract(null);
-          }}
-          contractName={selectedContract.name}
-          billingValue={selectedContract.totalValue}
-          onConfirm={() => {
-            // Lógica de confirmação de faturamento
-            setBillingConfirmationOpen(false);
-            setSelectedContract(null);
-          }}
-        />
-      )}
-
-      <ManageContractServicesModal
-        isOpen={isManageServicesModalOpen}
-        contract={selectedContract}
-        onClose={handleCloseManageServicesModal}
-        onSave={handleSaveServices}
-      />
+              {selectedContract ? 'Atualizar' : 'Criar'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </Container>
   );
-}
+};
+
+export default ContractsPage;

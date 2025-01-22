@@ -2,9 +2,16 @@ import api from '../../../services/api';
 import { Contract, ExtraService, Adjustment, HistoryEntry, ContractModification, ContractSummary } from '../types/contract';
 
 export const contractsApi = {
-  list: async () => {
-    const response = await api.get<Contract[]>('/contracts');
-    return response.data;
+  list: async ({ page = 1, limit = 10 }: { page?: number, limit?: number } = {}) => {
+    const response = await api.get<Contract[]>('/contracts', {
+      params: { page, limit }
+    });
+    return {
+      data: response.data,
+      page: page,
+      totalPages: response.headers['x-total-pages'] || 1,
+      total: response.headers['x-total-count'] || response.data.length
+    };
   },
 
   get: async (id: string) => {
