@@ -347,7 +347,18 @@ const MovementRow = ({ movement }) => {
 
   const handleGenerateInvoice = async (e) => {
     e.stopPropagation();
-    // TODO: Implementar geração de nota fiscal
+    try {
+      enqueueSnackbar('Gerando Nota Fiscal...', { variant: 'info' });
+      const nfse = await movementsService.generateNfse(movement.movement_id);
+      
+      enqueueSnackbar('Nota Fiscal gerada com sucesso!', { variant: 'success' });
+      
+      // Recarregar os dados da movimentação
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao gerar Nota Fiscal:', error);
+      enqueueSnackbar('Erro ao gerar Nota Fiscal: ' + error.message, { variant: 'error' });
+    }
   };
 
   const handleGenerateBoleto = async (e, installment) => {
@@ -476,6 +487,17 @@ const MovementRow = ({ movement }) => {
                   </IconButton>
                 </Tooltip>
               </>
+            )}
+            {isConfirmed && (
+              <Tooltip title="Gerar NFSE">
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={handleGenerateInvoice}
+                >
+                  <RequestQuoteIcon />
+                </IconButton>
+              </Tooltip>
             )}
             {!isCanceled && (
               <Tooltip title="Cancelar Movimentação">

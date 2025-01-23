@@ -390,6 +390,24 @@ export const movementsService = {
       });
       throw error; // Propaga o erro para o chamador
     }
+  },
+
+  // Novo método para emitir NFSE para um movimento
+  async generateNfse(movementId) {
+    try {
+      console.log('Tentando gerar NFSE para movementId:', movementId);
+      const response = await api.post(`/movements/${movementId}/nfse`);
+      console.log('Resposta da API de NFSE:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Erro na API de NFSE:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+      throw error; // Propaga o erro para o chamador
+    }
   }
 };
 
