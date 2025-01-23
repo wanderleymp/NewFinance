@@ -11,17 +11,20 @@ import {
   Menu, 
   MenuItem,
   Avatar,
-  ListItemIcon
+  ListItemIcon,
+  Tooltip
 } from '@mui/material';
 import { 
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   MoreVert as MoreVertIcon,
   Visibility as ViewIcon,
-  Build as ManageServicesIcon
+  Build as ManageServicesIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
-import { parseISO } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 import { Contract } from '../types/contract';
+import { ContractFullDetailsModal } from './ContractFullDetailsModal';
 
 interface ContractCardProps {
   contract?: Contract;
@@ -39,6 +42,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   onManageServices = () => {}
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -56,182 +60,171 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     }).format(value);
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Data não definida';
+  const getStatusColor = () => {
+    switch(contract?.status) {
+      case 'active': return 'success';
+      case 'inactive': return 'warning';
+      default: return 'error';
+    }
+  };
+
+  const formatStartDate = (startDate?: Date | string | null) => {
+    if (!startDate) return 'Data não definida';
+    
     try {
-      const parsedDate = parseISO(dateString);
-      return new Intl.DateTimeFormat('pt-BR').format(parsedDate);
+      const parsedDate = typeof startDate === 'string' 
+        ? parseISO(startDate) 
+        : startDate;
+      
+      // Verificar se a data é válida
+      if (isNaN(parsedDate.getTime())) {
+        return 'Data inválida';
+      }
+      
+      return format(parsedDate, 'dd/MM/yyyy');
     } catch {
       return 'Data inválida';
     }
   };
 
-  const getStatusInfo = () => {
-    if (!contract) return { 
-      label: 'Sem Status', 
-      color: 'default' 
-    };
-
-    const statusNormalized = contract.status?.toLowerCase();
-
-    switch (statusNormalized) {
-      case 'ativo':
-      case 'active':
-        return { label: 'Ativo', color: 'success' };
-      case 'inativo':
-      case 'inactive':
-        return { label: 'Inativo', color: 'error' };
-      case 'pendente':
-      case 'pending':
-        return { label: 'Pendente', color: 'warning' };
-      case 'cancelado':
-      case 'canceled':
-        return { label: 'Cancelado', color: 'error' };
-      case 'suspenso':
-      case 'suspended':
-        return { label: 'Suspenso', color: 'warning' };
-      default:
-        return { label: 'Desconhecido', color: 'default' };
-    }
+  const handleOpenDetailsModal = () => {
+    console.log('Abrindo modal de detalhes', contract);
+    setIsDetailsModalOpen(true);
   };
 
-  if (!contract) {
-    return (
-      <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Contrato não disponível
-        </Typography>
-      </Card>
-    );
-  }
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+  };
+
+  if (!contract) return null;
 
   return (
-    <Card 
-      sx={{ 
-        height: '100%', 
-        display: 'flex', 
-        flexDirection: 'column',
-        transition: 'transform 0.2s',
-        '&:hover': {
-          transform: 'scale(1.02)',
-          boxShadow: 3
-        }
-      }}
-    >
-      <CardHeader
-        avatar={
-          <Avatar 
+    <>
+      <Card 
+        variant="outlined" 
+        sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          '&:hover': {
+            transform: 'scale(1.02)',
+            boxShadow: 2
+          }
+        }}
+      >
+        <CardHeader
+          avatar={
+            <Avatar 
+              sx={{ 
+                bgcolor: getStatusColor() === 'success' ? 'success.light' : 'warning.light' 
+              }}
+            >
+              {(contract.fullName || contract.name)[0].toUpperCase()}
+            </Avatar>
+          }
+          action={
+            <Tooltip title="Mais opções">
+              <IconButton onClick={handleMenuOpen} aria-label="settings">
+                <MoreVertIcon />
+              </IconButton>
+            </Tooltip>
+          }
+          title={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  color: 'text.primary',
+                  mr: 1 
+                }}
+              >
+                {contract.fullName || contract.name}
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  color: 'primary.main',
+                  opacity: 0.7 
+                }}
+              >
+                #{contract.id}
+              </Typography>
+            </Box>
+          }
+          subheader={formatStartDate(contract.startDate)}
+        />
+        <CardContent sx={{ flexGrow: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h6" color="primary">
+              {formatCurrency(contract.value)}
+            </Typography>
+            <Chip 
+              label={contract.status === 'active' ? 'Ativo' : 'Inativo'} 
+              color={getStatusColor()} 
+              size="small" 
+            />
+          </Box>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
             sx={{ 
-              bgcolor: getStatusInfo().color,
-              width: 56, 
-              height: 56 
+              textAlign: 'left', 
+              fontStyle: 'italic',
+              opacity: 0.8 
             }}
           >
-            {contract.name?.charAt(0).toUpperCase() || '?'}
-          </Avatar>
-        }
-        action={
-          <IconButton aria-label="settings" onClick={handleMenuOpen}>
-            <MoreVertIcon />
-          </IconButton>
-        }
-        title={contract.name || 'Contrato sem nome'}
-        subheader={contract.fullName || 'Nome não informado'}
+            {contract.name || 'Descrição não disponível'}
+          </Typography>
+        </CardContent>
+        <CardActions disableSpacing sx={{ justifyContent: 'space-between' }}>
+          <Box>
+            <Tooltip title="Editar">
+              <IconButton onClick={() => onEdit(contract)} aria-label="editar">
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Gerenciar Serviços">
+              <IconButton onClick={() => onManageServices(contract)} aria-label="gerenciar serviços">
+                <ManageServicesIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+          <Box>
+            <Tooltip title="Detalhes">
+              <IconButton onClick={handleOpenDetailsModal} aria-label="detalhes">
+                <InfoIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Excluir">
+              <IconButton onClick={onDelete} color="error" aria-label="excluir">
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </CardActions>
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => { onView(); handleMenuClose(); }}>
+            <ListItemIcon>
+              <ViewIcon fontSize="small" />
+            </ListItemIcon>
+            Visualizar
+          </MenuItem>
+        </Menu>
+      </Card>
+
+      {/* Modal de Detalhes do Contrato */}
+      <ContractFullDetailsModal 
+        open={isDetailsModalOpen} 
+        onClose={handleCloseDetailsModal} 
+        contract={contract} 
       />
-      
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Valor
-          </Typography>
-          <Typography variant="subtitle2" fontWeight="bold">
-            {formatCurrency(contract.value)}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Grupo
-          </Typography>
-          <Typography variant="subtitle2">
-            {contract.groupName || 'Não definido'}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Próx. Cobrança
-          </Typography>
-          <Typography variant="subtitle2">
-            {formatDate(contract.nextBillingDate)}
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Período
-          </Typography>
-          <Typography variant="subtitle2">
-            {contract.recurrencePeriod === 'yearly' ? 'Anual' : 'Mensal'}
-          </Typography>
-        </Box>
-
-        <Chip 
-          label={getStatusInfo().label} 
-          color={getStatusInfo().color as any} 
-          variant="outlined"
-          sx={{ width: '100%' }}
-        />
-      </CardContent>
-
-      <CardActions disableSpacing>
-        <IconButton 
-          aria-label="editar" 
-          onClick={() => onEdit(contract)}
-          color="primary"
-        >
-          <EditIcon />
-        </IconButton>
-        <IconButton 
-          aria-label="serviços" 
-          onClick={() => onManageServices(contract)}
-          color="secondary"
-        >
-          <ManageServicesIcon />
-        </IconButton>
-        <IconButton 
-          aria-label="deletar" 
-          onClick={onDelete}
-          color="error"
-        >
-          <DeleteIcon />
-        </IconButton>
-      </CardActions>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => { onView(); handleMenuClose(); }}>
-          <ListItemIcon>
-            <ViewIcon fontSize="small" />
-          </ListItemIcon>
-          Visualizar Detalhes
-        </MenuItem>
-        <MenuItem onClick={() => { onEdit(contract); handleMenuClose(); }}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          Editar Contrato
-        </MenuItem>
-        <MenuItem onClick={() => { onDelete(); handleMenuClose(); }} sx={{ color: 'error.main' }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          Excluir Contrato
-        </MenuItem>
-      </Menu>
-    </Card>
+    </>
   );
 };
