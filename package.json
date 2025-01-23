@@ -41,7 +41,7 @@
     "@mui/x-data-grid": "^7.23.3",
     "@mui/x-date-pickers": "^7.23.6",
     "@tanstack/react-query": "^5.64.2",
-    "@tanstack/react-query-devtools": "^5.64.1",
+    "@tanstack/react-query-devtools": "^5.64.2",
     "@tanstack/react-table": "^8.20.6",
     "@types/uuid": "^10.0.0",
     "axios": "^1.7.9",

@@ -31,6 +31,7 @@ import { useNewContracts } from '../hooks/useNewContracts';
 import { ContractValidator } from '../utils/contractValidation';
 import { useDebounce } from '../hooks/useDebounce';
 import { ContractCard } from '../components/ContractCard';
+import { ServiceModal } from '../components/ServiceModal'; // Importar o ServiceModal
 
 const ContractsPage: React.FC = () => {
   const { 
@@ -48,6 +49,13 @@ const ContractsPage: React.FC = () => {
     search
   } = useNewContracts();
 
+  console.group('🔍 ContractsPage Debug');
+  console.log('Contratos recebidos:', contracts);
+  console.log('Loading:', loading);
+  console.log('Error:', error);
+  console.log('Pagination:', pagination);
+  console.groupEnd();
+
   const [openModal, setOpenModal] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
@@ -61,6 +69,11 @@ const ContractsPage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState(search);
   const [debouncedSearch] = useDebounce(searchTerm, 500);
+
+  console.log('🔍 Search Debug:', {
+    searchTerm,
+    debouncedSearch
+  });
 
   useEffect(() => {
     changeSearch(debouncedSearch);
@@ -204,193 +217,181 @@ const ContractsPage: React.FC = () => {
       });
     });
     console.groupEnd();
+
+    // Adicionar verificação de renderização
+    if (contracts.length > 0) {
+      console.log('🚨 Primeiro contrato a ser renderizado:', contracts[0]);
+    }
   }, [contracts]);
 
-  // Renderização condicional de carregamento
-  if (loading) {
-    return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh' 
-        }}
-      >
-        <CircularProgress 
-          size={60} 
-          color="primary" 
-          thickness={4} 
-        />
-      </Box>
-    );
-  }
+  const renderContractContent = useCallback(() => {
+    console.group('🔍 Renderização de Contratos');
+    console.log('Modo de visualização:', viewMode);
+    console.log('Total de contratos:', contracts.length);
+    console.groupEnd();
 
-  // Renderização condicional de erro
-  if (error) {
-    return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexDirection: 'column',
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          p: 3
-        }}
-      >
-        <Typography variant="h5" color="error" gutterBottom>
-          Erro ao carregar contratos
-        </Typography>
-        <Typography variant="body1" color="textSecondary" align="center">
-          {error}
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={refetch}
-          sx={{ mt: 2 }}
+    if (contracts.length === 0) {
+      return (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            width: '100%', 
+            height: '300px' 
+          }}
         >
-          Tentar Novamente
-        </Button>
-      </Box>
+          <Typography variant="h6" color="textSecondary">
+            Nenhum contrato encontrado
+          </Typography>
+        </Box>
+      );
+    }
+
+    return viewMode === 'card' ? (
+      <Grid container spacing={2}>
+        {contracts.map((contract) => (
+          <Grid item xs={12} sm={6} md={4} key={contract.id}>
+            <ContractCard 
+              contract={contract}
+              onEdit={() => handleOpenEditModal(contract)}
+              onDelete={() => handleDeleteContract(contract.id)}
+              onOpenServices={() => {
+                setSelectedContractForServices(contract);
+                setOpenServiceModal(true);
+              }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+    ) : (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell>Valor</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {contracts.map((contract) => (
+              <TableRow key={contract.id}>
+                <TableCell>{contract.name}</TableCell>
+                <TableCell>{formatCurrency(contract.value)}</TableCell>
+                <TableCell>{renderStatusChip(contract.status)}</TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleOpenEditModal(contract)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDeleteContract(contract.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     );
-  }
+  }, [
+    contracts, 
+    viewMode, 
+    handleOpenEditModal, 
+    handleDeleteContract, 
+    formatCurrency, 
+    renderStatusChip
+  ]);
+
+  const [openServiceModal, setOpenServiceModal] = useState(false);
+  const [selectedContractForServices, setSelectedContractForServices] = useState<Contract | null>(null);
+
+  const handleOpenServiceModal = (contract: Contract) => {
+    setSelectedContractForServices(contract);
+    setOpenServiceModal(true);
+  };
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3 
-      }}>
-        <Typography variant="h4">Contratos</Typography>
-        
-        <TextField
-          label="Buscar contratos"
-          variant="outlined"
-          size="small"
-          fullWidth
-          sx={{ maxWidth: 400, ml: 2 }}
-          value={searchTerm}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+      {loading && contracts.length === 0 ? (
+        <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100vh',
+            textAlign: 'center',
+            padding: 2
           }}
-        />
-
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
-            <IconButton onClick={toggleViewMode} size="small">
-              {viewMode === 'card' ? <ViewListIcon /> : <ViewModuleIcon />}
-            </IconButton>
-          </Tooltip>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateModal}
+        >
+          <Typography variant="h4" color="error" gutterBottom>
+            Erro ao carregar contratos
+          </Typography>
+          <Typography variant="body1" color="textSecondary" paragraph>
+            {error || 'Ocorreu um problema inesperado'}
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => {
+              clearError();
+              refetch();
+            }}
           >
-            Novo Contrato
+            Tentar Novamente
           </Button>
         </Box>
-      </Box>
-      
-      {loading ? (
-        <CircularProgress />
-      ) : error ? (
-        <Alert severity="error">{error}</Alert>
       ) : (
         <>
-          {viewMode === 'card' ? (
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-              {contracts.map((contract) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={contract.id}>
-                  <ContractCard
-                    contract={contract}
-                    onEdit={() => handleOpenEditModal(contract)}
-                    onDelete={() => handleDelete(contract.id)}
-                    onManageServices={() => {/* Implementar */}}
-                    onView={() => {/* Implementar */}}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>ID</TableCell>
-                    <TableCell>Nome</TableCell>
-                    <TableCell>Nome Completo</TableCell>
-                    <TableCell>Valor</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Grupo</TableCell>
-                    <TableCell>Próx. Cobrança</TableCell>
-                    <TableCell>Período</TableCell>
-                    <TableCell>Ações</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {contracts.map((contract) => (
-                    <TableRow key={contract.id}>
-                      <TableCell>{contract.id}</TableCell>
-                      <TableCell>{contract.name}</TableCell>
-                      <TableCell>{contract.fullName}</TableCell>
-                      <TableCell>
-                        {new Intl.NumberFormat('pt-BR', { 
-                          style: 'currency', 
-                          currency: 'BRL' 
-                        }).format(contract.value)}
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={contract.status} 
-                          color={
-                            contract.status === 'active' ? 'success' : 
-                            contract.status === 'pending' ? 'warning' : 
-                            'default'
-                          }
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{contract.groupName}</TableCell>
-                      <TableCell>
-                        {contract.nextBillingDate 
-                          ? format(contract.nextBillingDate, 'dd/MM/yyyy') 
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>{contract.recurrencePeriod}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton 
-                            size="small" 
-                            color="primary" 
-                            onClick={() => handleOpenEditModal(contract)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleDeleteContract(contract.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3 
+          }}>
+            <Typography variant="h4">Contratos</Typography>
+            
+            <TextField
+              label="Buscar contratos"
+              variant="outlined"
+              size="small"
+              fullWidth
+              sx={{ maxWidth: 400, ml: 2 }}
+              value={searchTerm}
+              onChange={handleSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
+                <IconButton onClick={toggleViewMode} size="small">
+                  {viewMode === 'card' ? <ViewListIcon /> : <ViewModuleIcon />}
+                </IconButton>
+              </Tooltip>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleOpenCreateModal}
+              >
+                Novo Contrato
+              </Button>
+            </Box>
+          </Box>
+          
+          {renderContractContent()}
 
           <TablePagination
             rowsPerPageOptions={[10, 25, 50]}
@@ -402,6 +403,15 @@ const ContractsPage: React.FC = () => {
             onRowsPerPageChange={(event) => {
               // Implementar lógica de mudança de limite
             }}
+          />
+
+          <ServiceModal
+            isOpen={openServiceModal && !!selectedContractForServices}
+            onClose={() => {
+              setOpenServiceModal(false);
+              setSelectedContractForServices(null);
+            }}
+            contract={selectedContractForServices || undefined}
           />
         </>
       )}

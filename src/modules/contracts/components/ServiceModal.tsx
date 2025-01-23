@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dialog, 
   DialogTitle, 
@@ -11,14 +11,21 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Box,
+  CircularProgress
 } from '@mui/material';
 import { Contract } from '../types/contract';
+import { useContractMovementItems, MovementItem } from '../hooks/useContractMovementItems';
 
 interface ServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  contract: Contract;
+  contract?: Contract;
 }
 
 export function ServiceModal({ 
@@ -26,30 +33,67 @@ export function ServiceModal({
   onClose, 
   contract 
 }: ServiceModalProps) {
-  console.log('ServiceModal - Propriedades recebidas:', { 
-    isOpen, 
-    contract: contract?.id, 
-    contractName: contract?.name 
-  });
+  // Se não há contrato, não renderiza nada
+  if (!contract) return null;
 
-  // Log adicional para verificar o tipo de contrato
-  console.log('Tipo de contrato:', typeof contract);
-  console.log('Contrato completo:', JSON.stringify(contract, null, 2));
-
-  // Validação de contrato
-  if (!contract) {
-    console.error('Contrato não definido no ServiceModal');
-    return null;
-  }
-
+  const { movementItems, loading, error, fetchMovementItems } = useContractMovementItems();
+  
   const [serviceType, setServiceType] = useState('');
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
+
+  useEffect(() => {
+    if (isOpen && contract?.id) {
+      fetchMovementItems(contract.id.toString());
+    }
+  }, [isOpen, contract?.id, fetchMovementItems]);
 
   const handleSubmit = () => {
     // Lógica para adicionar/editar serviço
     console.log('Serviço adicionado', { serviceType, description, value });
     onClose();
+  };
+
+  const renderMovementItems = () => {
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" p={2}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Typography color="error" align="center" p={2}>
+          {error}
+        </Typography>
+      );
+    }
+
+    if (movementItems.length === 0) {
+      return (
+        <Typography align="center" p={2}>
+          Nenhum item de movimento encontrado
+        </Typography>
+      );
+    }
+
+    return (
+      <List>
+        {movementItems.map((item: MovementItem) => (
+          <React.Fragment key={item.id}>
+            <ListItem>
+              <ListItemText
+                primary={item.name}
+                secondary={`R$ ${item.value.toFixed(2)} - ${item.description}`}
+              />
+            </ListItem>
+            <Divider />
+          </React.Fragment>
+        ))}
+      </List>
+    );
   };
 
   return (
@@ -60,10 +104,17 @@ export function ServiceModal({
       fullWidth
     >
       <DialogTitle>
-        Gerenciar Serviços - {contract.name}
+        Gerenciar Serviços - {contract?.name}
       </DialogTitle>
       <DialogContent>
         <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Itens de Movimento
+            </Typography>
+            {renderMovementItems()}
+          </Grid>
+          
           <Grid item xs={12}>
             <FormControl fullWidth variant="outlined">
               <InputLabel>Tipo de Serviço</InputLabel>
