@@ -76,10 +76,20 @@ export const contractsApi = {
     return response.data;
   },
 
-  listRecurring: async (page = 1, limit = 10): Promise<ContractListResponse> => {
-    console.log('🔍 Iniciando listagem de contratos recorrentes', { page, limit });
+  listRecurring: async (page = 1, limit = 10, search = ''): Promise<ContractListResponse> => {
+    console.log('🔍 Iniciando listagem de contratos recorrentes', { 
+      page, 
+      limit,
+      search 
+    });
     
-    const response = await api.get(`/contracts-recurring?page=${page}&limit=${limit}`);
+    const response = await api.get(`/contracts-recurring`, {
+      params: { 
+        page, 
+        limit, 
+        search 
+      }
+    });
 
     console.group('🕵️ Dados Brutos da API');
     console.log('Resposta completa:', response.data);

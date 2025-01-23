@@ -13,14 +13,21 @@ interface UseContractsReturn {
     total: number;
   };
   changePage: (newPage: number) => void;
+  changeSearch: (newSearch: string) => void;
   clearError: () => void;
   refetch: () => Promise<void>;
+  search: string;
 }
 
-export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn {
+export function useNewContracts(
+  initialPage = 1, 
+  limit = 10, 
+  initialSearch = ''
+): UseContractsReturn {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState(initialSearch);
   const [pagination, setPagination] = useState({
     page: initialPage,
     limit: limit,
@@ -32,9 +39,17 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
     setLoading(true);
     setError(null);
     try {
-      console.log(' Iniciando busca de contratos...', { page: pagination.page, limit: pagination.limit });
+      console.log(' Iniciando busca de contratos...', { 
+        page: pagination.page, 
+        limit: pagination.limit,
+        search: search
+      });
       
-      const result: ContractListResponse = await contractsApi.listRecurring(pagination.page, pagination.limit);
+      const result: ContractListResponse = await contractsApi.listRecurring(
+        pagination.page, 
+        pagination.limit, 
+        search
+      );
       
       console.group(' Resultado da busca de contratos');
       console.log('Estrutura completa do resultado:', result);
@@ -96,13 +111,22 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit]);
+  }, [pagination.page, pagination.limit, search]);
 
   const changePage = useCallback((newPage: number) => {
     setPagination(prev => ({
       ...prev,
       page: newPage
     }));
+  }, []);
+
+  const changeSearch = useCallback((newSearch: string) => {
+    // Resetar para primeira página quando a busca mudar
+    setPagination(prev => ({
+      ...prev,
+      page: 1
+    }));
+    setSearch(newSearch);
   }, []);
 
   const clearError = useCallback(() => {
@@ -123,7 +147,9 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
     error,
     pagination,
     changePage,
+    changeSearch,
     clearError,
-    refetch
+    refetch,
+    search
   };
 }

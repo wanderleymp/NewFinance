@@ -1,35 +1,35 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { 
-  Box, 
-  Button, 
-  Typography, 
-  CircularProgress, 
-  Alert, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
   Paper,
+  Tooltip,
   TablePagination,
   Chip,
   IconButton,
-  Grid
+  Grid,
+  TextField,
+  InputAdornment,
+  CircularProgress
 } from '@mui/material';
-import { format } from 'date-fns';
+import SearchIcon from '@mui/icons-material/Search';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
+import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { 
-  Add as AddIcon, 
-  ViewList as ViewListIcon,
-  ViewModule as ViewModuleIcon
-} from '@mui/icons-material';
-import { ContractCard } from '../components/ContractCard';
-import { ContractTable } from '../components/ContractTable';
+import { format } from 'date-fns';
+
 import { useNewContracts } from '../hooks/useNewContracts';
-import { Contract } from '../types/contract';
 import { ContractValidator } from '../utils/contractValidation';
+import { useDebounce } from '../hooks/useDebounce';
 
 const ContractsPage: React.FC = () => {
   const { 
@@ -38,11 +38,13 @@ const ContractsPage: React.FC = () => {
     error, 
     pagination,
     changePage,
+    changeSearch,
     clearError,
     createContract, 
     updateContract, 
     deleteContract,
-    refetch
+    refetch,
+    search
   } = useNewContracts();
 
   const [openModal, setOpenModal] = useState(false);
@@ -56,6 +58,13 @@ const ContractsPage: React.FC = () => {
     groupName: ''
   });
 
+  const [searchTerm, setSearchTerm] = useState(search);
+  const [debouncedSearch] = useDebounce(searchTerm, 500);
+
+  useEffect(() => {
+    changeSearch(debouncedSearch);
+  }, [debouncedSearch, changeSearch]);
+
   const handleOpenCreateModal = () => {
     setSelectedContract(null);
     setContractForm({
@@ -68,17 +77,29 @@ const ContractsPage: React.FC = () => {
     setOpenModal(true);
   };
 
-  const handleOpenEditModal = (contract: Contract) => {
+  const handleOpenEditModal = useCallback((contract: Contract) => {
     setSelectedContract(contract);
     setContractForm({
       name: contract.name,
-      fullName: contract.fullName,
-      value: contract.value,
-      status: contract.status,
-      groupName: contract.groupName
+      value: contract.value.toString(),
+      groupName: contract.groupName || ''
     });
     setOpenModal(true);
-  };
+  }, []);
+
+  const handleDeleteContract = useCallback(async (contractId: number) => {
+    try {
+      await deleteContract(contractId);
+      // Atualizar lista de contratos após deleção
+      await refetch();
+      // Opcional: mostrar mensagem de sucesso
+      // enqueueSnackbar('Contrato excluído com sucesso', { variant: 'success' });
+    } catch (error) {
+      console.error('Erro ao excluir contrato:', error);
+      // Opcional: mostrar mensagem de erro
+      // enqueueSnackbar('Erro ao excluir contrato', { variant: 'error' });
+    }
+  }, [deleteContract, refetch]);
 
   const handleSubmit = async () => {
     try {
@@ -165,6 +186,10 @@ const ContractsPage: React.FC = () => {
     setViewMode(prevMode => prevMode === 'list' ? 'card' : 'list');
   };
 
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
   useEffect(() => {
     console.group('🔍 Contratos na Página');
     console.log('Total de contratos:', contracts.length);
@@ -180,15 +205,56 @@ const ContractsPage: React.FC = () => {
     console.groupEnd();
   }, [contracts]);
 
-  if (loading) return <CircularProgress />;
-  if (error) return (
-    <Alert 
-      severity="error" 
-      onClose={clearError}
-    >
-      {error}
-    </Alert>
-  );
+  // Renderização condicional de carregamento
+  if (loading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress 
+          size={60} 
+          color="primary" 
+          thickness={4} 
+        />
+      </Box>
+    );
+  }
+
+  // Renderização condicional de erro
+  if (error) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          p: 3
+        }}
+      >
+        <Typography variant="h5" color="error" gutterBottom>
+          Erro ao carregar contratos
+        </Typography>
+        <Typography variant="body1" color="textSecondary" align="center">
+          {error}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={refetch}
+          sx={{ mt: 2 }}
+        >
+          Tentar Novamente
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
@@ -200,16 +266,27 @@ const ContractsPage: React.FC = () => {
       }}>
         <Typography variant="h4">Contratos</Typography>
         
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            color="primary" 
-            startIcon={viewMode === 'list' ? <ViewModuleIcon /> : <ViewListIcon />}
-            onClick={toggleViewMode}
-          >
-            {viewMode === 'list' ? 'Cartões' : 'Lista'}
-          </Button>
-          
+        <TextField
+          label="Buscar contratos"
+          variant="outlined"
+          size="small"
+          fullWidth
+          sx={{ maxWidth: 400, ml: 2 }}
+          value={searchTerm}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <Box sx={{ ml: 'auto' }}>
+          <IconButton onClick={toggleViewMode}>
+            {viewMode === 'list' ? <ViewModuleIcon /> : <ViewListIcon />}
+          </IconButton>
           <Button 
             variant="contained" 
             color="primary" 
@@ -278,18 +355,14 @@ const ContractsPage: React.FC = () => {
                           <IconButton 
                             size="small" 
                             color="primary" 
-                            onClick={() => {
-                              console.log('Editar contrato', contract);
-                            }}
+                            onClick={() => handleOpenEditModal(contract)}
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton 
                             size="small" 
                             color="error" 
-                            onClick={() => {
-                              console.log('Excluir contrato', contract);
-                            }}
+                            onClick={() => handleDeleteContract(contract.id)}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -307,8 +380,8 @@ const ContractsPage: React.FC = () => {
                   <ContractCard 
                     contract={contract}
                     onManageServices={() => console.log('Gerenciar serviços', contract)}
-                    onEdit={() => console.log('Editar contrato', contract)}
-                    onDelete={() => console.log('Excluir contrato', contract.id)}
+                    onEdit={() => handleOpenEditModal(contract)}
+                    onDelete={() => handleDeleteContract(contract.id)}
                     onView={() => console.log('Visualizar contrato', contract)}
                   />
                 </Grid>
