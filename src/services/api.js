@@ -406,7 +406,8 @@ export const movementsService = {
         status: error.response?.status,
         headers: error.response?.headers
       });
-      throw error; // Propaga o erro para o chamador
+      // Lança o erro com a mensagem do servidor, se disponível
+      throw new Error(error.response?.data?.message || error.message);
     }
   }
 };

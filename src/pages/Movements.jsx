@@ -357,7 +357,7 @@ const MovementRow = ({ movement }) => {
       window.location.reload();
     } catch (error) {
       console.error('Erro ao gerar Nota Fiscal:', error);
-      enqueueSnackbar('Erro ao gerar Nota Fiscal: ' + error.message, { variant: 'error' });
+      enqueueSnackbar(error.message || 'Erro ao gerar Nota Fiscal', { variant: 'error' });
     }
   };
 
