@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { useNewContracts } from '../hooks/useNewContracts';
 import { ContractValidator } from '../utils/contractValidation';
 import { useDebounce } from '../hooks/useDebounce';
+import { ContractCard } from '../components/ContractCard';
 
 const ContractsPage: React.FC = () => {
   const { 
