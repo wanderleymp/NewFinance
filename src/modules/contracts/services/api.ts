@@ -83,11 +83,11 @@ export const contractsApi = {
 
     console.group('🕵️ Dados Brutos da API');
     console.log('Resposta completa:', response.data);
-    console.log('Dados:', response.data.data);
+    console.log('Items:', response.data.items);
     console.log('Metadados:', response.data.meta);
     console.groupEnd();
 
-    const contracts: Contract[] = response.data.data.map((item: ContractResponse['items'][0]) => {
+    const contracts: Contract[] = response.data.items.map((item: ContractResponse['items'][0]) => {
       // Tratamento de valor do contrato
       let contractValue = 0;
       try {

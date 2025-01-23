@@ -36,32 +36,29 @@ export function useNewContracts(initialPage = 1, limit = 10): UseContractsReturn
       
       const result: ContractListResponse = await contractsApi.listRecurring(pagination.page, pagination.limit);
       
-      console.group(' Resultado da busca:');
-      console.log('Dados completos:', result);
-      console.log('Total de contratos:', result.data.length);
+      console.group(' Resultado da busca de contratos');
+      console.log('Estrutura completa do resultado:', result);
+      console.log('Dados dos contratos:', result.data);
+      console.log('Total de contratos:', result.data?.length || 0);
       console.log('Página atual:', result.page);
       console.log('Total de páginas:', result.totalPages);
       console.log('Total de itens:', result.total);
       console.groupEnd();
       
-      if (!Array.isArray(result.data)) {
-        console.error(' Dados retornados não são um array:', result.data);
-        setContracts([]);
-      } else {
-        console.log(' Contratos carregados:', result.data.length);
-        
-        // Log detalhado dos contratos
-        result.data.forEach((contract, index) => {
-          console.group(`Contrato #${index + 1}`);
-          console.log('ID:', contract.id);
-          console.log('Nome:', contract.name);
-          console.log('Valor:', contract.value);
-          console.log('Status:', contract.status);
-          console.groupEnd();
-        });
-        
-        setContracts(result.data);
-      }
+      // Garantir que sempre seja um array, mesmo que vazio
+      const contractsData = result.data || [];
+      
+      // Log detalhado dos contratos
+      contractsData.forEach((contract, index) => {
+        console.group(`Contrato #${index + 1}`);
+        console.log('ID:', contract.id);
+        console.log('Nome:', contract.name);
+        console.log('Valor:', contract.value);
+        console.log('Status:', contract.status);
+        console.groupEnd();
+      });
+      
+      setContracts(contractsData);
       
       setPagination(prev => ({
         ...prev,
