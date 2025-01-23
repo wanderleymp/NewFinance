@@ -14,7 +14,8 @@ import {
   Paper,
   TablePagination,
   Chip,
-  IconButton
+  IconButton,
+  Grid
 } from '@mui/material';
 import { format } from 'date-fns';
 import EditIcon from '@mui/icons-material/Edit';
@@ -191,7 +192,34 @@ const ContractsPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Contratos</Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3 
+      }}>
+        <Typography variant="h4">Contratos</Typography>
+        
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            startIcon={viewMode === 'list' ? <ViewModuleIcon /> : <ViewListIcon />}
+            onClick={toggleViewMode}
+          >
+            {viewMode === 'list' ? 'Cartões' : 'Lista'}
+          </Button>
+          
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<AddIcon />}
+            onClick={handleOpenCreateModal}
+          >
+            Novo Contrato
+          </Button>
+        </Box>
+      </Box>
       
       {loading ? (
         <CircularProgress />
@@ -199,93 +227,94 @@ const ContractsPage: React.FC = () => {
         <Alert severity="error">{error}</Alert>
       ) : (
         <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6">
-              Total de Contratos: {contracts.length}
-            </Typography>
-            <Button 
-              variant="outlined" 
-              onClick={() => {
-                console.log('Contratos completos:', contracts);
-                alert(JSON.stringify(contracts, null, 2));
-              }}
-            >
-              Mostrar Dados Brutos
-            </Button>
-          </Box>
-
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Nome</TableCell>
-                  <TableCell>Valor</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Grupo</TableCell>
-                  <TableCell>Próx. Cobrança</TableCell>
-                  <TableCell>Período</TableCell>
-                  <TableCell>Ações</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {contracts.map((contract) => (
-                  <TableRow key={contract.id}>
-                    <TableCell>{contract.id}</TableCell>
-                    <TableCell>{contract.name}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      }).format(contract.value)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={contract.status} 
-                        color={
-                          contract.status === 'active' ? 'success' : 
-                          contract.status === 'pending' ? 'warning' : 
-                          'default'
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{contract.groupName}</TableCell>
-                    <TableCell>
-                      {contract.nextBillingDate 
-                        ? format(contract.nextBillingDate, 'dd/MM/yyyy') 
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell>{contract.recurrencePeriod}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton 
-                          size="small" 
-                          color="primary" 
-                          onClick={() => {
-                            // Lógica de edição
-                            console.log('Editar contrato', contract);
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => {
-                            // Lógica de exclusão
-                            console.log('Excluir contrato', contract);
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
+          {viewMode === 'list' ? (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Nome</TableCell>
+                    <TableCell>Nome Completo</TableCell>
+                    <TableCell>Valor</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Grupo</TableCell>
+                    <TableCell>Próx. Cobrança</TableCell>
+                    <TableCell>Período</TableCell>
+                    <TableCell>Ações</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {contracts.map((contract) => (
+                    <TableRow key={contract.id}>
+                      <TableCell>{contract.id}</TableCell>
+                      <TableCell>{contract.name}</TableCell>
+                      <TableCell>{contract.fullName}</TableCell>
+                      <TableCell>
+                        {new Intl.NumberFormat('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL' 
+                        }).format(contract.value)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={contract.status} 
+                          color={
+                            contract.status === 'active' ? 'success' : 
+                            contract.status === 'pending' ? 'warning' : 
+                            'default'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{contract.groupName}</TableCell>
+                      <TableCell>
+                        {contract.nextBillingDate 
+                          ? format(contract.nextBillingDate, 'dd/MM/yyyy') 
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell>{contract.recurrencePeriod}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <IconButton 
+                            size="small" 
+                            color="primary" 
+                            onClick={() => {
+                              console.log('Editar contrato', contract);
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => {
+                              console.log('Excluir contrato', contract);
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Grid container spacing={2}>
+              {contracts.map((contract) => (
+                <Grid item key={contract.id} xs={12} sm={6} md={4} lg={3}>
+                  <ContractCard 
+                    contract={contract}
+                    onManageServices={() => console.log('Gerenciar serviços', contract)}
+                    onEdit={() => console.log('Editar contrato', contract)}
+                    onDelete={() => console.log('Excluir contrato', contract.id)}
+                    onView={() => console.log('Visualizar contrato', contract)}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
 
           <TablePagination
             rowsPerPageOptions={[10, 25, 50]}

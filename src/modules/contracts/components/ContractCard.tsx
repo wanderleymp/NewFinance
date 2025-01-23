@@ -2,56 +2,42 @@ import React, { useState } from 'react';
 import { 
   Card, 
   CardContent, 
+  CardHeader, 
+  CardActions, 
   Typography, 
   Box, 
   Chip, 
   IconButton, 
   Menu, 
-  MenuItem, 
-  Divider,
-  Tooltip,
-  useMediaQuery,
-  useTheme,
-  ListItemIcon,
-  Stack
+  MenuItem,
+  Avatar,
+  ListItemIcon
 } from '@mui/material';
 import { 
-  AddCircleOutline as AddServicesIcon,
-  SwapVert as AdjustmentsIcon,
-  RequestQuote as BillingIcon,
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
   MoreVert as MoreVertIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   Visibility as ViewIcon,
-  Person as PersonIcon,
-  AttachMoney as MoneyIcon,
-  CalendarToday as CalendarIcon,
-  Build as ManageServicesIcon,
-  CheckCircle as ActiveIcon,
-  Block as InactiveIcon
+  Build as ManageServicesIcon
 } from '@mui/icons-material';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { Contract } from '../types/contract';
 
 interface ContractCardProps {
-  contract: Contract;
-  onManageServices: (contract: Contract) => void;
-  onEdit: (contract: Contract) => void;
-  onDelete: () => void;
-  onView: () => void;
-  onBilling?: () => void;
+  contract?: Contract;
+  onEdit?: (contract?: Contract) => void;
+  onDelete?: () => void;
+  onView?: () => void;
+  onManageServices?: (contract?: Contract) => void;
 }
 
-export function ContractCard({ 
-  contract, 
-  onManageServices, 
-  onEdit,
-  onDelete,
-  onView,
-  onBilling
-}: ContractCardProps) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+export const ContractCard: React.FC<ContractCardProps> = ({
+  contract,
+  onEdit = () => {},
+  onDelete = () => {},
+  onView = () => {},
+  onManageServices = () => {}
+}) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -62,168 +48,165 @@ export function ContractCard({
     setAnchorEl(null);
   };
 
-  const formatCurrency = (value: number) => {
-    try {
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-      }).format(value || 0);
-    } catch (error) {
-      console.error('Erro ao formatar valor:', error);
-      return 'R$ 0,00';
-    }
+  const formatCurrency = (value?: number) => {
+    if (value == null) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL' 
+    }).format(value);
   };
 
-  const formatDate = (date: Date | null | undefined) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Data não definida';
     try {
-      if (!date) return 'N/A';
-      return format(date, 'dd/MM/yyyy');
-    } catch (error) {
-      console.error('Erro ao formatar data:', error);
-      return 'N/A';
+      const parsedDate = parseISO(dateString);
+      return new Intl.DateTimeFormat('pt-BR').format(parsedDate);
+    } catch {
+      return 'Data inválida';
     }
   };
 
   const getStatusInfo = () => {
-    switch(contract.status?.toLowerCase()) {
-      case 'active': return { 
-        color: 'success', 
-        label: 'Ativo' 
-      };
-      case 'inactive': return { 
-        color: 'warning', 
-        label: 'Inativo' 
-      };
-      default: return { 
-        color: 'default', 
-        label: 'Status desconhecido' 
-      };
+    if (!contract) return { 
+      label: 'Sem Status', 
+      color: 'default' 
+    };
+
+    const statusNormalized = contract.status?.toLowerCase();
+
+    switch (statusNormalized) {
+      case 'ativo':
+      case 'active':
+        return { label: 'Ativo', color: 'success' };
+      case 'inativo':
+      case 'inactive':
+        return { label: 'Inativo', color: 'error' };
+      case 'pendente':
+      case 'pending':
+        return { label: 'Pendente', color: 'warning' };
+      case 'cancelado':
+      case 'canceled':
+        return { label: 'Cancelado', color: 'error' };
+      case 'suspenso':
+      case 'suspended':
+        return { label: 'Suspenso', color: 'warning' };
+      default:
+        return { label: 'Desconhecido', color: 'default' };
     }
   };
 
-  const statusInfo = getStatusInfo();
+  if (!contract) {
+    return (
+      <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Contrato não disponível
+        </Typography>
+      </Card>
+    );
+  }
 
   return (
     <Card 
-      variant="outlined"
       sx={{ 
         height: '100%', 
         display: 'flex', 
         flexDirection: 'column',
-        justifyContent: 'space-between',
         transition: 'transform 0.2s',
         '&:hover': {
           transform: 'scale(1.02)',
-          boxShadow: theme.shadows[4]
+          boxShadow: 3
         }
       }}
     >
-      <CardContent sx={{ 
-        flexGrow: 1, 
-        display: 'flex', 
-        flexDirection: 'column',
-        gap: 2
-      }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography 
-            variant="h6" 
-            component="div" 
-            noWrap 
+      <CardHeader
+        avatar={
+          <Avatar 
             sx={{ 
-              maxWidth: isMobile ? '200px' : '250px', 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis' 
+              bgcolor: getStatusInfo().color,
+              width: 56, 
+              height: 56 
             }}
           >
-            {contract.contract_name || 'Contrato sem nome'}
-          </Typography>
-          <Chip 
-            label={statusInfo.label} 
-            color={statusInfo.color as any} 
-            size="small" 
-            variant="outlined"
-          />
-        </Box>
-
-        <Box display="flex" alignItems="center" gap={1}>
-          <PersonIcon fontSize="small" color="action" />
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            noWrap
-            sx={{ 
-              maxWidth: isMobile ? '250px' : '300px', 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis' 
-            }}
-          >
-            {contract.full_name || 'Pessoa não identificada'}
-          </Typography>
-        </Box>
-
-        <Box display="flex" alignItems="center" gap={1}>
-          <MoneyIcon fontSize="small" color="action" />
-          <Typography variant="body2" color="text.secondary">
-            {formatCurrency(contract.contract_value)}
-          </Typography>
-        </Box>
-
-        <Box display="flex" alignItems="center" gap={1}>
-          <CalendarIcon fontSize="small" color="action" />
-          <Typography variant="body2" color="text.secondary">
-            Próximo Faturamento: {formatDate(parseISO(contract.next_billing_date))}
-          </Typography>
-        </Box>
-
-        <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Adicionar Serviços">
-              <IconButton 
-                onClick={() => onManageServices(contract)} 
-                size="small" 
-                color="primary"
-              >
-                <AddServicesIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Ajustar Contrato">
-              <IconButton 
-                onClick={() => onEdit(contract)} 
-                size="small" 
-                color="primary"
-              >
-                <AdjustmentsIcon />
-              </IconButton>
-            </Tooltip>
-            {onBilling && (
-              <Tooltip title="Faturar Contrato">
-                <IconButton 
-                  onClick={onBilling}
-                  size="small" 
-                  color="primary"
-                >
-                  <BillingIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Tooltip title="Visualizar Contrato">
-              <IconButton 
-                onClick={onView} 
-                size="small" 
-                color="secondary"
-              >
-                <ViewIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-          <IconButton 
-            aria-label="Mais opções"
-            onClick={handleMenuOpen}
-          >
+            {contract.name?.charAt(0).toUpperCase() || '?'}
+          </Avatar>
+        }
+        action={
+          <IconButton aria-label="settings" onClick={handleMenuOpen}>
             <MoreVertIcon />
           </IconButton>
+        }
+        title={contract.name || 'Contrato sem nome'}
+        subheader={contract.fullName || 'Nome não informado'}
+      />
+      
+      <CardContent sx={{ flexGrow: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Valor
+          </Typography>
+          <Typography variant="subtitle2" fontWeight="bold">
+            {formatCurrency(contract.value)}
+          </Typography>
         </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Grupo
+          </Typography>
+          <Typography variant="subtitle2">
+            {contract.groupName || 'Não definido'}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Próx. Cobrança
+          </Typography>
+          <Typography variant="subtitle2">
+            {formatDate(contract.nextBillingDate)}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Período
+          </Typography>
+          <Typography variant="subtitle2">
+            {contract.recurrencePeriod === 'yearly' ? 'Anual' : 'Mensal'}
+          </Typography>
+        </Box>
+
+        <Chip 
+          label={getStatusInfo().label} 
+          color={getStatusInfo().color as any} 
+          variant="outlined"
+          sx={{ width: '100%' }}
+        />
       </CardContent>
+
+      <CardActions disableSpacing>
+        <IconButton 
+          aria-label="editar" 
+          onClick={() => onEdit(contract)}
+          color="primary"
+        >
+          <EditIcon />
+        </IconButton>
+        <IconButton 
+          aria-label="serviços" 
+          onClick={() => onManageServices(contract)}
+          color="secondary"
+        >
+          <ManageServicesIcon />
+        </IconButton>
+        <IconButton 
+          aria-label="deletar" 
+          onClick={onDelete}
+          color="error"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </CardActions>
 
       <Menu
         anchorEl={anchorEl}
@@ -234,36 +217,21 @@ export function ContractCard({
           <ListItemIcon>
             <ViewIcon fontSize="small" />
           </ListItemIcon>
-          Visualizar
+          Visualizar Detalhes
         </MenuItem>
         <MenuItem onClick={() => { onEdit(contract); handleMenuClose(); }}>
           <ListItemIcon>
             <EditIcon fontSize="small" />
           </ListItemIcon>
-          Editar
+          Editar Contrato
         </MenuItem>
-        {onBilling && (
-          <MenuItem onClick={() => { onBilling(); handleMenuClose(); }}>
-            <ListItemIcon>
-              <BillingIcon fontSize="small" />
-            </ListItemIcon>
-            Faturar
-          </MenuItem>
-        )}
-        <MenuItem onClick={() => { onManageServices(contract); handleMenuClose(); }}>
-          <ListItemIcon>
-            <ManageServicesIcon fontSize="small" />
-          </ListItemIcon>
-          Gerenciar Serviços
-        </MenuItem>
-        <Divider />
         <MenuItem onClick={() => { onDelete(); handleMenuClose(); }} sx={{ color: 'error.main' }}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
-          Excluir
+          Excluir Contrato
         </MenuItem>
       </Menu>
     </Card>
   );
-}
+};
