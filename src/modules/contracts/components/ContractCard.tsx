@@ -31,7 +31,7 @@ interface ContractCardProps {
   onEdit?: (contract?: Contract) => void;
   onDelete?: () => void;
   onView?: () => void;
-  onManageServices?: (contract?: Contract) => void;
+  onManageServices?: (contractId: number) => void;
 }
 
 export const ContractCard: React.FC<ContractCardProps> = ({
@@ -205,7 +205,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="Gerenciar Serviços">
-              <IconButton onClick={() => onManageServices(contract)} aria-label="gerenciar serviços" size="small">
+              <IconButton onClick={() => onManageServices(contract.id)} aria-label="gerenciar serviços" size="small">
                 <ManageServicesIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -228,11 +228,50 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={() => { onView(); handleMenuClose(); }}>
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              onManageServices(contract.id);
+            }}
+          >
+            <ListItemIcon>
+              <ManageServicesIcon fontSize="small" />
+            </ListItemIcon>
+            Gerenciar Serviços
+          </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              onView();
+              handleOpenDetailsModal();
+            }}
+          >
             <ListItemIcon>
               <ViewIcon fontSize="small" />
             </ListItemIcon>
-            Visualizar
+            Visualizar Detalhes
+          </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              onEdit(contract);
+            }}
+          >
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            Editar
+          </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              onDelete();
+            }}
+          >
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" />
+            </ListItemIcon>
+            Excluir
           </MenuItem>
         </Menu>
       </Card>

@@ -17,7 +17,9 @@ import {
   Grid,
   TextField,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  Card,
+  CardContent
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -25,6 +27,7 @@ import ViewModuleIcon from '@mui/icons-material/ViewModule';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import BuildIcon from '@mui/icons-material/Build';
 import { format } from 'date-fns';
 
 import { useNewContracts } from '../hooks/useNewContracts';
@@ -256,8 +259,9 @@ const ContractsPage: React.FC = () => {
               contract={contract}
               onEdit={() => handleOpenEditModal(contract)}
               onDelete={() => handleDeleteContract(contract.id)}
-              onOpenServices={() => {
-                setSelectedContractForServices(contract);
+              onManageServices={(contractId) => {
+                const selectedContract = contracts.find(c => c.id === contractId);
+                setSelectedContractForServices(selectedContract || null);
                 setOpenServiceModal(true);
               }}
             />
@@ -282,6 +286,18 @@ const ContractsPage: React.FC = () => {
                 <TableCell>{formatCurrency(contract.value)}</TableCell>
                 <TableCell>{renderStatusChip(contract.status)}</TableCell>
                 <TableCell>
+                  <Tooltip title="Gerenciar Serviços">
+                    <IconButton 
+                      size="small" 
+                      color="primary"
+                      onClick={() => {
+                        setSelectedContractForServices(contract);
+                        setOpenServiceModal(true);
+                      }}
+                    >
+                      <BuildIcon />
+                    </IconButton>
+                  </Tooltip>
                   <IconButton onClick={() => handleOpenEditModal(contract)}>
                     <EditIcon />
                   </IconButton>
