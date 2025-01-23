@@ -131,76 +131,94 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             </Tooltip>
           }
           title={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    fontWeight: 500,
+                    color: 'text.primary',
+                  }}
+                >
+                  {contract.fullName || contract.name}
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'primary.main',
+                    opacity: 0.8,
+                    fontWeight: 500
+                  }}
+                >
+                  #{contract.id}
+                </Typography>
+              </Box>
               <Typography 
-                variant="h6" 
+                variant="caption" 
+                color="text.secondary" 
                 sx={{ 
-                  fontWeight: 'bold', 
-                  color: 'text.primary',
-                  mr: 1 
+                  fontStyle: 'italic',
+                  opacity: 0.8 
                 }}
               >
-                {contract.fullName || contract.name}
-              </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  color: 'primary.main',
-                  opacity: 0.7 
-                }}
-              >
-                #{contract.id}
+                {contract.name || 'Descrição não disponível'}
               </Typography>
             </Box>
           }
-          subheader={formatStartDate(contract.startDate)}
+          subheader={
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                mt: 0.5,
+                color: 'text.secondary',
+                opacity: 0.8
+              }}
+            >
+              {formatStartDate(contract.startDate)}
+            </Typography>
+          }
         />
-        <CardContent sx={{ flexGrow: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h6" color="primary">
+        <CardContent sx={{ flexGrow: 1, pt: 0 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: 'primary.main',
+                fontWeight: 'bold'
+              }}
+            >
               {formatCurrency(contract.value)}
             </Typography>
             <Chip 
               label={contract.status === 'active' ? 'Ativo' : 'Inativo'} 
               color={getStatusColor()} 
-              size="small" 
+              size="small"
+              sx={{ height: '22px' }}
             />
           </Box>
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
-              textAlign: 'left', 
-              fontStyle: 'italic',
-              opacity: 0.8 
-            }}
-          >
-            {contract.name || 'Descrição não disponível'}
-          </Typography>
         </CardContent>
-        <CardActions disableSpacing sx={{ justifyContent: 'space-between' }}>
+        <CardActions disableSpacing sx={{ justifyContent: 'space-between', pt: 0 }}>
           <Box>
             <Tooltip title="Editar">
-              <IconButton onClick={() => onEdit(contract)} aria-label="editar">
-                <EditIcon />
+              <IconButton onClick={() => onEdit(contract)} aria-label="editar" size="small">
+                <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Gerenciar Serviços">
-              <IconButton onClick={() => onManageServices(contract)} aria-label="gerenciar serviços">
-                <ManageServicesIcon />
+              <IconButton onClick={() => onManageServices(contract)} aria-label="gerenciar serviços" size="small">
+                <ManageServicesIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
           <Box>
             <Tooltip title="Detalhes">
-              <IconButton onClick={handleOpenDetailsModal} aria-label="detalhes">
-                <InfoIcon />
+              <IconButton onClick={handleOpenDetailsModal} aria-label="detalhes" size="small">
+                <InfoIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Excluir">
-              <IconButton onClick={onDelete} color="error" aria-label="excluir">
-                <DeleteIcon />
+              <IconButton onClick={onDelete} color="error" aria-label="excluir" size="small">
+                <DeleteIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>

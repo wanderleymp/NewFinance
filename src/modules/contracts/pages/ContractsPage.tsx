@@ -50,7 +50,7 @@ const ContractsPage: React.FC = () => {
 
   const [openModal, setOpenModal] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   const [contractForm, setContractForm] = useState<Partial<Contract>>({
     name: '',
     fullName: '',
@@ -284,13 +284,15 @@ const ContractsPage: React.FC = () => {
           }}
         />
 
-        <Box sx={{ ml: 'auto' }}>
-          <IconButton onClick={toggleViewMode}>
-            {viewMode === 'list' ? <ViewModuleIcon /> : <ViewListIcon />}
-          </IconButton>
-          <Button 
-            variant="contained" 
-            color="primary" 
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
+            <IconButton onClick={toggleViewMode} size="small">
+              {viewMode === 'card' ? <ViewListIcon /> : <ViewModuleIcon />}
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="contained"
+            color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateModal}
           >
@@ -305,7 +307,21 @@ const ContractsPage: React.FC = () => {
         <Alert severity="error">{error}</Alert>
       ) : (
         <>
-          {viewMode === 'list' ? (
+          {viewMode === 'card' ? (
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              {contracts.map((contract) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={contract.id}>
+                  <ContractCard
+                    contract={contract}
+                    onEdit={() => handleOpenEditModal(contract)}
+                    onDelete={() => handleDelete(contract.id)}
+                    onManageServices={() => {/* Implementar */}}
+                    onView={() => {/* Implementar */}}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
             <TableContainer component={Paper}>
               <Table size="small">
                 <TableHead>
@@ -374,20 +390,6 @@ const ContractsPage: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-          ) : (
-            <Grid container spacing={2}>
-              {contracts.map((contract) => (
-                <Grid item key={contract.id} xs={12} sm={6} md={4} lg={3}>
-                  <ContractCard 
-                    contract={contract}
-                    onManageServices={() => console.log('Gerenciar serviços', contract)}
-                    onEdit={() => handleOpenEditModal(contract)}
-                    onDelete={() => handleDeleteContract(contract.id)}
-                    onView={() => console.log('Visualizar contrato', contract)}
-                  />
-                </Grid>
-              ))}
-            </Grid>
           )}
 
           <TablePagination
