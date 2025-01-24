@@ -120,3 +120,11 @@ export interface ContractListResponse {
   totalPages: number;
   total: number;
 }
+
+export interface ContractFilters {
+  groupName?: string | null;
+  billingStartDate?: string | null;
+  billingEndDate?: string | null;
+  lastAdjustmentStartDate?: string | null;
+  lastAdjustmentEndDate?: string | null;
+}

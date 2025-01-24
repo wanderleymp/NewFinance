@@ -49,7 +49,9 @@ const ContractsPage: React.FC = () => {
     updateContract, 
     deleteContract,
     refetch,
-    search
+    search,
+    setFilters,
+    filters
   } = useNewContracts();
 
   console.group('🔍 ContractsPage Debug');
@@ -81,6 +83,20 @@ const ContractsPage: React.FC = () => {
   useEffect(() => {
     changeSearch(debouncedSearch);
   }, [debouncedSearch, changeSearch]);
+
+  const [contractFilters, setContractFilters] = useState<ContractFilters>({
+    groupName: '',
+    billingStartDate: null,
+    billingEndDate: null,
+    lastAdjustmentStartDate: null,
+    lastAdjustmentEndDate: null
+  });
+
+  const handleFilterChange = useCallback((filterName: keyof ContractFilters, value: any) => {
+    const newFilters = { ...contractFilters, [filterName]: value };
+    setContractFilters(newFilters);
+    setFilters(newFilters);
+  }, [contractFilters, setFilters]);
 
   const handleOpenCreateModal = () => {
     setSelectedContract(null);
@@ -320,6 +336,64 @@ const ContractsPage: React.FC = () => {
     renderStatusChip
   ]);
 
+  const renderFilterSection = () => (
+    <Grid container spacing={2} sx={{ mb: 2 }}>
+      <Grid item xs={12} sm={4}>
+        <TextField
+          label="Grupo de Contratos"
+          variant="outlined"
+          fullWidth
+          value={contractFilters.groupName || ''}
+          onChange={(e) => handleFilterChange('groupName', e.target.value)}
+        />
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <TextField
+          label="Data de Faturamento (Início)"
+          type="date"
+          variant="outlined"
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          value={contractFilters.billingStartDate || ''}
+          onChange={(e) => handleFilterChange('billingStartDate', e.target.value)}
+        />
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <TextField
+          label="Data de Faturamento (Fim)"
+          type="date"
+          variant="outlined"
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          value={contractFilters.billingEndDate || ''}
+          onChange={(e) => handleFilterChange('billingEndDate', e.target.value)}
+        />
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <TextField
+          label="Data do Último Reajuste (Início)"
+          type="date"
+          variant="outlined"
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          value={contractFilters.lastAdjustmentStartDate || ''}
+          onChange={(e) => handleFilterChange('lastAdjustmentStartDate', e.target.value)}
+        />
+      </Grid>
+      <Grid item xs={12} sm={4}>
+        <TextField
+          label="Data do Último Reajuste (Fim)"
+          type="date"
+          variant="outlined"
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          value={contractFilters.lastAdjustmentEndDate || ''}
+          onChange={(e) => handleFilterChange('lastAdjustmentEndDate', e.target.value)}
+        />
+      </Grid>
+    </Grid>
+  );
+
   const [openServiceModal, setOpenServiceModal] = useState(false);
   const [selectedContractForServices, setSelectedContractForServices] = useState<Contract | null>(null);
 
@@ -407,6 +481,8 @@ const ContractsPage: React.FC = () => {
             </Box>
           </Box>
           
+          {renderFilterSection()}
+
           {renderContractContent()}
 
           <TablePagination

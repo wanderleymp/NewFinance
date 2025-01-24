@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Contract, ContractListResponse } from '../types/contract';
+import { Contract, ContractListResponse, ContractFilters } from '../types/contract';
 import { contractsApi } from '../services/api';
 
 interface UseContractsReturn {
@@ -14,23 +14,27 @@ interface UseContractsReturn {
   };
   changePage: (newPage: number) => void;
   changeSearch: (newSearch: string) => void;
+  setFilters: (filters: ContractFilters) => void;
   clearError: () => void;
   refetch: () => Promise<void>;
   createContract: (contract: Partial<Contract>) => Promise<Contract>;
   updateContract: (id: number, contract: Partial<Contract>) => Promise<Contract>;
   deleteContract: (id: number) => Promise<void>;
   search: string;
+  filters: ContractFilters;
 }
 
 export function useNewContracts(
   initialPage = 1, 
   limit = 10, 
-  initialSearch = ''
+  initialSearch = '',
+  initialFilters: ContractFilters = {}
 ): UseContractsReturn {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(initialSearch);
+  const [filters, setFilters] = useState<ContractFilters>(initialFilters);
   const [pagination, setPagination] = useState({
     page: initialPage,
     limit: limit,
@@ -45,118 +49,95 @@ export function useNewContracts(
       const result: ContractListResponse = await contractsApi.listRecurring(
         pagination.page, 
         pagination.limit, 
-        search
+        search,
+        filters
       );
       
       console.group('🔍 Dados do Fetch de Contratos');
       console.log('Resultado:', result);
       console.log('Contratos:', result.data);
-      console.log('Total de Contratos:', result.data.length);
+      console.log('Total de Contratos:', result.total);
       console.log('Página:', result.page);
       console.log('Total de Páginas:', result.totalPages);
       console.groupEnd();
-      
-      // Garantir que os contratos sejam sempre um array
-      const contractsData = Array.isArray(result.data) ? result.data : [];
-      
-      // Validar cada contrato antes de definir o estado
-      const validContracts = contractsData.filter(contract => 
-        contract && typeof contract === 'object' && contract.id !== undefined
-      );
-      
+
+      const validContracts = result.data.filter(contract => {
+        // Filtros adicionais podem ser aplicados aqui, se necessário
+        return true;
+      });
+
       console.group('🔍 Contratos Validados');
       console.log('Total de Contratos Válidos:', validContracts.length);
       console.log('Contratos Válidos:', validContracts);
       console.groupEnd();
-      
+
       setContracts(validContracts);
-      
       setPagination(prev => ({
         ...prev,
-        totalPages: result.totalPages || 1,
-        total: result.total || validContracts.length
+        totalPages: result.totalPages,
+        total: result.total
       }));
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Erro ao carregar contratos';
-      setError(errorMessage);
-      setContracts([]);
-    } finally {
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Erro ao buscar contratos:', err);
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search]);
+  }, [pagination.page, pagination.limit, search, filters]);
 
-  const createContract = useCallback(async (contract: Partial<Contract>) => {
-    try {
-      const newContract = await contractsApi.create(contract);
-      setContracts(prev => [...prev, newContract]);
-      return newContract;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Erro ao criar contrato';
-      setError(errorMessage);
-      throw err;
-    }
-  }, []);
-
-  const updateContract = useCallback(async (id: number, contract: Partial<Contract>) => {
-    try {
-      const updatedContract = await contractsApi.update(id, contract);
-      setContracts(prev => 
-        prev.map(c => c.id === id ? { ...c, ...updatedContract } : c)
-      );
-      return updatedContract;
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Erro ao atualizar contrato';
-      setError(errorMessage);
-      throw err;
-    }
-  }, []);
-
-  const deleteContract = useCallback(async (id: number) => {
-    try {
-      await contractsApi.delete(id);
-      setContracts(prev => prev.filter(c => c.id !== id));
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Erro ao excluir contrato';
-      setError(errorMessage);
-      throw err;
-    }
-  }, []);
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
 
   const changePage = useCallback((newPage: number) => {
-    setPagination(prev => ({
-      ...prev,
-      page: newPage
-    }));
+    setPagination(prev => ({ ...prev, page: newPage }));
   }, []);
 
   const changeSearch = useCallback((newSearch: string) => {
-    setPagination(prev => ({
-      ...prev,
-      page: 1
-    }));
     setSearch(newSearch);
+    setPagination(prev => ({ ...prev, page: 1 }));
   }, []);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  useEffect(() => {
-    fetchContracts();
-  }, [fetchContracts]);
-
-  useEffect(() => {
-    console.group('🔍 Estado dos Contratos no Hook');
-    console.log('Contratos atuais:', contracts);
-    console.log('Loading:', loading);
-    console.log('Página atual:', pagination.page);
-    console.log('Total de contratos:', pagination.total);
-    console.groupEnd();
-  }, [contracts, loading, pagination]);
-
   const refetch = useCallback(async () => {
     await fetchContracts();
   }, [fetchContracts]);
+
+  const createContract = useCallback(async (contract: Partial<Contract>) => {
+    try {
+      const newContract = await contractsApi.create(contract);
+      await refetch();
+      return newContract;
+    } catch (err) {
+      console.error('Erro ao criar contrato:', err);
+      throw err;
+    }
+  }, [refetch]);
+
+  const updateContract = useCallback(async (id: number, contract: Partial<Contract>) => {
+    try {
+      const updatedContract = await contractsApi.update(id.toString(), contract);
+      await refetch();
+      return updatedContract;
+    } catch (err) {
+      console.error('Erro ao atualizar contrato:', err);
+      throw err;
+    }
+  }, [refetch]);
+
+  const deleteContract = useCallback(async (id: number) => {
+    try {
+      await contractsApi.delete(id.toString());
+      await refetch();
+    } catch (err) {
+      console.error('Erro ao deletar contrato:', err);
+      throw err;
+    }
+  }, [refetch]);
 
   return {
     contracts,
@@ -165,11 +146,13 @@ export function useNewContracts(
     pagination,
     changePage,
     changeSearch,
+    setFilters,
     clearError,
+    refetch,
     createContract,
     updateContract,
     deleteContract,
-    refetch,
-    search
+    search,
+    filters
   };
 }

@@ -145,15 +145,15 @@ export const authService = {
 export const movementsService = {
   async list(params = {}) {
     try {
-      console.log('[GET] /movements: Params completos:', {
+      console.log('🚀 [GET] /movements: Iniciando requisição com params:', {
         ...params,
-        include: 'payments.installments.boletos'
+        include: 'payments.installments.boletos,invoices'
       });
       
       const response = await api.get('/movements', { 
         params: {
           ...params,
-          include: 'payments.installments.boletos',
+          include: 'payments.installments.boletos,invoices',
           ...(params.orderBySecondary && {
             orderBySecondary: params.orderBySecondary,
             orderDirectionSecondary: params.orderDirectionSecondary || 'desc'
@@ -166,27 +166,54 @@ export const movementsService = {
         ? JSON.parse(response.data) 
         : response.data;
       
-      console.log('🔍 Estrutura COMPLETA da resposta:', {
-        responseType: typeof response,
-        responseKeys: Object.keys(response),
-        parsedData,
-        status: response.status,
-        headers: response.headers
+      console.log('🔍 Resposta da API:', {
+        data: parsedData,
+        dataType: typeof parsedData,
+        hasItems: !!parsedData?.items,
+        itemsCount: parsedData?.items?.length,
+        hasInvoices: !!parsedData?.invoices,
+        invoicesCount: parsedData?.invoices?.length,
+      });
+
+      // Adicionar invoices a cada item
+      const itemsWithInvoices = (parsedData?.items || parsedData?.data || []).map(item => {
+        const itemInvoices = parsedData?.invoices?.filter(inv => 
+          inv.reference_id === String(item.movement_id)
+        ) || [];
+        
+        console.log(`📄 Invoices para movimento ${item.movement_id}:`, {
+          movementId: item.movement_id,
+          invoicesFound: itemInvoices.length,
+          invoices: itemInvoices
+        });
+        
+        return {
+          ...item,
+          invoices: itemInvoices
+        };
       });
       
-      return {
-        items: parsedData?.items || parsedData?.data || [], 
+      const result = {
+        items: itemsWithInvoices,
         total: parsedData?.total || parsedData?.pagination?.total || parsedData?.length || 0,
         page: parsedData?.current_page || parsedData?.pagination?.currentPage || 1,
         limit: parsedData?.per_page || parsedData?.pagination?.limit || 10,
-        totalPages: parsedData?.last_page || parsedData?.pagination?.totalPages || 1
+        totalPages: parsedData?.last_page || parsedData?.pagination?.totalPages || 1,
+        invoices: parsedData?.invoices || []
       };
+
+      console.log('✅ Resultado final:', {
+        totalItems: result.items.length,
+        itemsWithInvoices: result.items.filter(item => item.invoices?.length > 0).length,
+        totalInvoices: result.invoices.length
+      });
+
+      return result;
     } catch (error) {
-      console.error('[GET] /movements: Erro detalhado', {
+      console.error('❌ [GET] /movements: Erro na requisição:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
+        status: error.response?.status
       });
       throw error;
     }

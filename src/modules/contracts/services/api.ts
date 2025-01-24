@@ -1,5 +1,5 @@
 import api from '../../../services/api';
-import { Contract, ExtraService, Adjustment, HistoryEntry, ContractModification, ContractSummary } from '../types/contract';
+import { Contract, ExtraService, Adjustment, HistoryEntry, ContractModification, ContractSummary, ContractFilters } from '../types/contract';
 
 export const contractsApi = {
   list: async ({ page = 1, limit = 10 }: { page?: number, limit?: number } = {}) => {
@@ -76,19 +76,48 @@ export const contractsApi = {
     return response.data;
   },
 
-  listRecurring: async (page = 1, limit = 10, search = ''): Promise<ContractListResponse> => {
+  listRecurring: async (
+    page = 1, 
+    limit = 10, 
+    search = '', 
+    filters: ContractFilters = {}
+  ): Promise<ContractListResponse> => {
     console.log('🔍 Iniciando listagem de contratos recorrentes', { 
       page, 
       limit,
-      search 
+      search,
+      filters 
     });
     
+    const params: Record<string, any> = { 
+      page, 
+      limit, 
+      search 
+    };
+
+    // Adicionar filtros de grupo
+    if (filters.group) {
+      params.group_name = filters.group;
+    }
+
+    // Adicionar filtros de data de faturamento
+    if (filters.billingStartDate) {
+      params.billing_start_date = filters.billingStartDate.toISOString();
+    }
+    if (filters.billingEndDate) {
+      params.billing_end_date = filters.billingEndDate.toISOString();
+    }
+
+    // Adicionar filtros de último reajuste
+    if (filters.lastAdjustmentStartDate) {
+      params.last_adjustment_start_date = filters.lastAdjustmentStartDate.toISOString();
+    }
+    if (filters.lastAdjustmentEndDate) {
+      params.last_adjustment_end_date = filters.lastAdjustmentEndDate.toISOString();
+    }
+
     const response = await api.get(`/contracts-recurring`, {
-      params: { 
-        page, 
-        limit, 
-        search 
-      }
+      params
     });
 
     console.group('🕵️ Dados Brutos da API');
