@@ -9,9 +9,12 @@ import {
   TableHead, 
   TableRow, 
   Paper, 
-  Button, 
-  Pagination 
+  Button,
+  Pagination,
+  CircularProgress
 } from '@mui/material';
+import { useSnackbar } from 'notistack';
+
 import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
 
@@ -27,6 +30,7 @@ interface ContractBilling {
 export default function ContractBillingPage() {
   const [billings, setBillings] = useState<ContractBilling[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingIds, setProcessingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -34,6 +38,7 @@ export default function ContractBillingPage() {
     totalItems: 0,
     totalPages: 0
   });
+  const { enqueueSnackbar } = useSnackbar();
 
   const fetchPendingBillings = async (page = 1) => {
     try {
@@ -53,6 +58,7 @@ export default function ContractBillingPage() {
       console.error('❌ Erro ao buscar faturas pendentes:', error);
       setError(error instanceof Error ? error.message : 'Erro desconhecido');
       setBillings([]);
+      enqueueSnackbar('Erro ao carregar faturas', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -63,12 +69,25 @@ export default function ContractBillingPage() {
   }, []);
 
   const handleProcessBilling = async (billingId: string) => {
+    // Adicionar ID ao estado de processamento
+    setProcessingIds(prev => [...prev, billingId]);
+
     try {
       await contractService.processBilling(billingId);
-      setBillings(billings.filter(billing => billing.id !== billingId));
+      
+      // Notificação de sucesso
+      enqueueSnackbar('Fatura processada com sucesso', { variant: 'success' });
+      
+      // Recarregar a página atual após processar
+      await fetchPendingBillings(pagination.page);
     } catch (error) {
       console.error('❌ Erro ao processar fatura:', error);
-      // Adicionar notificação de erro para o usuário
+      
+      // Notificação de erro
+      enqueueSnackbar('Erro ao processar fatura', { variant: 'error' });
+    } finally {
+      // Remover ID do estado de processamento
+      setProcessingIds(prev => prev.filter(id => id !== billingId));
     }
   };
 
@@ -147,9 +166,16 @@ export default function ContractBillingPage() {
                     variant="contained" 
                     color="primary" 
                     onClick={() => handleProcessBilling(billing.id.toString())}
-                    disabled={billing.status !== 'pending'}
+                    disabled={processingIds.includes(billing.id.toString())}
+                    startIcon={
+                      processingIds.includes(billing.id.toString()) 
+                        ? <CircularProgress size={20} /> 
+                        : null
+                    }
                   >
-                    Processar
+                    {processingIds.includes(billing.id.toString()) 
+                      ? 'Processando...' 
+                      : 'Processar'}
                   </Button>
                 </TableCell>
               </TableRow>

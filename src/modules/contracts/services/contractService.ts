@@ -226,7 +226,18 @@ export const contractService = {
     }
   },
 
-  async processBilling(billingId: string): Promise<void> {
+  async processBilling(contractId: string | number): Promise<void> {
+    try {
+      const response = await api.post(`/contracts-recurring/${contractId}/billing`);
+      console.log('✅ Fatura processada com sucesso:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao processar fatura:', error);
+      throw error;
+    }
+  },
+
+  async processBillingOld(billingId: string): Promise<void> {
     try {
       await api.post(`/contracts-recurring/billings/${billingId}/process`);
     } catch (error) {
