@@ -61,29 +61,42 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   };
 
   const getStatusColor = () => {
-    switch(contract?.status) {
+    if (!contract?.status) return 'error';
+    switch(contract.status) {
       case 'active': return 'success';
       case 'inactive': return 'warning';
       default: return 'error';
     }
   };
 
-  const formatStartDate = (startDate?: Date | string | null) => {
-    if (!startDate) return 'Data não definida';
-    
+  const formatRecurrencePeriod = (period?: 'monthly' | 'yearly') => {
+    if (!period) return 'Não definido';
+    switch(period.toLowerCase()) {
+      case 'monthly': return 'Mensal';
+      case 'yearly': return 'Anual';
+      default: return 'Não definido';
+    }
+  };
+
+  const formatDate = (date?: Date | string | null) => {
+    if (!date) return 'Não definido';
     try {
-      const parsedDate = typeof startDate === 'string' 
-        ? parseISO(startDate) 
-        : startDate;
-      
-      // Verificar se a data é válida
-      if (isNaN(parsedDate.getTime())) {
-        return 'Data inválida';
-      }
-      
+      const parsedDate = typeof date === 'string' 
+        ? parseISO(date) 
+        : date;
+      if (!parsedDate || isNaN(parsedDate.getTime())) return 'Data inválida';
       return format(parsedDate, 'dd/MM/yyyy');
     } catch {
       return 'Data inválida';
+    }
+  };
+
+  const getStatusLabel = (status?: string) => {
+    if (!status) return 'Indefinido';
+    switch(status.toLowerCase()) {
+      case 'active': return 'Ativo';
+      case 'inactive': return 'Inativo';
+      default: return 'Indefinido';
     }
   };
 
@@ -97,6 +110,16 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   };
 
   if (!contract) return null;
+
+  const displayName = contract.fullName || contract.name || 'Sem nome';
+  const displayInitial = displayName[0]?.toUpperCase() || 'C';
+  const contractId = contract.id || 0;
+  const contractValue = typeof contract.value === 'number' ? contract.value : 0;
+  const originalValue = typeof contract.total_amount === 'string' 
+    ? parseFloat(contract.total_amount) 
+    : contractValue;
+  const hasValueChange = contractValue !== originalValue;
+  const statusLabel = getStatusLabel(contract.status);
 
   return (
     <>
@@ -120,7 +143,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                 bgcolor: getStatusColor() === 'success' ? 'success.light' : 'warning.light' 
               }}
             >
-              {(contract.fullName || contract.name)[0].toUpperCase()}
+              {displayInitial}
             </Avatar>
           }
           action={
@@ -140,7 +163,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                     color: 'text.primary',
                   }}
                 >
-                  {contract.fullName || contract.name}
+                  {displayName}
                 </Typography>
                 <Typography 
                   variant="caption" 
@@ -150,7 +173,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                     fontWeight: 500
                   }}
                 >
-                  #{contract.id}
+                  #{contractId}
                 </Typography>
               </Box>
               <Typography 
@@ -161,40 +184,68 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                   opacity: 0.8 
                 }}
               >
-                {contract.name || 'Descrição não disponível'}
+                {contract.groupName || 'Grupo não definido'}
               </Typography>
             </Box>
           }
           subheader={
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                mt: 0.5,
-                color: 'text.secondary',
-                opacity: 0.8
-              }}
-            >
-              {formatStartDate(contract.startDate)}
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 1 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Início: {formatDate(contract.startDate)}
+                {contract.endDate && ` • Fim: ${formatDate(contract.endDate)}`}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Recorrência: {formatRecurrencePeriod(contract.recurrencePeriod)} • 
+                Vencimento: {contract.dueDay ? `Dia ${contract.dueDay}` : 'Não definido'}
+              </Typography>
+            </Box>
           }
         />
         <CardContent sx={{ flexGrow: 1, pt: 0 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                color: 'primary.main',
-                fontWeight: 'bold'
-              }}
-            >
-              {formatCurrency(contract.value)}
-            </Typography>
-            <Chip 
-              label={contract.status === 'active' ? 'Ativo' : 'Inativo'} 
-              color={getStatusColor()} 
-              size="small"
-              sx={{ height: '22px' }}
-            />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    color: 'primary.main',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {formatCurrency(contractValue)}
+                </Typography>
+                {hasValueChange && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: 'text.secondary',
+                      textDecoration: 'line-through',
+                      ml: 1
+                    }}
+                  >
+                    {formatCurrency(originalValue)}
+                  </Typography>
+                )}
+              </Box>
+              <Chip 
+                label={statusLabel}
+                color={getStatusColor()} 
+                size="small"
+                sx={{ height: '22px' }}
+              />
+            </Box>
+            
+            {contract.nextBillingDate && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Próximo Faturamento: {formatDate(contract.nextBillingDate)}
+              </Typography>
+            )}
+            
+            {contract.billingReference && (
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Referência: {contract.billingReference}
+              </Typography>
+            )}
           </Box>
         </CardContent>
         <CardActions disableSpacing sx={{ justifyContent: 'space-between', pt: 0 }}>
@@ -205,7 +256,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="Gerenciar Serviços">
-              <IconButton onClick={() => onManageServices(contract.id)} aria-label="gerenciar serviços" size="small">
+              <IconButton onClick={() => onManageServices(contractId)} aria-label="gerenciar serviços" size="small">
                 <ManageServicesIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -231,7 +282,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           <MenuItem 
             onClick={() => {
               handleMenuClose();
-              onManageServices(contract.id);
+              onManageServices(contractId);
             }}
           >
             <ListItemIcon>

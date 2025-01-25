@@ -1,158 +1,171 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Contract, ContractListResponse, ContractFilters } from '../types/contract';
-import { contractsApi } from '../services/api';
+import { useQuery } from '@tanstack/react-query';
+import { contractService } from '../services/ContractService';
+import { Contract } from '../types/Contract';
 
-interface UseContractsReturn {
-  contracts: Contract[];
-  loading: boolean;
-  error: string | null;
-  pagination: {
-    page: number;
-    limit: number;
-    totalPages: number;
-    total: number;
-  };
-  changePage: (newPage: number) => void;
-  changeSearch: (newSearch: string) => void;
-  setFilters: (filters: ContractFilters) => void;
-  clearError: () => void;
-  refetch: () => Promise<void>;
-  createContract: (contract: Partial<Contract>) => Promise<Contract>;
-  updateContract: (id: number, contract: Partial<Contract>) => Promise<Contract>;
-  deleteContract: (id: number) => Promise<void>;
-  search: string;
-  filters: ContractFilters;
+interface PaginationState {
+  page: number;
+  limit: number;
+  totalPages: number;
+  total: number;
 }
 
-export function useNewContracts(
-  initialPage = 1, 
-  limit = 10, 
-  initialSearch = '',
-  initialFilters: ContractFilters = {}
-): UseContractsReturn {
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(initialSearch);
-  const [filters, setFilters] = useState<ContractFilters>(initialFilters);
-  const [pagination, setPagination] = useState({
-    page: initialPage,
-    limit: limit,
-    totalPages: 1,
+export const useNewContracts = () => {
+  // Estado inicial com valores padrão
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    limit: 10, // Valor padrão definido
+    totalPages: 0,
     total: 0
   });
 
-  const fetchContracts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result: ContractListResponse = await contractsApi.listRecurring(
-        pagination.page, 
-        pagination.limit, 
-        search,
-        filters
-      );
-      
-      console.group('🔍 Dados do Fetch de Contratos');
-      console.log('Resultado:', result);
-      console.log('Contratos:', result.data);
-      console.log('Total de Contratos:', result.total);
-      console.log('Página:', result.page);
-      console.log('Total de Páginas:', result.totalPages);
-      console.groupEnd();
+  const [search, setSearch] = useState('');
+  const [contracts, setContracts] = useState<Contract[]>([]);
 
-      const validContracts = result.data.filter(contract => {
-        // Filtros adicionais podem ser aplicados aqui, se necessário
-        return true;
+  const { 
+    data, 
+    isLoading, 
+    error,
+    refetch 
+  } = useQuery({
+    queryKey: ['contracts', pagination.page, pagination.limit, search],
+    queryFn: async () => {
+      try {
+        console.log('🔍 useNewContracts - Iniciando busca:', { 
+          page: pagination.page, 
+          limit: pagination.limit,
+          search,
+          queryKey: ['contracts', pagination.page, pagination.limit, search]
+        });
+
+        const response = await contractService.getContracts(
+          pagination.page, 
+          pagination.limit,
+          search // Passando o termo de busca para o serviço
+        );
+        
+        console.log('🔍 useNewContracts - Resposta do serviço:', response);
+
+        // Atualiza o estado imediatamente após receber os dados
+        if (response) {
+          setContracts(response.contracts || []);
+          setPagination(prev => ({
+            ...prev,
+            totalPages: response.totalPages || 0,
+            total: response.total || 0
+          }));
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('❌ useNewContracts - Erro na busca:', error);
+        throw error;
+      }
+    },
+    keepPreviousData: true,
+    onSuccess: (responseData) => {
+      if (!responseData) {
+        console.warn('⚠️ useNewContracts - Dados da resposta indefinidos');
+        setContracts([]);
+        setPagination(prev => ({
+          ...prev,
+          totalPages: 0,
+          total: 0
+        }));
+        return;
+      }
+
+      console.log('🔍 useNewContracts - Dados recebidos:', responseData);
+      
+      // Garantir que contractsList seja sempre um array
+      const contractsList = Array.isArray(responseData.contracts) ? responseData.contracts : [];
+      const { total = 0, totalPages = 0 } = responseData;
+
+      console.log('🔍 useNewContracts - Estado atualizado:', {
+        contractsLength: contractsList.length,
+        totalPages,
+        total
       });
 
-      console.group('🔍 Contratos Validados');
-      console.log('Total de Contratos Válidos:', validContracts.length);
-      console.log('Contratos Válidos:', validContracts);
-      console.groupEnd();
-
-      setContracts(validContracts);
+      setContracts(contractsList);
       setPagination(prev => ({
         ...prev,
-        totalPages: result.totalPages,
-        total: result.total
+        totalPages,
+        total
       }));
+    },
+    onError: (err: any) => {
+      console.error('❌ useNewContracts - Erro detalhado:', {
+        message: err.message,
+        code: err.code,
+        response: err.response?.data,
+        status: err.response?.status
+      });
       
-      setLoading(false);
-    } catch (err) {
-      console.error('Erro ao buscar contratos:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      setLoading(false);
+      setContracts([]);
+      setPagination(prev => ({
+        ...prev,
+        totalPages: 0,
+        total: 0
+      }));
     }
-  }, [pagination.page, pagination.limit, search, filters]);
+  });
 
+  // Efeito para sincronizar os dados quando mudar
   useEffect(() => {
-    fetchContracts();
-  }, [fetchContracts]);
+    if (data) {
+      console.log('🔍 useNewContracts - Sincronizando dados:', data);
+      setContracts(data.contracts || []);
+      setPagination(prev => ({
+        ...prev,
+        totalPages: data.totalPages || 0,
+        total: data.total || 0
+      }));
+    }
+  }, [data]);
+
+  // Função para alterar o termo de busca
+  const changeSearch = useCallback((newSearch: string) => {
+    console.log('🔍 useNewContracts - Alterando termo de busca:', {
+      atual: search,
+      novo: newSearch
+    });
+    
+    setSearch(newSearch);
+    // Resetar a página ao fazer uma nova busca
+    setPagination(prev => ({
+      ...prev,
+      page: 1
+    }));
+  }, [search]);
 
   const changePage = useCallback((newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   }, []);
 
-  const changeSearch = useCallback((newSearch: string) => {
-    setSearch(newSearch);
-    setPagination(prev => ({ ...prev, page: 1 }));
+  const changeLimit = useCallback((newLimit: number) => {
+    setPagination(prev => ({ 
+      ...prev, 
+      limit: newLimit,
+      page: 1 // Resetar para primeira página ao mudar limite
+    }));
   }, []);
-
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  const refetch = useCallback(async () => {
-    await fetchContracts();
-  }, [fetchContracts]);
-
-  const createContract = useCallback(async (contract: Partial<Contract>) => {
-    try {
-      const newContract = await contractsApi.create(contract);
-      await refetch();
-      return newContract;
-    } catch (err) {
-      console.error('Erro ao criar contrato:', err);
-      throw err;
-    }
-  }, [refetch]);
-
-  const updateContract = useCallback(async (id: number, contract: Partial<Contract>) => {
-    try {
-      const updatedContract = await contractsApi.update(id.toString(), contract);
-      await refetch();
-      return updatedContract;
-    } catch (err) {
-      console.error('Erro ao atualizar contrato:', err);
-      throw err;
-    }
-  }, [refetch]);
-
-  const deleteContract = useCallback(async (id: number) => {
-    try {
-      await contractsApi.delete(id.toString());
-      await refetch();
-    } catch (err) {
-      console.error('Erro ao deletar contrato:', err);
-      throw err;
-    }
-  }, [refetch]);
 
   return {
     contracts,
-    loading,
-    error,
+    loading: isLoading,
+    error: error as Error | null,
     pagination,
-    changePage,
-    changeSearch,
-    setFilters,
-    clearError,
-    refetch,
-    createContract,
-    updateContract,
-    deleteContract,
     search,
-    filters
+    changeSearch,
+    changePage,
+    changeLimit,
+    refetch,
+    clearError: () => {}, // Função vazia por enquanto
+    createContract: async () => {}, // Função vazia por enquanto
+    updateContract: async () => {}, // Função vazia por enquanto
+    deleteContract: async () => {}, // Função vazia por enquanto
+    setFilters: () => {}, // Função vazia por enquanto
+    filters: {} // Objeto vazio por enquanto
   };
-}
+};

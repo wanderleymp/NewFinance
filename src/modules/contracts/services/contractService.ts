@@ -12,7 +12,11 @@ export const contractService = {
     this.dataSource = source;
   },
 
-  async getContracts(page = 1, limit = 10): Promise<{
+  async getContracts(
+    page = 1, 
+    limit = 10, 
+    search?: string
+  ): Promise<{
     contracts: Contract[];
     total: number;
     totalPages: number;
@@ -20,16 +24,58 @@ export const contractService = {
   }> {
     try {
       if (this.dataSource === 'api') {
-        const response = await api.get('/contracts_recurring', { 
-          params: { page, limit } 
+        console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
+        
+        // Constrói os parâmetros da query
+        const queryParams = {
+          page,
+          limit,
+          ...(search?.trim() ? { search: search.trim() } : {}) // Só inclui search se tiver valor
+        };
+
+        console.log('🔍 ContractService - Parâmetros da requisição:', queryParams);
+
+        const response = await api.get('/contracts-recurring', { 
+          params: queryParams
         });
 
-        return {
-          contracts: response.data.data,
-          total: response.data.meta.totalItems,
-          totalPages: response.data.meta.totalPages,
-          currentPage: response.data.meta.currentPage
+        console.log('🔍 ContractService - Resposta bruta:', response.data);
+        
+        // Mapeia cada item da resposta para o formato Contract
+        const mappedContracts = (response.data.items || []).map((item: any) => ({
+          id: item.contract_id,
+          name: item.contract_name,
+          value: parseFloat(item.contract_value || '0'),
+          total_amount: item.contract_value, // Valor original
+          startDate: item.start_date ? new Date(item.start_date) : null,
+          endDate: item.end_date ? new Date(item.end_date) : null,
+          status: item.status?.toLowerCase() || 'inactive',
+          groupName: item.group_name || '',
+          fullName: item.full_name || item.contract_name || '',
+          recurrencePeriod: item.recurrence_period?.toLowerCase() === 'monthly' ? 'monthly' : 'yearly',
+          dueDay: parseInt(item.due_day || '0', 10),
+          daysBefore: parseInt(item.days_before_due || '0', 10),
+          lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
+          nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
+          billingReference: item.billing_reference || '',
+          contractGroupId: item.contract_group_id || 0,
+          modelMovementId: item.model_movement_id || 0,
+          representativePersonId: item.representative_person_id || null,
+          commissionedValue: item.commissioned_value ? parseFloat(item.commissioned_value) : null,
+          accountEntryId: item.account_entry_id || null,
+          lastDecimoBillingYear: item.last_decimo_billing_year || null
+        }));
+
+        const mappedResponse = {
+          contracts: mappedContracts,
+          total: response.data.meta?.totalItems || 0,
+          totalPages: response.data.meta?.totalPages || 0,
+          currentPage: response.data.meta?.currentPage || page
         };
+
+        console.log('🔍 ContractService - Resposta mapeada:', mappedResponse);
+        
+        return mappedResponse;
       } else {
         // Dados mock
         const startIndex = (page - 1) * limit;
@@ -55,7 +101,7 @@ export const contractService = {
   async createContract(contractData: Partial<Contract>): Promise<Contract> {
     try {
       if (this.dataSource === 'api') {
-        const response = await api.post('/contracts_recurring', contractData);
+        const response = await api.post('/contracts-recurring', contractData);
         return response.data;
       } else {
         // Simular criação de contrato com dados mock
@@ -80,7 +126,7 @@ export const contractService = {
   async updateContract(id: number, contractData: Partial<Contract>): Promise<Contract> {
     try {
       if (this.dataSource === 'api') {
-        const response = await api.put(`/contracts_recurring/${id}`, contractData);
+        const response = await api.put(`/contracts-recurring/${id}`, contractData);
         return response.data;
       } else {
         // Atualizar contrato nos dados mock
@@ -108,7 +154,7 @@ export const contractService = {
   async deleteContract(id: number): Promise<void> {
     try {
       if (this.dataSource === 'api') {
-        await api.delete(`/contracts_recurring/${id}`);
+        await api.delete(`/contracts-recurring/${id}`);
       } else {
         // Remover contrato dos dados mock
         const contractIndex = mockContractsData.data.findIndex(

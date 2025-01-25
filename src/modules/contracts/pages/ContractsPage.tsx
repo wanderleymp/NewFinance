@@ -28,6 +28,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BuildIcon from '@mui/icons-material/Build';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied';
 import { format } from 'date-fns';
 
 import { useNewContracts } from '../hooks/useNewContracts';
@@ -43,6 +45,7 @@ const ContractsPage: React.FC = () => {
     error, 
     pagination,
     changePage,
+    changeLimit,
     changeSearch,
     clearError,
     createContract, 
@@ -61,6 +64,10 @@ const ContractsPage: React.FC = () => {
   console.log('Pagination:', pagination);
   console.groupEnd();
 
+  console.log('🔍 Search Debug:', {
+    searchTerm: search
+  });
+
   const [openModal, setOpenModal] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
@@ -72,17 +79,30 @@ const ContractsPage: React.FC = () => {
     groupName: ''
   });
 
-  const [searchTerm, setSearchTerm] = useState(search);
+  const [searchTerm, setSearchTerm] = useState<string>(search || '');
   const [debouncedSearch] = useDebounce(searchTerm, 500);
 
-  console.log('🔍 Search Debug:', {
-    searchTerm,
-    debouncedSearch
-  });
-
   useEffect(() => {
-    changeSearch(debouncedSearch);
-  }, [debouncedSearch, changeSearch]);
+    console.log('🔍 ContractsPage - Termo de busca alterado:', {
+      searchTerm: debouncedSearch,
+      previousSearch: search,
+      isEqual: debouncedSearch === search
+    });
+
+    if (debouncedSearch !== search && debouncedSearch !== undefined) {
+      console.log('🔍 ContractsPage - Atualizando busca para:', debouncedSearch);
+      changeSearch(debouncedSearch);
+    }
+  }, [debouncedSearch, changeSearch, search]);
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newTerm = event.target.value;
+    console.log('🔍 ContractsPage - Input de busca alterado:', {
+      valor: newTerm,
+      tamanho: newTerm.length
+    });
+    setSearchTerm(newTerm);
+  };
 
   const [contractFilters, setContractFilters] = useState<ContractFilters>({
     groupName: '',
@@ -123,14 +143,9 @@ const ContractsPage: React.FC = () => {
   const handleDeleteContract = useCallback(async (contractId: number) => {
     try {
       await deleteContract(contractId);
-      // Atualizar lista de contratos após deleção
       await refetch();
-      // Opcional: mostrar mensagem de sucesso
-      // enqueueSnackbar('Contrato excluído com sucesso', { variant: 'success' });
     } catch (error) {
       console.error('Erro ao excluir contrato:', error);
-      // Opcional: mostrar mensagem de erro
-      // enqueueSnackbar('Erro ao excluir contrato', { variant: 'error' });
     }
   }, [deleteContract, refetch]);
 
@@ -157,7 +172,6 @@ const ContractsPage: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Erro ao salvar contrato:', error);
-      // Adicionar tratamento de erro para o usuário
     }
   };
 
@@ -196,15 +210,12 @@ const ContractsPage: React.FC = () => {
     let numericValue: number;
     
     if (typeof value === 'string') {
-      // Remove todos os caracteres não numéricos, exceto ponto e vírgula
       const cleanValue = value.replace(/[^\d.,]/g, '');
-      // Substitui vírgula por ponto para conversão
       numericValue = parseFloat(cleanValue.replace(',', '.'));
     } else {
       numericValue = value;
     }
     
-    // Verifica se é um número válido
     if (isNaN(numericValue)) return 'R$ 0,00';
     
     return new Intl.NumberFormat('pt-BR', {
@@ -217,10 +228,6 @@ const ContractsPage: React.FC = () => {
 
   const toggleViewMode = () => {
     setViewMode(prevMode => prevMode === 'list' ? 'card' : 'list');
-  };
-
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
   };
 
   useEffect(() => {
@@ -237,17 +244,15 @@ const ContractsPage: React.FC = () => {
     });
     console.groupEnd();
 
-    // Adicionar verificação de renderização
     if (contracts.length > 0) {
       console.log('🚨 Primeiro contrato a ser renderizado:', contracts[0]);
     }
   }, [contracts]);
 
   const renderContractContent = useCallback(() => {
-    console.group('🔍 Renderização de Contratos');
+    console.log('🔍 Renderização de Contratos');
     console.log('Modo de visualização:', viewMode);
     console.log('Total de contratos:', contracts.length);
-    console.groupEnd();
 
     if (contracts.length === 0) {
       return (
@@ -402,40 +407,69 @@ const ContractsPage: React.FC = () => {
     setOpenServiceModal(true);
   };
 
+  if (error) {
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        height="100%"
+        p={4}
+      >
+        <ErrorOutlineIcon color="error" sx={{ fontSize: 80, mb: 2 }} />
+        <Typography variant="h6" color="error" align="center">
+          Erro ao carregar contratos
+        </Typography>
+        <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 1 }}>
+          {error.message || 'Não foi possível recuperar os contratos. Tente novamente mais tarde.'}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => refetch()}
+          sx={{ mt: 2 }}
+        >
+          Tentar Novamente
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!loading && contracts.length === 0) {
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        height="100%"
+        p={4}
+      >
+        <SentimentDissatisfiedIcon sx={{ fontSize: 80, color: 'grey.500', mb: 2 }} />
+        <Typography variant="h6" color="textSecondary" align="center">
+          Nenhum contrato encontrado
+        </Typography>
+        <Typography variant="body2" color="textSecondary" align="center" sx={{ mt: 1 }}>
+          {search ? `Não há contratos para o termo "${search}"` : 'Não existem contratos cadastrados'}
+        </Typography>
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={handleOpenCreateModal}
+          sx={{ mt: 2 }}
+        >
+          Criar Novo Contrato
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ width: '100%', p: 2 }}>
       {loading && contracts.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
           <CircularProgress />
-        </Box>
-      ) : error ? (
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '100vh',
-            textAlign: 'center',
-            padding: 2
-          }}
-        >
-          <Typography variant="h4" color="error" gutterBottom>
-            Erro ao carregar contratos
-          </Typography>
-          <Typography variant="body1" color="textSecondary" paragraph>
-            {error || 'Ocorreu um problema inesperado'}
-          </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={() => {
-              clearError();
-              refetch();
-            }}
-          >
-            Tentar Novamente
-          </Button>
         </Box>
       ) : (
         <>
@@ -447,22 +481,28 @@ const ContractsPage: React.FC = () => {
           }}>
             <Typography variant="h4">Contratos</Typography>
             
-            <TextField
-              label="Buscar contratos"
-              variant="outlined"
-              size="small"
-              fullWidth
-              sx={{ maxWidth: 400, ml: 2 }}
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <TextField
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Buscar contratos..."
+                variant="outlined"
+                size="small"
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: loading ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={20} />
+                    </InputAdornment>
+                  ) : null
+                }}
+              />
+            </Box>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
@@ -493,7 +533,8 @@ const ContractsPage: React.FC = () => {
             page={pagination.page - 1}
             onPageChange={(_, newPage) => changePage(newPage + 1)}
             onRowsPerPageChange={(event) => {
-              // Implementar lógica de mudança de limite
+              const newLimit = parseInt(event.target.value, 10);
+              changeLimit(newLimit);
             }}
           />
 
