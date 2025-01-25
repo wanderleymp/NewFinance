@@ -30,7 +30,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import BuildIcon from '@mui/icons-material/Build';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied';
-import ReceiptIcon from '@mui/icons-material/Receipt';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { format } from 'date-fns';
 
 import { useNewContracts } from '../hooks/useNewContracts';
@@ -39,6 +39,8 @@ import { useDebounce } from '../hooks/useDebounce';
 import { ContractCard } from '../components/ContractCard';
 import { ServiceModal } from '../components/ServiceModal'; // Importar o ServiceModal
 import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
+import { contractService } from '../services/ContractService';
 
 const ContractsPage: React.FC = () => {
   const { 
@@ -59,6 +61,7 @@ const ContractsPage: React.FC = () => {
     filters
   } = useNewContracts();
 
+  const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
   const handleOpenBillingPage = () => {
@@ -333,6 +336,9 @@ const ContractsPage: React.FC = () => {
                   <IconButton onClick={() => handleDeleteContract(contract.id)}>
                     <DeleteIcon />
                   </IconButton>
+                  <IconButton onClick={() => handleProcessBilling(contract.id)}>
+                    <AttachMoneyIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -415,6 +421,29 @@ const ContractsPage: React.FC = () => {
     setOpenServiceModal(true);
   };
 
+  const handleProcessBilling = async (contractId: number) => {
+    try {
+      // Chama o método de processamento de fatura
+      await contractService.processBilling(contractId);
+      
+      // Notifica sucesso
+      enqueueSnackbar('Fatura processada com sucesso', { variant: 'success' });
+      
+      // Recarrega os contratos
+      await refetch();
+    } catch (error: any) {
+      // Trata erros de processamento
+      const errorMessage = error.response?.data?.message || 'Erro ao processar fatura';
+      
+      enqueueSnackbar(errorMessage, { 
+        variant: 'error',
+        persist: true  // Mantém a notificação até ser fechada
+      });
+      
+      console.error('Erro ao processar fatura:', error);
+    }
+  };
+
   if (error) {
     return (
       <Box 
@@ -484,7 +513,7 @@ const ContractsPage: React.FC = () => {
             <Button 
               variant="contained" 
               color="primary" 
-              startIcon={<ReceiptIcon />}
+              startIcon={<AttachMoneyIcon />}
               onClick={handleOpenBillingPage}
             >
               Faturamento

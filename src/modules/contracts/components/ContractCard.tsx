@@ -12,7 +12,8 @@ import {
   MenuItem,
   Avatar,
   ListItemIcon,
-  Tooltip
+  Tooltip,
+  Button
 } from '@mui/material';
 import { 
   Edit as EditIcon, 
@@ -22,9 +23,11 @@ import {
   Build as ManageServicesIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
+import { AttachMoney } from '@mui/icons-material';
 import { parseISO, format } from 'date-fns';
 import { Contract } from '../types/contract';
 import { ContractFullDetailsModal } from './ContractFullDetailsModal';
+import { useNavigate } from 'react-router-dom';
 
 interface ContractCardProps {
   contract?: Contract;
@@ -32,6 +35,7 @@ interface ContractCardProps {
   onDelete?: () => void;
   onView?: () => void;
   onManageServices?: (contractId: number) => void;
+  onRefresh?: () => void;
 }
 
 export const ContractCard: React.FC<ContractCardProps> = ({
@@ -39,10 +43,12 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   onEdit = () => {},
   onDelete = () => {},
   onView = () => {},
-  onManageServices = () => {}
+  onManageServices = () => {},
+  onRefresh
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -107,6 +113,12 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 
   const handleCloseDetailsModal = () => {
     setIsDetailsModalOpen(false);
+  };
+
+  const handleProcessBilling = () => {
+    if (contract?.id) {
+      navigate(`/contracts/${contract.id}/billing`);
+    }
   };
 
   if (!contract) return null;
@@ -258,6 +270,15 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             <Tooltip title="Gerenciar Serviços">
               <IconButton onClick={() => onManageServices(contractId)} aria-label="gerenciar serviços" size="small">
                 <ManageServicesIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Processar Fatura">
+              <IconButton 
+                color="primary" 
+                onClick={handleProcessBilling}
+                disabled={contract?.status !== 'active'}
+              >
+                <AttachMoney />
               </IconButton>
             </Tooltip>
           </Box>
