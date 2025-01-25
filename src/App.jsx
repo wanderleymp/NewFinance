@@ -40,6 +40,7 @@ import NewMovementDetailed from './pages/NewMovementDetailed';
 
 // Importações de contratos
 import Contracts from './modules/contracts/pages/ContractsPage';
+import ContractBillingPage from './modules/contracts/pages/ContractBillingPage';
 
 // Componentes
 import AIChat from './components/AIChat';
@@ -114,6 +115,7 @@ function App() {
                   {/* Rotas de Contratos */}
                   <Route path="contracts" element={<Contracts />} />
                   <Route path="contracts/dashboard" element={<Home />} />
+                  <Route path="contracts/billing" element={<ContractBillingPage />} />
                 </Route>
               </Route>
             </Routes>

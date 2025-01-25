@@ -5,6 +5,32 @@ import { ContractFormData } from '../types/contractForm';
 
 type ContractDataSource = 'api' | 'mock';
 
+interface PaginatedResponse<T> {
+  items: T[];
+  meta: {
+    totalItems: number;
+    itemCount: number;
+    itemsPerPage: number;
+    totalPages: number;
+    currentPage: number;
+  };
+  links: {
+    first?: string;
+    previous?: string;
+    next?: string;
+    last?: string;
+  };
+}
+
+interface ContractBilling {
+  id: number;
+  contractNumber: string;
+  clientName: string;
+  billingDate: Date;
+  amount: number;
+  status: string;
+}
+
 export const contractService = {
   dataSource: 'api' as ContractDataSource,
 
@@ -169,6 +195,61 @@ export const contractService = {
       }
     } catch (error) {
       console.error('Erro ao deletar contrato:', error);
+      throw error;
+    }
+  },
+
+  async getPendingBillings(page = 1, limit = 10): Promise<PaginatedResponse<ContractBilling>> {
+    try {
+      const response = await api.get('/contracts-recurring/pending-billings', {
+        params: { page, limit }
+      });
+      console.log('🔍 Resposta completa da API:', response);
+
+      const mappedBillings = response.data.items.map((billing: any) => ({
+        id: billing.account_entry_id || billing.contract_id,
+        contractNumber: billing.contract_id?.toString(),
+        clientName: billing.full_name,
+        billingDate: billing.next_billing_date || billing.last_billing_date,
+        amount: parseFloat(billing.contract_value),
+        status: billing.status
+      }));
+
+      return {
+        items: mappedBillings,
+        meta: response.data.meta,
+        links: response.data.links
+      };
+    } catch (error) {
+      console.error('Erro ao buscar faturas pendentes:', error);
+      throw error;
+    }
+  },
+
+  async processBilling(billingId: string): Promise<void> {
+    try {
+      await api.post(`/contracts-recurring/billings/${billingId}/process`);
+    } catch (error) {
+      console.error('Erro ao processar fatura:', error);
+      throw error;
+    }
+  },
+
+  async generateBilling(contractId: number): Promise<any> {
+    try {
+      const response = await api.post(`/contracts-recurring/${contractId}/billings`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao gerar fatura:', error);
+      throw error;
+    }
+  },
+
+  async cancelBilling(billingId: string): Promise<void> {
+    try {
+      await api.post(`/contracts-recurring/billings/${billingId}/cancel`);
+    } catch (error) {
+      console.error('Erro ao cancelar fatura:', error);
       throw error;
     }
   }

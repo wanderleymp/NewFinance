@@ -174,6 +174,12 @@ const Dashboard = ({ children }) => {
           title: 'Dashboard de Contratos',
           path: '/contracts/dashboard',
           icon: <DashboardIcon />,
+        },
+        {
+          id: 'contract-billing',
+          title: 'Faturamento de Contratos',
+          path: '/contracts/billing',
+          icon: <ReceiptIcon />,
         }
       ]
     },

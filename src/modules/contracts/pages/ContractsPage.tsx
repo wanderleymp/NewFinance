@@ -30,6 +30,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import BuildIcon from '@mui/icons-material/Build';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import SentimentDissatisfiedIcon from '@mui/icons-material/SentimentDissatisfied';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { format } from 'date-fns';
 
 import { useNewContracts } from '../hooks/useNewContracts';
@@ -37,6 +38,7 @@ import { ContractValidator } from '../utils/contractValidation';
 import { useDebounce } from '../hooks/useDebounce';
 import { ContractCard } from '../components/ContractCard';
 import { ServiceModal } from '../components/ServiceModal'; // Importar o ServiceModal
+import { useNavigate } from 'react-router-dom';
 
 const ContractsPage: React.FC = () => {
   const { 
@@ -56,6 +58,12 @@ const ContractsPage: React.FC = () => {
     setFilters,
     filters
   } = useNewContracts();
+
+  const navigate = useNavigate();
+
+  const handleOpenBillingPage = () => {
+    navigate('/contracts/billing');
+  };
 
   console.group('🔍 ContractsPage Debug');
   console.log('Contratos recebidos:', contracts);
@@ -466,88 +474,96 @@ const ContractsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ width: '100%', p: 2 }}>
-      {loading && contracts.length === 0 ? (
-        <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            mb: 3 
-          }}>
-            <Typography variant="h4">Contratos</Typography>
-            
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-              <TextField
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="Buscar contratos..."
-                variant="outlined"
-                size="small"
-                fullWidth
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: loading ? (
-                    <InputAdornment position="end">
-                      <CircularProgress size={20} />
-                    </InputAdornment>
-                  ) : null
-                }}
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
-                <IconButton onClick={toggleViewMode} size="small">
-                  {viewMode === 'card' ? <ViewListIcon /> : <ViewModuleIcon />}
-                </IconButton>
-              </Tooltip>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleOpenCreateModal}
-              >
-                Novo Contrato
-              </Button>
-            </Box>
+    <Box sx={{ width: '100%', padding: 2 }}>
+      <Grid container spacing={2} alignItems="center" justifyContent="space-between">
+        <Grid item>
+          <Typography variant="h4">Contratos</Typography>
+        </Grid>
+        <Grid item>
+          <Box display="flex" gap={2}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<ReceiptIcon />}
+              onClick={handleOpenBillingPage}
+            >
+              Faturamento
+            </Button>
+            <Button 
+              variant="contained" 
+              color="success" 
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateModal}
+            >
+              Novo Contrato
+            </Button>
           </Box>
-          
-          {renderFilterSection()}
-
-          {renderContractContent()}
-
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 50]}
-            component="div"
-            count={pagination.total}
-            rowsPerPage={pagination.limit}
-            page={pagination.page - 1}
-            onPageChange={(_, newPage) => changePage(newPage + 1)}
-            onRowsPerPageChange={(event) => {
-              const newLimit = parseInt(event.target.value, 10);
-              changeLimit(newLimit);
+        </Grid>
+      </Grid>
+      
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3 
+      }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <TextField
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Buscar contratos..."
+            variant="outlined"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: loading ? (
+                <InputAdornment position="end">
+                  <CircularProgress size={20} />
+                </InputAdornment>
+              ) : null
             }}
           />
+        </Box>
 
-          <ServiceModal
-            isOpen={openServiceModal && !!selectedContractForServices}
-            onClose={() => {
-              setOpenServiceModal(false);
-              setSelectedContractForServices(null);
-            }}
-            contract={selectedContractForServices || undefined}
-          />
-        </>
-      )}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Tooltip title={viewMode === 'card' ? 'Visualizar em lista' : 'Visualizar em cards'}>
+            <IconButton onClick={toggleViewMode} size="small">
+              {viewMode === 'card' ? <ViewListIcon /> : <ViewModuleIcon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
+      
+      {renderFilterSection()}
+
+      {renderContractContent()}
+
+      <TablePagination
+        rowsPerPageOptions={[10, 25, 50]}
+        component="div"
+        count={pagination.total}
+        rowsPerPage={pagination.limit}
+        page={pagination.page - 1}
+        onPageChange={(_, newPage) => changePage(newPage + 1)}
+        onRowsPerPageChange={(event) => {
+          const newLimit = parseInt(event.target.value, 10);
+          changeLimit(newLimit);
+        }}
+      />
+
+      <ServiceModal
+        isOpen={openServiceModal && !!selectedContractForServices}
+        onClose={() => {
+          setOpenServiceModal(false);
+          setSelectedContractForServices(null);
+        }}
+        contract={selectedContractForServices || undefined}
+      />
     </Box>
   );
 };

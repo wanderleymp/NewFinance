@@ -30,7 +30,8 @@ const SystemStatus = lazy(() => import('./pages/SystemStatus'));
 const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
 const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
-const Contracts = lazy(() => import('./modules/contracts/pages/ContractsPage'));
+const ContractsPage = lazy(() => import('./modules/contracts/pages/ContractsPage'));
+const ContractBillingPage = lazy(() => import('./modules/contracts/pages/ContractBillingPage'));
 
 const PrivateRoute = ({ children, requiredRoles = [] }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -199,7 +200,17 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           element={
             <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
               <Suspense fallback={<Loading />}>
-                <Contracts />
+                <ContractsPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/billing" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
               </Suspense>
             </PrivateRoute>
           } 
