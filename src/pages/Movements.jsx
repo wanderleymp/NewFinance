@@ -1,44 +1,23 @@
-import {
-  Box,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TableSortLabel,
-  IconButton,
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Typography, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Paper, 
+  IconButton, 
+  Tooltip, 
+  Chip, 
   Collapse,
-  Typography,
-  Chip,
-  Tooltip,
-  Menu,
-  MenuItem,
-  Divider,
-  CircularProgress,
-  Button,
   Grid,
-  Card,
-  CardContent,
-  Stack,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  Pagination,
-  InputAdornment,
-  TextField,
-  OutlinedInput,
-  TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  DialogContentText,
-  Fab,
-  Checkbox,
+  List,
+  ListItem,
+  ListItemText,
+  TableSortLabel
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -73,14 +52,76 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import FilterListIcon from '@mui/icons-material/FilterList'; // Importação correta do ícone
-import { useState, useEffect } from 'react';
-import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
 import MovementForm from '../components/MovementForm';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { 
+  Card, 
+  CardContent, 
+  Stack, 
+  ToggleButtonGroup, 
+  ToggleButton, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  Pagination, 
+  InputAdornment, 
+  TextField, 
+  OutlinedInput, 
+  TablePagination, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  DialogContentText, 
+  Fab, 
+  Checkbox,
+  Divider,
+  Menu,
+  MenuItem,
+  CircularProgress,
+  Button,
+  Link
+} from '@mui/material';
+
+// Funções utilitárias para cores de status e tipo
+const getStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'confirmado':
+    case 'confirmed':
+      return 'success';
+    case 'pendente':
+    case 'pending':
+      return 'warning';
+    case 'cancelado':
+    case 'cancelled':
+      return 'error';
+    case 'draft':
+    case 'rascunho':
+      return 'default';
+    default:
+      return 'default';
+  }
+};
+
+const getTypeColor = (type) => {
+  switch (type?.toLowerCase()) {
+    case 'venda':
+    case 'sale':
+    case 'contrato venda':
+      return 'success';
+    case 'compra':
+    case 'purchase':
+    case 'contrato compra':
+      return 'info';
+    default:
+      return 'default';
+  }
+};
 
 const MovementCard = ({ movement }) => {
   const navigate = useNavigate();
@@ -97,53 +138,6 @@ const MovementCard = ({ movement }) => {
   const personId = movement.person_id || 'N/A';
   const typeId = movement.movement_type_id || movement.type_id || 1;
 
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-      case 'confirmado':
-        return 'success';
-      case 'pending':
-      case 'pendente':
-        return 'warning';
-      case 'cancelled':
-      case 'cancelado':
-        return 'error';
-      case 'draft':
-      case 'rascunho':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
-
-  const getTypeLabel = (typeId) => {
-    switch (typeId.toString()) {
-      case '1':
-        return 'Venda';
-      case '2':
-        return 'Compra';
-      case '3':
-        return 'Contrato Venda';
-      case '4':
-        return 'Contrato Compra';
-      default:
-        return 'Não especificado';
-    }
-  };
-
-  const getTypeColor = (typeId) => {
-    switch (typeId.toString()) {
-      case '1':
-      case '3':
-        return 'success';
-      case '2':
-      case '4':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
   const handleEdit = () => {
     navigate(`/movements/${movement.id}`);
   };
@@ -159,7 +153,7 @@ const MovementCard = ({ movement }) => {
   };
 
   return (
-    <Card
+    <Box
       elevation={0}
       sx={{
         height: '100%',
@@ -175,7 +169,7 @@ const MovementCard = ({ movement }) => {
         },
       }}
     >
-      <CardContent sx={{ flex: 1, p: 2 }}>
+      <Box sx={{ flex: 1, p: 2 }}>
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
             <Typography variant="subtitle2" color="text.secondary">
@@ -243,7 +237,7 @@ const MovementCard = ({ movement }) => {
             </Typography>
           </Box>
         </Stack>
-      </CardContent>
+      </Box>
 
       <Divider />
 
@@ -259,7 +253,7 @@ const MovementCard = ({ movement }) => {
           </IconButton>
         </Tooltip>
       </Box>
-    </Card>
+    </Box>
   );
 };
 
@@ -272,6 +266,225 @@ const formatCurrency = (value) => {
     currency: 'BRL'
   }).format(value);
 }
+
+const getTypeLabel = (typeId) => {
+  switch (typeId.toString()) {
+    case '1':
+      return 'Venda';
+    case '2':
+      return 'Compra';
+    case '3':
+      return 'Contrato Venda';
+    case '4':
+      return 'Contrato Compra';
+    default:
+      return 'Não especificado';
+  }
+};
+
+const renderInstallmentDetails = (movement) => {
+  console.log('🔍 Dados do movimento para Installments:', JSON.stringify(movement, null, 2));
+  
+  const installments = movement.installments || 
+                       movement.payments?.flatMap(p => p.installments || []) || 
+                       movement.payment?.installments || 
+                       [];
+
+  console.log('🔢 Parcelas encontradas:', installments.length);
+
+  if (installments.length === 0) {
+    return (
+      <Typography variant="body2" color="textSecondary">
+        Sem parcelas cadastradas
+      </Typography>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="subtitle2" gutterBottom>Parcelas</Typography>
+      <List dense>
+        {installments.map((installment, index) => (
+          <ListItem key={installment.installment_id || index}>
+            <ListItemText
+              primary={`Parcela ${installment.installment_number || (index + 1)}`}
+              secondary={
+                <>
+                  <Typography variant="body2" component="span">
+                    Valor: {formatCurrency(installment.amount || 0)}
+                    {' | '}
+                    Status: {installment.status || 'Não definido'}
+                    {installment.due_date && (
+                      <>
+                        {' | '}
+                        Vencimento: {format(parseISO(installment.due_date), 'dd/MM/yyyy')}
+                      </>
+                    )}
+                  </Typography>
+                </>
+              }
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
+};
+
+const renderBoletoDetails = (movement) => {
+  console.log('🔍 Dados do movimento para Boletos:', JSON.stringify(movement, null, 2));
+  
+  const boletos = movement.boletos || 
+                  movement.installments?.flatMap(inst => inst.boletos || []) || 
+                  movement.payments?.flatMap(p => 
+                    p.installments?.flatMap(inst => inst.boletos || []) || []
+                  ) ||
+                  movement.payment?.installments?.flatMap(inst => inst.boletos || []) || 
+                  [];
+
+  console.log('🔢 Boletos encontrados:', boletos.length);
+
+  if (boletos.length === 0) {
+    return (
+      <Typography variant="body2" color="textSecondary">
+        Sem boletos gerados
+      </Typography>
+    );
+  }
+
+  const handleOpenBoleto = async (boletoId) => {
+    try {
+      // Assumindo que existe um endpoint para buscar PDF de boleto
+      const response = await axios.get(`/boletos/${boletoId}/pdf`, {
+        responseType: 'blob'
+      });
+      
+      // Criar URL temporário para o blob
+      const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Abrir PDF em nova janela
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Erro ao abrir boleto:', error);
+      enqueueSnackbar('Não foi possível abrir o boleto', { variant: 'error' });
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="subtitle2" gutterBottom>Boletos</Typography>
+      <List dense>
+        {boletos.map((boleto, index) => (
+          <ListItem 
+            key={boleto.boleto_id || index}
+            secondaryAction={
+              <IconButton 
+                edge="end" 
+                aria-label="ver boleto"
+                onClick={() => handleOpenBoleto(boleto.boleto_id)}
+                disabled={!boleto.boleto_id}
+              >
+                <ReceiptIcon color={boleto.boleto_id ? 'primary' : 'disabled'} />
+              </IconButton>
+            }
+          >
+            <ListItemText
+              primary={`Boleto ${boleto.boleto_number || (index + 1)}`}
+              secondary={
+                <>
+                  <Typography variant="body2" component="span">
+                    Status: {boleto.status || 'Não definido'}
+                    {boleto.generated_at && (
+                      <>
+                        {' | '}
+                        Gerado em: {format(parseISO(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
+                      </>
+                    )}
+                  </Typography>
+                </>
+              }
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
+};
+
+const renderInvoiceDetails = (movement) => {
+  console.log('🔍 Dados do movimento para Invoices:', JSON.stringify(movement, null, 2));
+  
+  const invoices = movement.invoices || 
+                   movement.payments?.flatMap(p => p.invoices || []) ||
+                   movement.payment?.invoices || 
+                   [];
+
+  console.log('🔢 Invoices encontradas:', invoices.length);
+
+  if (invoices.length === 0) {
+    return (
+      <Typography variant="body2" color="textSecondary">
+        Sem notas fiscais geradas
+      </Typography>
+    );
+  }
+
+  const handleOpenInvoice = async (invoiceId) => {
+    try {
+      // Assumindo que existe um endpoint para buscar PDF de invoice
+      const response = await axios.get(`/invoices/${invoiceId}/pdf`, {
+        responseType: 'blob'
+      });
+      
+      // Criar URL temporário para o blob
+      const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Abrir PDF em nova janela
+      window.open(pdfUrl, '_blank');
+    } catch (error) {
+      console.error('Erro ao abrir invoice:', error);
+      enqueueSnackbar('Não foi possível abrir a nota fiscal', { variant: 'error' });
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="subtitle2" gutterBottom>Notas Fiscais</Typography>
+      <List dense>
+        {invoices.map((invoice, index) => (
+          <ListItem 
+            key={invoice.invoice_id || index}
+            secondaryAction={
+              <IconButton 
+                edge="end" 
+                aria-label="ver nota fiscal"
+                onClick={() => handleOpenInvoice(invoice.invoice_id)}
+                disabled={!invoice.invoice_id}
+              >
+                <DescriptionIcon color={invoice.invoice_id ? 'primary' : 'disabled'} />
+              </IconButton>
+            }
+          >
+            <ListItemText
+              primary={`Nota Fiscal ${invoice.number || (index + 1)}`}
+              secondary={
+                <>
+                  <Typography variant="body2" component="span">
+                    Status: {invoice.status || 'Não definido'}
+                    {' | '}
+                    Valor: {formatCurrency(invoice.total_amount || 0)}
+                  </Typography>
+                </>
+              }
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
+};
 
 const InstallmentRow = ({ installment }) => {
   return (
@@ -286,22 +499,7 @@ const InstallmentRow = ({ installment }) => {
         />
       </TableCell>
       <TableCell>
-        {installment.boletos?.map((boleto) => (
-          <Box key={boleto.boleto_id} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <Tooltip title={`Boleto ${boleto.boleto_number || 'Sem número'}`}>
-              <IconButton
-                size="small"
-                disabled={!boleto.boleto_number}
-                onClick={() => window.open(`/api/boletos/${boleto.boleto_id}/pdf`, '_blank')}
-              >
-                <ReceiptIcon color={boleto.boleto_number ? 'primary' : 'disabled'} />
-              </IconButton>
-            </Tooltip>
-            <Typography variant="body2" sx={{ ml: 1 }}>
-              {boleto.status} - {format(new Date(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
-            </Typography>
-          </Box>
-        ))}
+        {renderBoletoDetails([installment])}
       </TableCell>
     </TableRow>
   );
@@ -311,19 +509,122 @@ const MovementRow = ({ movement }) => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [open, setOpen] = useState(false);
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
-  const status = movement.status_name || 'Rascunho';
-  const statusId = movement.movement_status_id || 1;
-  const isConfirmed = statusId === 2;
-  const isCanceled = status.toLowerCase() === 'cancelado';
+  // Log completo do movimento para diagnóstico
+  console.log('🚨 Movimento completo:', JSON.stringify(movement, null, 2));
+
+  // Mapeamento dos novos campos da API
+  const movementId = movement.movement_id;
+  const customerName = movement.full_name || 'Cliente não especificado';
+  const totalAmount = movement.total_amount;
+  const movementDate = movement.movement_date;
+  const description = movement.description;
+  const statusName = movement.status_name;
+  const typeName = movement.type_name;
+
+  // Detalhes de pagamentos
+  const payments = movement.payments || [];
+  const installments = movement.installments || 
+                       payments.flatMap(p => p.installments || []) || 
+                       [];
+  const invoices = movement.invoices || 
+                   payments.flatMap(p => p.invoices || []) || 
+                   [];
+
+  // Função para renderizar detalhes
+  const renderDetails = () => {
+    const hasDetails = 
+      installments.length > 0 || 
+      invoices.length > 0 || 
+      payments.some(p => p.installments?.length > 0);
+
+    if (!hasDetails) {
+      return (
+        <Typography variant="body2" color="textSecondary" sx={{ p: 2 }}>
+          Nenhum detalhe disponível para esta movimentação
+        </Typography>
+      );
+    }
+
+    return (
+      <>
+        {renderInstallmentDetails(movement)}
+        {renderBoletoDetails(movement)}
+        {renderInvoiceDetails(movement)}
+      </>
+    );
+  };
+
+  const handleViewDetails = () => {
+    navigate(`/movements/${movementId}`);
+  };
+
+  const handleEditMovement = () => {
+    navigate(`/movements/edit/${movementId}`);
+  };
+
+  const handleCancelMovement = async () => {
+    try {
+      console.log('🚨 Tentando cancelar movimento:', {
+        movementId,
+        statusName,
+        currentStatus: movement.movement_status_id,
+        totalAmount,
+        movementDate
+      });
+
+      // Verificar condições de cancelamento
+      if (movement.movement_status_id === 3) { // Assumindo 3 como status de cancelado
+        enqueueSnackbar('Movimentação já está cancelada!', { variant: 'warning' });
+        return;
+      }
+
+      const result = await movementsService.cancel(movementId);
+      console.log('✅ Movimento cancelado com sucesso:', result);
+      enqueueSnackbar('Movimentação cancelada com sucesso!', { variant: 'success' });
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ Erro detalhado ao cancelar movimentação:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config,
+        movementDetails: {
+          id: movementId,
+          currentStatus: movement.movement_status_id,
+          statusName
+        }
+      });
+      enqueueSnackbar(
+        error.response?.data?.message || 
+        error.message || 
+        'Erro ao cancelar movimentação', 
+        { variant: 'error' }
+      );
+    }
+  };
+
+  const handleGenerateInvoice = async (e) => {
+    e.stopPropagation();
+    try {
+      enqueueSnackbar('Gerando Nota Fiscal...', { variant: 'info' });
+      const nfse = await movementsService.generateNfse(movementId);
+      
+      enqueueSnackbar('Nota Fiscal gerada com sucesso!', { variant: 'success' });
+      
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao gerar Nota Fiscal:', error);
+      enqueueSnackbar(error.message || 'Erro ao gerar Nota Fiscal', { variant: 'error' });
+    }
+  };
 
   const handleNotificationClick = async (event) => {
     event.stopPropagation();
     try {
       const response = await axios.post(
         'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/faturamento', 
-        { movement_id: movement.movement_id },
+        { movement_id: movementId },
         {
           headers: {
             'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
@@ -332,77 +633,16 @@ const MovementRow = ({ movement }) => {
         }
       );
       
-      const successMessage = enqueueSnackbar('Notificação enviada com sucesso!', { 
+      enqueueSnackbar('Notificação enviada com sucesso!', { 
         variant: 'success',
-        autoHideDuration: 2000 // Fecha após 2 segundos
+        autoHideDuration: 2000
       });
     } catch (error) {
       console.error('Erro ao enviar notificação:', error.response?.data || error.message);
       enqueueSnackbar('Erro ao enviar notificação', { 
         variant: 'error',
-        autoHideDuration: 3000 // Fecha após 3 segundos
+        autoHideDuration: 3000
       });
-    }
-  };
-
-  const handleGenerateInvoice = async (e) => {
-    e.stopPropagation();
-    try {
-      enqueueSnackbar('Gerando Nota Fiscal...', { variant: 'info' });
-      const nfse = await movementsService.generateNfse(movement.movement_id);
-      
-      enqueueSnackbar('Nota Fiscal gerada com sucesso!', { variant: 'success' });
-      
-      // Recarregar os dados da movimentação
-      window.location.reload();
-    } catch (error) {
-      console.error('Erro ao gerar Nota Fiscal:', error);
-      enqueueSnackbar(error.message || 'Erro ao gerar Nota Fiscal', { variant: 'error' });
-    }
-  };
-
-  const handleGenerateBoleto = async (e, installment) => {
-    e.stopPropagation();
-    try {
-      enqueueSnackbar('Gerando boleto...', { variant: 'info' });
-      const boleto = await movementsService.generateBoleto(movement.movement_id);
-      
-      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
-      
-      // Recarregar os dados da movimentação
-      window.location.reload();
-    } catch (error) {
-      console.error('Erro ao gerar boleto:', error);
-      enqueueSnackbar('Erro ao gerar boleto: ' + error.message, { variant: 'error' });
-    }
-  };
-
-  const handleEdit = (e) => {
-    e.stopPropagation(); // Evita que o clique propague para a linha
-    navigate(`/movements/edit/${movement.movement_id}`);
-  };
-
-  const handleDelete = async () => {
-    try {
-      await movementsService.delete(movement.movement_id);
-      enqueueSnackbar('Movimento excluído com sucesso!', { variant: 'success' });
-    } catch (error) {
-      console.error('Erro ao excluir movimento:', error);
-      enqueueSnackbar('Erro ao excluir movimento', { variant: 'error' });
-    }
-  };
-
-  const handleCancelMovement = async () => {
-    try {
-      await movementsService.cancel(movement.movement_id);
-      enqueueSnackbar('Movimento cancelado com sucesso!', { variant: 'success' });
-      setConfirmCancelOpen(false);
-      // Recarregar a página ou atualizar a lista de movimentos
-      window.location.reload();
-    } catch (error) {
-      console.error('Erro ao cancelar movimento:', error);
-      enqueueSnackbar('Erro ao cancelar movimento: ' + error.message, { variant: 'error' });
-      setConfirmCancelOpen(false);
     }
   };
 
@@ -410,11 +650,11 @@ const MovementRow = ({ movement }) => {
     <>
       <TableRow
         hover
-        onClick={() => setOpen(!open)}
         sx={{ 
           cursor: 'pointer',
           '& > *': { borderBottom: 'unset' },
         }}
+        onClick={() => setOpen(!open)}
       >
         <TableCell padding="checkbox">
           <IconButton
@@ -427,98 +667,62 @@ const MovementRow = ({ movement }) => {
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>
-          {format(new Date(movement.movement_date || movement.created_at), 'dd/MM/yyyy')}
-        </TableCell>
-        <TableCell>
-          <Typography>{movement.description || '-'}</Typography>
-        </TableCell>
-        <TableCell>{movement.movement_id}</TableCell>
-        <TableCell>{movement.person_id}</TableCell>
-        <TableCell>{movement.person_name || '-'}</TableCell>
+        <TableCell>{movementId}</TableCell>
+        <TableCell>{customerName}</TableCell>
+        <TableCell>{formatCurrency(totalAmount)}</TableCell>
+        <TableCell>{format(parseISO(movementDate), 'dd/MM/yyyy')}</TableCell>
+        <TableCell>{description}</TableCell>
         <TableCell>
           <Chip 
-            label={movement.type_name}
-            size="small"
-            color={movement.movement_type_id === 1 || movement.movement_type_id === 3 ? 'success' : 'info'}
+            label={statusName} 
+            size="small" 
+            color={getStatusColor(statusName)} 
           />
         </TableCell>
-        <TableCell align="right">
-          {formatCurrency(Number(movement.total_amount || 0))}
-        </TableCell>
         <TableCell>
-          <Chip
-            label={status}
-            color={
-              status.toLowerCase() === 'confirmado' ? 'success' :
-              status.toLowerCase() === 'pendente' ? 'warning' :
-              status.toLowerCase() === 'cancelado' ? 'error' :
-              'default'
-            }
-            size="small"
+          <Chip 
+            label={typeName} 
+            size="small" 
+            color={getTypeColor(typeName)} 
           />
         </TableCell>
         <TableCell align="right">
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            {isConfirmed && !isCanceled && (
-              <>
-                <Tooltip title="Gerar Nota Fiscal">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleGenerateInvoice(e);
-                    }}
-                  >
-                    <PostAddIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Enviar Notificação">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleNotificationClick(e);
-                    }}
-                  >
-                    <NotificationsIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
-            {isConfirmed && (
-              <Tooltip title="Gerar NFSE">
-                <IconButton
-                  size="small"
-                  color="secondary"
-                  onClick={handleGenerateInvoice}
-                >
-                  <RequestQuoteIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            {!isCanceled && (
-              <Tooltip title="Cancelar Movimentação">
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmCancelOpen(true);
-                  }}
-                >
-                  <CancelIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Tooltip title="Editar Movimentação">
+            <Tooltip title="Gerar Nota Fiscal">
               <IconButton
                 size="small"
-                onClick={handleEdit}
+                color="primary"
+                onClick={handleGenerateInvoice}
               >
-                <EditIcon fontSize="small" />
+                <PostAddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Enviar Notificação">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={handleNotificationClick}
+              >
+                <NotificationsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Cancelar">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={handleCancelMovement}
+              >
+                <CancelIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Detalhes">
+              <IconButton onClick={handleViewDetails}>
+                <VisibilityIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Editar">
+              <IconButton onClick={handleEditMovement}>
+                <EditIcon />
               </IconButton>
             </Tooltip>
           </Box>
@@ -529,118 +733,13 @@ const MovementRow = ({ movement }) => {
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ margin: 1 }}>
               <Typography variant="h6" gutterBottom component="div">
-                Detalhes da Movimentação #{movement.movement_id}
+                Detalhes da Movimentação
               </Typography>
-              
-              {/* Pagamentos e Parcelas */}
-              {movement.payments && movement.payments.map((payment) => (
-                <Box key={payment.payment_id} sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Movimentação #{movement.movement_id} - Pagamento - {payment.status}
-                  </Typography>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Parcela</TableCell>
-                        <TableCell>Vencimento</TableCell>
-                        <TableCell align="right">Valor</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Data Prevista</TableCell>
-                        <TableCell align="right">Ações</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {payment.installments && payment.installments.map((installment) => (
-                        <TableRow key={installment.installment_id}>
-                          <TableCell>{installment.installment_number}</TableCell>
-                          <TableCell>
-                            {format(new Date(installment.due_date), 'dd/MM/yyyy')}
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(installment.amount)}
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={installment.status}
-                              color={installment.status === 'Confirmado' ? 'success' : 'default'}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(installment.expected_date), 'dd/MM/yyyy')}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                              {installment.boletos && installment.boletos.length > 0 ? (
-                                installment.boletos.filter(boleto => boleto.status === 'A_RECEBER').map((boleto) => (
-                                  <Box key={boleto.boleto_id}>
-                                    <Tooltip title={`Boleto ${boleto.boleto_number || 'Sem número'}`}>
-                                      <IconButton
-                                        size="small"
-                                        color="primary"
-                                        disabled={!boleto.boleto_number}
-                                        onClick={() => window.open(`/api/boletos/${boleto.boleto_id}/pdf`, '_blank')}
-                                      >
-                                        <ReceiptIcon color={boleto.boleto_number ? 'primary' : 'disabled'} />
-                                      </IconButton>
-                                    </Tooltip>
-                                    <Typography variant="body2">
-                                      {boleto.status} - {format(new Date(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
-                                    </Typography>
-                                  </Box>
-                                ))
-                              ) : null}
-                              
-                              {/* Botão para gerar boleto se não existir boleto com status A_RECEBER */}
-                              {(!installment.boletos || 
-                                installment.boletos.filter(boleto => boleto.status === 'A_RECEBER').length === 0) && (
-                                <Tooltip title="Gerar Boleto">
-                                  <IconButton
-                                    size="small"
-                                    color="secondary"
-                                    onClick={(e) => handleGenerateBoleto(e, installment)}
-                                  >
-                                    <RequestQuoteIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-              ))}
+              {renderDetails()}
             </Box>
           </Collapse>
         </TableCell>
       </TableRow>
-
-      {/* Diálogo de confirmação de cancelamento */}
-      <Dialog
-        open={confirmCancelOpen}
-        onClose={() => setConfirmCancelOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Cancelar Movimentação</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1">
-            Tem certeza que deseja cancelar a movimentação #{movement.movement_id}?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmCancelOpen(false)}>Cancelar</Button>
-          <Button 
-            onClick={handleCancelMovement} 
-            variant="contained"
-            color="error"
-          >
-            Confirmar Cancelamento
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 };

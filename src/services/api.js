@@ -145,20 +145,22 @@ export const authService = {
 export const movementsService = {
   async list(params = {}) {
     try {
-      console.log('🚀 [GET] /movements: Iniciando requisição com params:', {
+      // Mapear orderBy para valores aceitos
+      const mappedParams = {
         ...params,
+        orderBy: params.orderBy === 'date' ? 'movement_date' : params.orderBy,
+        orderDirection: params.orderDirection === 'desc' ? 'DESC' : params.orderDirection,
         include: 'payments.installments.boletos,invoices'
-      });
+      };
+
+      // Remover orderBySecondary e orderDirectionSecondary
+      delete mappedParams.orderBySecondary;
+      delete mappedParams.orderDirectionSecondary;
+
+      console.log('🚀 [GET] /movements: Iniciando requisição com params:', mappedParams);
       
       const response = await api.get('/movements', { 
-        params: {
-          ...params,
-          include: 'payments.installments.boletos,invoices',
-          ...(params.orderBySecondary && {
-            orderBySecondary: params.orderBySecondary,
-            orderDirectionSecondary: params.orderDirectionSecondary || 'desc'
-          })
-        }
+        params: mappedParams
       });
       
       // Parse da resposta JSON
@@ -175,26 +177,33 @@ export const movementsService = {
         invoicesCount: parsedData?.invoices?.length,
       });
 
-      // Adicionar invoices a cada item
-      const itemsWithInvoices = (parsedData?.items || parsedData?.data || []).map(item => {
-        const itemInvoices = parsedData?.invoices?.filter(inv => 
-          inv.reference_id === String(item.movement_id)
-        ) || [];
-        
-        console.log(`📄 Invoices para movimento ${item.movement_id}:`, {
+      // Adicionar campos relacionados a cada item
+      const itemsWithDetails = (parsedData?.items || parsedData?.data || []).map(item => {
+        // Usar os campos já existentes no movimento
+        const installments = item.installments || [];
+        const boletos = item.boletos || [];
+        const invoices = item.invoices || [];
+        const payments = item.payments || [];
+
+        console.log(`📄 Detalhes para movimento ${item.movement_id}:`, {
           movementId: item.movement_id,
-          invoicesFound: itemInvoices.length,
-          invoices: itemInvoices
+          installmentsCount: installments.length,
+          boletosCount: boletos.length,
+          invoicesCount: invoices.length,
+          paymentsCount: payments.length
         });
         
         return {
           ...item,
-          invoices: itemInvoices
+          installments,
+          boletos,
+          invoices,
+          payments
         };
       });
       
       const result = {
-        items: itemsWithInvoices,
+        items: itemsWithDetails,
         total: parsedData?.total || parsedData?.pagination?.total || parsedData?.length || 0,
         page: parsedData?.current_page || parsedData?.pagination?.currentPage || 1,
         limit: parsedData?.per_page || parsedData?.pagination?.limit || 10,
@@ -393,12 +402,23 @@ export const movementsService = {
 
   // Método para cancelar um movimento
   async cancel(movementId) {
-    return api.post(`/movements/${movementId}/cancel`)
-      .then(response => response.data)
-      .catch(error => {
-        console.error(`Erro ao cancelar movimento ${movementId}:`, error);
-        throw error;
+    try {
+      console.log(`🚨 Iniciando cancelamento do movimento ${movementId}`);
+      const response = await api.post(`/movements/${movementId}/cancel`);
+      console.log(`✅ Resposta do cancelamento:`, {
+        status: response.status,
+        data: response.data
       });
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erro detalhado ao cancelar movimento ${movementId}:`, {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      throw error;
+    }
   },
 
   // Novo método para emitir boleto para um movimento
