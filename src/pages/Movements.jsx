@@ -332,156 +332,187 @@ const renderInstallmentDetails = (movement) => {
 };
 
 const renderBoletoDetails = (movement) => {
-  console.log('🔍 Dados do movimento para Boletos:', JSON.stringify(movement, null, 2));
-  
-  const boletos = movement.boletos || 
-                  movement.installments?.flatMap(inst => inst.boletos || []) || 
-                  movement.payments?.flatMap(p => 
-                    p.installments?.flatMap(inst => inst.boletos || []) || []
-                  ) ||
-                  movement.payment?.installments?.flatMap(inst => inst.boletos || []) || 
-                  [];
+  const boletos = movement.boletos || [];
 
-  console.log('🔢 Boletos encontrados:', boletos.length);
+  console.log('🔍 Dados completos do movimento:', movement);
+  console.log('🔍 Boletos encontrados:', boletos);
 
   if (boletos.length === 0) {
-    return (
-      <Typography variant="body2" color="textSecondary">
-        Sem boletos gerados
-      </Typography>
-    );
+    return null;
   }
 
-  const handleOpenBoleto = async (boletoId) => {
-    try {
-      // Assumindo que existe um endpoint para buscar PDF de boleto
-      const response = await axios.get(`/boletos/${boletoId}/pdf`, {
-        responseType: 'blob'
-      });
-      
-      // Criar URL temporário para o blob
-      const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
-      // Abrir PDF em nova janela
-      window.open(pdfUrl, '_blank');
-    } catch (error) {
-      console.error('Erro ao abrir boleto:', error);
-      enqueueSnackbar('Não foi possível abrir o boleto', { variant: 'error' });
+  const handleOpenPdf = (boleto) => {
+    console.log('🔍 Dados do boleto ao clicar:', boleto);
+    
+    // Tentar encontrar a URL do boleto em diferentes locais
+    const url = boleto.url || // tenta url direto
+                boleto.boleto_url || // tenta boleto_url
+                boleto.pdf_url || // tenta pdf_url
+                (boleto.payment && boleto.payment.boleto_url) || // tenta no payment
+                (typeof boleto === 'string' ? boleto : null); // se for string direta
+    
+    console.log('🔍 URL encontrada:', url);
+    
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      enqueueSnackbar('URL do boleto não disponível', { variant: 'warning' });
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toUpperCase()) {
+      case 'A_RECEBER':
+        return 'success';
+      case 'PENDENTE':
+        return 'warning';
+      case 'CANCELADO':
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
   return (
     <Box>
       <Typography variant="subtitle2" gutterBottom>Boletos</Typography>
-      <List dense>
-        {boletos.map((boleto, index) => (
-          <ListItem 
-            key={boleto.boleto_id || index}
-            secondaryAction={
-              <IconButton 
-                edge="end" 
-                aria-label="ver boleto"
-                onClick={() => handleOpenBoleto(boleto.boleto_id)}
-                disabled={!boleto.boleto_id}
-              >
-                <ReceiptIcon color={boleto.boleto_id ? 'primary' : 'disabled'} />
-              </IconButton>
-            }
-          >
-            <ListItemText
-              primary={`Boleto ${boleto.boleto_number || (index + 1)}`}
-              secondary={
-                <>
-                  <Typography variant="body2" component="span">
-                    Status: {boleto.status || 'Não definido'}
-                    {boleto.generated_at && (
-                      <>
-                        {' | '}
-                        Gerado em: {format(parseISO(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
-                      </>
-                    )}
-                  </Typography>
-                </>
+      {boletos.map((boleto, index) => {
+        // Log para cada boleto individual
+        console.log(`🔍 Processando boleto ${index + 1}:`, boleto);
+        
+        return (
+          <Box 
+            key={boleto.boleto_id || index} 
+            display="flex" 
+            alignItems="center" 
+            justifyContent="space-between" 
+            mb={1}
+            sx={{
+              backgroundColor: 'background.paper',
+              p: 1,
+              borderRadius: 1,
+              '&:hover': {
+                backgroundColor: 'action.hover',
               }
-            />
-          </ListItem>
-        ))}
-      </List>
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                Boleto {boleto.boleto_number || (index + 1)}
+              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Chip 
+                  label={boleto.status || 'Não definido'} 
+                  size="small" 
+                  color={getStatusColor(boleto.status)}
+                  sx={{ height: 24 }}
+                />
+                {boleto.generated_at && (
+                  <Typography variant="body2" color="text.secondary">
+                    Gerado em: {format(parseISO(boleto.generated_at), 'dd/MM/yyyy HH:mm')}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+            {(boleto.status === 'A_RECEBER' || boleto.status === 'PENDENTE') && (
+              <IconButton 
+                size="small"
+                onClick={() => handleOpenPdf(boleto)}
+                disabled={!(boleto.url || boleto.boleto_url || boleto.pdf_url || (boleto.payment && boleto.payment.boleto_url))}
+                sx={{ cursor: 'pointer' }}
+              >
+                <ReceiptIcon 
+                  color={(boleto.url || boleto.boleto_url || boleto.pdf_url || (boleto.payment && boleto.payment.boleto_url)) ? 'primary' : 'disabled'} 
+                />
+              </IconButton>
+            )}
+          </Box>
+        );
+      })}
     </Box>
   );
 };
 
 const renderInvoiceDetails = (movement) => {
-  console.log('🔍 Dados do movimento para Invoices:', JSON.stringify(movement, null, 2));
-  
-  const invoices = movement.invoices || 
-                   movement.payments?.flatMap(p => p.invoices || []) ||
-                   movement.payment?.invoices || 
-                   [];
+  console.log('🔍 Invoices do movimento:', {
+    invoices: movement.invoices,
+    detalhes: movement.invoices?.map(i => ({
+      status: i.status,
+      pdfUrl: i.pdf_url
+    }))
+  });
 
-  console.log('🔢 Invoices encontradas:', invoices.length);
+  const invoices = movement.invoices || [];
 
   if (invoices.length === 0) {
-    return (
-      <Typography variant="body2" color="textSecondary">
-        Sem notas fiscais geradas
-      </Typography>
-    );
+    return null;
   }
 
-  const handleOpenInvoice = async (invoiceId) => {
-    try {
-      // Assumindo que existe um endpoint para buscar PDF de invoice
-      const response = await axios.get(`/invoices/${invoiceId}/pdf`, {
-        responseType: 'blob'
-      });
-      
-      // Criar URL temporário para o blob
-      const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      
-      // Abrir PDF em nova janela
-      window.open(pdfUrl, '_blank');
-    } catch (error) {
-      console.error('Erro ao abrir invoice:', error);
-      enqueueSnackbar('Não foi possível abrir a nota fiscal', { variant: 'error' });
+  const handleOpenPdf = (pdfUrl) => {
+    if (pdfUrl) window.open(pdfUrl, '_blank');
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'autorizada':
+        return 'success';
+      case 'pendente':
+        return 'warning';
+      case 'cancelada':
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
   return (
     <Box>
       <Typography variant="subtitle2" gutterBottom>Notas Fiscais</Typography>
-      <List dense>
-        {invoices.map((invoice, index) => (
-          <ListItem 
-            key={invoice.invoice_id || index}
-            secondaryAction={
-              <IconButton 
-                edge="end" 
-                aria-label="ver nota fiscal"
-                onClick={() => handleOpenInvoice(invoice.invoice_id)}
-                disabled={!invoice.invoice_id}
-              >
-                <DescriptionIcon color={invoice.invoice_id ? 'primary' : 'disabled'} />
-              </IconButton>
+      {invoices.map((invoice, index) => (
+        <Box 
+          key={invoice.invoice_id || index} 
+          display="flex" 
+          alignItems="center" 
+          justifyContent="space-between" 
+          mb={1}
+          sx={{
+            backgroundColor: 'background.paper',
+            p: 1,
+            borderRadius: 1,
+            '&:hover': {
+              backgroundColor: 'action.hover',
             }
-          >
-            <ListItemText
-              primary={`Nota Fiscal ${invoice.number || (index + 1)}`}
-              secondary={
-                <>
-                  <Typography variant="body2" component="span">
-                    Status: {invoice.status || 'Não definido'}
-                    {' | '}
-                    Valor: {formatCurrency(invoice.total_amount || 0)}
-                  </Typography>
-                </>
-              }
-            />
-          </ListItem>
-        ))}
-      </List>
+          }}
+        >
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+              Nota Fiscal {invoice.number || (index + 1)}
+            </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip 
+                label={invoice.status || 'Não definido'} 
+                size="small" 
+                color={getStatusColor(invoice.status)}
+                sx={{ height: 24 }}
+              />
+              {invoice.total_amount && (
+                <Typography variant="body2" color="text.secondary">
+                  Valor: {formatCurrency(invoice.total_amount)}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          {(invoice.status === 'autorizada' || invoice.status === 'pendente') && (
+            <IconButton 
+              size="small"
+              onClick={() => handleOpenPdf(invoice.pdf_url)}
+              disabled={!invoice.pdf_url}
+            >
+              <DescriptionIcon color={invoice.pdf_url ? 'primary' : 'disabled'} />
+            </IconButton>
+          )}
+        </Box>
+      ))}
     </Box>
   );
 };
@@ -533,10 +564,19 @@ const MovementRow = ({ movement }) => {
 
   // Função para renderizar detalhes
   const renderDetails = () => {
+    console.log('🔍 Detalhes do movimento:', {
+      installments,
+      invoices,
+      boletos: movement.boletos,
+      payments
+    });
+
     const hasDetails = 
       installments.length > 0 || 
       invoices.length > 0 || 
-      payments.some(p => p.installments?.length > 0);
+      payments.some(p => p.installments?.length > 0) ||
+      (movement.boletos && movement.boletos.length > 0) ||
+      (movement.invoices && movement.invoices.length > 0);
 
     if (!hasDetails) {
       return (
