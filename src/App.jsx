@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BrowserRouter, 
   Routes, 
@@ -19,6 +19,7 @@ import '@fontsource/inter/700.css'
 
 import { lightTheme, darkTheme } from './theme/theme';
 import { authService } from './services/api';
+import api from './services/api';
 import { QueryProvider } from './providers/QueryProvider';
 
 // Páginas
@@ -33,6 +34,7 @@ import SystemStatus from './pages/SystemStatus';
 import Installments from './pages/Installments';
 import PersonForm from './pages/PersonForm';
 import ImportCNPJ from './pages/ImportCNPJ';
+import Receivables from './pages/Receivables';
 
 // Importações adicionais
 import NewMovementExpress from './pages/NewMovementExpress';
@@ -41,11 +43,20 @@ import NewMovementDetailed from './pages/NewMovementDetailed';
 // Importações de contratos
 import Contracts from './modules/contracts/pages/ContractsPage';
 import ContractBillingPage from './modules/contracts/pages/ContractBillingPage';
+import ContractsPage from './modules/contracts/pages/ContractsPage';
 
 // Componentes
 import AIChat from './components/AIChat';
 import { AIAssistant } from './components/AIAssistant';
 import { AppVersion } from './components/AppVersion';
+import ConnectionErrorPage from './components/ConnectionErrorPage';
+
+// Importação do componente PaymentMethods
+import PaymentMethods from './pages/PaymentMethods';
+import PaymentMethodForm from './pages/PaymentMethodForm';
+
+// Importação do componente TaskMonitoring
+import TaskMonitoring from './pages/TaskMonitoring';
 
 // Rotas Protegidas
 const PrivateRoute = () => {
@@ -58,26 +69,41 @@ const PrivateRoute = () => {
     : <Navigate to="/login" replace />;
 };
 
-function AppRoutes({ darkMode, setDarkMode }) {
-  const contextValue = {
-    darkMode,
-    setDarkMode
-  };
-
-  return (
-    <Dashboard darkMode={darkMode} setDarkMode={setDarkMode}>
-      <Outlet context={contextValue} />
-    </Dashboard>
-  );
-}
-
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
     const savedMode = localStorage.getItem('darkMode');
     return savedMode ? JSON.parse(savedMode) : false;
   });
 
+  const [connectionError, setConnectionError] = useState(false);
+
   const theme = darkMode ? darkTheme : lightTheme;
+
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.message === 'Network Error' || error.code === 'ERR_CONNECTION_REFUSED') {
+          setConnectionError(true);
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    // Limpar interceptor ao desmontar
+    return () => {
+      api.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  const handleReconnect = () => {
+    setConnectionError(false);
+    window.location.reload();
+  };
+
+  if (connectionError) {
+    return <ConnectionErrorPage onReconnect={handleReconnect} />;
+  }
 
   console.log('Renderizando App - Autenticado:', authService.isAuthenticated());
 
@@ -96,26 +122,35 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route element={<PrivateRoute />}>
-                <Route element={<AppRoutes darkMode={darkMode} setDarkMode={setDarkMode} />}>
+                <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
                   <Route path="/" element={<Navigate to="/home" replace />} />
                   <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-                  <Route index path="home" element={<Home />} />
-                  <Route path="movements" element={<Movements />} />
-                  <Route path="movements/new-express" element={<NewMovementExpress />} />
-                  <Route path="movements/new-detailed" element={<NewMovementDetailed />} />
-                  <Route path="persons" element={<Persons />} />
-                  <Route path="persons/new" element={<PersonForm />} />
-                  <Route path="persons/:id/edit" element={<PersonForm />} />
-                  <Route path="persons/import-cnpj" element={<ImportCNPJ />} />
-                  <Route path="contacts" element={<Contacts />} />
-                  <Route path="system/status" element={<SystemStatus />} />
-                  <Route path="users" element={<Users />} />
-                  <Route path="installments" element={<Installments />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/movements" element={<Movements />} />
+                  <Route path="/movements/new-express" element={<NewMovementExpress />} />
+                  <Route path="/receivables" element={<Receivables />} />
+                  <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/payment-methods" element={<PaymentMethods />} />
+                  <Route path="/payment-methods/new" element={<PaymentMethodForm />} />
+                  <Route path="/payment-methods/:id/edit" element={<PaymentMethodForm />} />
+                  <Route path="/tasks" element={<TaskMonitoring />} />
+                  <Route path="/installments" element={<Installments />} />
                   
                   {/* Rotas de Contratos */}
-                  <Route path="contracts" element={<Contracts />} />
-                  <Route path="contracts/dashboard" element={<Home />} />
-                  <Route path="contracts/billing" element={<ContractBillingPage />} />
+                  <Route path="/contracts" element={<ContractsPage />} />
+                  <Route path="/contracts/dashboard" element={<Home />} />
+                  <Route path="/contracts/billing" element={<ContractBillingPage />} />
+                  <Route path="/contracts/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  
+                  {/* Rotas de Contratos Recorrentes */}
+                  <Route path="/contracts-recurring" element={<ContractsPage />} />
+                  <Route path="/contracts-recurring/dashboard" element={<Home />} />
+                  <Route path="/contracts-recurring/billing" element={<ContractBillingPage />} />
+                  <Route path="/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
+                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId/:receiptId" element={<ContractBillingPage />} />
                 </Route>
               </Route>
             </Routes>

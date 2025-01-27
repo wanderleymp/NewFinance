@@ -436,7 +436,25 @@ export const movementsService = {
       // Lança o erro com a mensagem do servidor, se disponível
       throw new Error(error.response?.data?.message || error.message);
     }
-  }
+  },
+
+  // Método para notificar faturamento de movimento
+  async notifyBilling(movementId) {
+    try {
+      console.log('Tentando enviar notificação de faturamento para movementId:', movementId);
+      const response = await api.post(`/movements/${movementId}/notify-billing`);
+      console.log('Resposta da API de notificação de faturamento:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Erro na API de notificação de faturamento:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+      });
+      throw new Error(error.response?.data?.message || error.message);
+    }
+  },
 };
 
 export const installmentsService = {

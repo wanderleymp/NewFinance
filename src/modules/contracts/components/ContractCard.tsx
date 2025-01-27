@@ -115,9 +115,23 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     setIsDetailsModalOpen(false);
   };
 
-  const handleProcessBilling = () => {
+  const handleBillingDetails = () => {
+    console.log('🚨 Navegando para detalhes de faturamento', {
+      contractId: contract?.id,
+      contractName: contract?.name,
+      contractStatus: contract?.status
+    });
+
     if (contract?.id) {
-      navigate(`/contracts/${contract.id}/billing`);
+      try {
+        console.log('🚨 Iniciando navegação para rota de faturamento');
+        navigate(`/contracts-recurring/${contract.id}/billing`);
+        console.log('🚨 Navegação concluída com sucesso');
+      } catch (error) {
+        console.error('🚨 Erro na navegação:', error);
+      }
+    } else {
+      console.warn('🚨 ID do contrato não definido');
     }
   };
 
@@ -275,7 +289,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             <Tooltip title="Processar Fatura">
               <IconButton 
                 color="primary" 
-                onClick={handleProcessBilling}
+                onClick={handleBillingDetails}
                 disabled={contract?.status !== 'active'}
               >
                 <AttachMoney />

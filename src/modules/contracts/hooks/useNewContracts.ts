@@ -31,11 +31,11 @@ export const useNewContracts = () => {
     queryKey: ['contracts', pagination.page, pagination.limit, search],
     queryFn: async () => {
       try {
-        console.log('🔍 useNewContracts - Iniciando busca:', { 
+        console.log('🚨 DEBUG - Parâmetros completos de busca:', {
           page: pagination.page, 
           limit: pagination.limit,
           search,
-          queryKey: ['contracts', pagination.page, pagination.limit, search]
+          fullQueryKey: ['contracts', pagination.page, pagination.limit, search]
         });
 
         const response = await contractService.getContracts(
@@ -44,7 +44,7 @@ export const useNewContracts = () => {
           search // Passando o termo de busca para o serviço
         );
         
-        console.log('🔍 useNewContracts - Resposta do serviço:', response);
+        console.log('🚨 DEBUG - Resposta completa do serviço:', response);
 
         // Atualiza o estado imediatamente após receber os dados
         if (response) {
@@ -58,7 +58,7 @@ export const useNewContracts = () => {
         
         return response;
       } catch (error) {
-        console.error('❌ useNewContracts - Erro na busca:', error);
+        console.error('🚨 DEBUG - Erro completo na busca:', error);
         throw error;
       }
     },

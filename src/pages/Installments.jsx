@@ -72,6 +72,7 @@ import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse,
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import api from '../services/api'; // Import the api instance
+import axios from 'axios'; // Import axios instance
 
 // Adicionar log de diagnóstico global
 // console.error('🚨 INSTALLMENTS MODULE LOADED GLOBALLY');
@@ -279,9 +280,14 @@ export default function Installments() {
       });
 
       const response = await installmentsService.list({
-        ...paginationParams,
-        ...filterParams,
-        ...params
+        page: page + 1,
+        limit: rowsPerPage,
+        sort: 'due_date',
+        order: 'desc',
+        start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+        end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+        status: filters.status || null,
+        search: filters.full_name || null
       });
 
       console.log('🚨 Resposta completa da API:', response);
@@ -353,6 +359,45 @@ export default function Installments() {
       endDate: today
     });
   }, []);
+
+  // Função para lidar com mudanças de data
+  // Função handleDateChange: Gerencia mudanças de data com validações e atualizações síncronas
+  // Objetivos:
+  // 1. Garantir que a data inicial seja sempre anterior à data final
+  // 2. Atualizar estados de data de forma consistente
+  // 3. Manter os filtros sincronizados com os estados de data
+  // 4. Fornecer logs de depuração para rastreamento
+  const handleDateChange = useCallback((type, date) => {
+    // Validar se a data final é sempre posterior à data inicial
+    if (type === 'startDate' && date > endDate) {
+      console.warn('🚨 Data inicial não pode ser posterior à data final');
+      return;
+    }
+
+    if (type === 'endDate' && date < startDate) {
+      console.warn('🚨 Data final não pode ser anterior à data inicial');
+      return;
+    }
+
+    // Atualizar estado da data
+    if (type === 'startDate') {
+      setStartDate(date);
+    } else {
+      setEndDate(date);
+    }
+
+    // Atualizar filtros de forma síncrona
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [type]: date
+    }));
+
+    console.log(`🚨 Mudança de data ${type}:`, {
+      newDate: date,
+      startDate,
+      endDate
+    });
+  }, [startDate, endDate]);
 
   // Renderização condicional da tabela
   const renderInstallmentsTable = useMemo(() => {
@@ -1096,24 +1141,22 @@ export default function Installments() {
 
     try {
       console.log('🚨 PREPARANDO ENVIO DE NOTIFICAÇÃO');
-      const response = await api.post(
-        'https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', 
-        { 
-          installment_id: installment.installment_id,
-          full_name: installment.full_name,
-          amount: installment.amount,
-          due_date: installment.due_date,
-          boleto_number: installment.boletos?.[0]?.boleto_number
+      const notificationPayload = {
+        installment_id: installment.installment_id,
+        full_name: installment.full_name,
+        amount: installment.amount,
+        due_date: installment.due_date,
+        boleto_number: installment.boletos?.[0]?.boleto_number
+      };
+      const response = await axios.post('https://n8n.webhook.agilefinance.com.br/webhook/mensagem/parcela', notificationPayload, {
+        headers: {
+          'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
+          'Content-Type': 'application/json'
         },
-        {
-          headers: {
-            'apikey': 'ffcaa89a3e19bd98e911475c7974309b',
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('🚨 RESPOSTA DA NOTIFICAÇÃO:', response.data);
+        timeout: 5000  // Timeout de 5 segundos
+      });
+      
+      console.log('🚨 RESPOSTA DA NOTIFICAÇÃO:', response);
 
       // Simula um tempo de processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1122,9 +1165,10 @@ export default function Installments() {
     } catch (error) {
       console.error('🚨 ERRO AO ENVIAR NOTIFICAÇÃO:', {
         message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        installment_id: installment.installment_id
+        config: error.config,
+        code: error.code,
+        response: error.response,
+        request: error.request
       });
       enqueueSnackbar('Erro ao enviar notificação', { variant: 'error' });
     }
@@ -1353,7 +1397,7 @@ export default function Installments() {
             <DatePicker
               label="Data Inicial"
               value={startDate}
-              onChange={(newValue) => setStartDate(newValue)}
+              onChange={(newValue) => handleDateChange('startDate', newValue)}
               slots={{
                 textField: TextField
               }}
@@ -1373,7 +1417,7 @@ export default function Installments() {
             <DatePicker
               label="Data Final"
               value={endDate}
-              onChange={(newValue) => setEndDate(newValue)}
+              onChange={(newValue) => handleDateChange('endDate', newValue)}
               slots={{
                 textField: TextField
               }}

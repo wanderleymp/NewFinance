@@ -16,7 +16,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
 const Movements = lazy(() => import('./pages/Movements'));
-const NewMovementExpress = lazy(() => import('./pages/NewMovementExpress'));
+const newMovementExpress = lazy(() => import('./pages/NewMovementExpress'));
 const NewMovementDetailed = lazy(() => import('./pages/NewMovementDetailed'));
 const MovementEdit = lazy(() => import('./pages/MovementEdit'));
 const Receivables = lazy(() => import('./pages/Receivables'));
@@ -131,17 +131,18 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route index element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
         <Route path="dashboard" element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
         <Route path="movements" element={<Suspense fallback={<Loading />}><Movements /></Suspense>} />
-        <Route path="movements/new" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
-        <Route path="movements/:id" element={<Suspense fallback={<Loading />}><NewMovementExpress /></Suspense>} />
-        <Route path="movements/edit/:id" element={<Suspense fallback={<Loading />}><MovementEdit /></Suspense>} />
         <Route path="movements/new-express" element={
           <PrivateRoute>
             <Suspense fallback={<Loading />}>
               {console.log('🚨 DEBUG: Renderizando rota de movimento express', window.location.pathname)}
-              <NewMovementExpress />
+              {console.log('🚨 DEBUG: Rotas disponíveis', AppRoutes.map(route => route.path))}
+              <newMovementExpress />
             </Suspense>
           </PrivateRoute>
         } />
+        <Route path="movements/new" element={<Suspense fallback={<Loading />}><newMovementExpress /></Suspense>} />
+        <Route path="movements/:id" element={<Suspense fallback={<Loading />}><newMovementExpress /></Suspense>} />
+        <Route path="movements/edit/:id" element={<Suspense fallback={<Loading />}><MovementEdit /></Suspense>} />
         <Route path="movements/new-detailed" element={<Suspense fallback={<Loading />}><NewMovementDetailed /></Suspense>} />
         <Route path="persons" element={<Suspense fallback={<Loading />}><Persons /></Suspense>} />
         <Route path="persons/new" element={<Suspense fallback={<Loading />}><PersonForm /></Suspense>} />
@@ -204,9 +205,71 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
               </Suspense>
             </PrivateRoute>
           } 
+        >
+          <Route 
+            path="dashboard" 
+            element={
+              <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+                <Suspense fallback={<Loading />}>
+                  <Home />
+                </Suspense>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="billing" 
+            element={
+              <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+                <Suspense fallback={<Loading />}>
+                  <ContractBillingPage />
+                </Suspense>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path=":contractId/billing" 
+            element={
+              <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+                <Suspense fallback={<Loading />}>
+                  <ContractBillingPage />
+                </Suspense>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path=":contractId/billing/:billingId" 
+            element={
+              <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+                <Suspense fallback={<Loading />}>
+                  <ContractBillingPage />
+                </Suspense>
+              </PrivateRoute>
+            } 
+          />
+        </Route>
+        {/* Rotas de Contratos Recorrentes */}
+        <Route 
+          path="contracts-recurring" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <ContractsPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
         />
         <Route 
-          path="contracts/billing" 
+          path="contracts-recurring/dashboard" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <Home />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/billing" 
           element={
             <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
               <Suspense fallback={<Loading />}>
@@ -216,11 +279,41 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           } 
         />
         <Route 
-          path="contracts/dashboard" 
+          path="contracts-recurring/:contractId/billing" 
           element={
             <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
               <Suspense fallback={<Loading />}>
-                <Dashboard />
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/:contractId/billing/:billingId" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/:contractId/billing/:billingId/:paymentId" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/:contractId/billing/:billingId/:paymentId/:receiptId" 
+          element={
+            <PrivateRoute requiredRoles={[ROLES.ADMIN, ROLES.FINANCEIRO]}>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
               </Suspense>
             </PrivateRoute>
           } 

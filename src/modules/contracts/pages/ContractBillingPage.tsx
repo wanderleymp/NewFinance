@@ -14,6 +14,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { useParams, useLocation } from 'react-router-dom';
 
 import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
@@ -28,6 +29,17 @@ interface ContractBilling {
 }
 
 export default function ContractBillingPage() {
+  const location = useLocation();
+  const { contractId, billingId } = useParams();
+  
+  console.log('🚨 ContractBillingPage - Contexto de Rota', {
+    pathname: location.pathname,
+    contractId,
+    billingId,
+    search: location.search,
+    state: location.state
+  });
+
   const [billings, setBillings] = useState<ContractBilling[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingIds, setProcessingIds] = useState<string[]>([]);
@@ -43,22 +55,31 @@ export default function ContractBillingPage() {
   const fetchPendingBillings = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await contractService.getPendingBillings(page, pagination.limit);
+      console.log('🔍 Buscando faturas', {
+        contractId,
+        billingId,
+        page,
+        limit: pagination.limit
+      });
+
+      const response = contractId 
+        ? await contractService.getPendingBillings(page, pagination.limit, contractId)
+        : await contractService.getPendingBillings(page, pagination.limit);
+
       console.log('📋 Faturas recebidas:', response);
       
       setBillings(response.items);
       setPagination(prevState => ({
         ...prevState,
-        page,
-        totalItems: response.meta.totalItems,
-        totalPages: response.meta.totalPages
+        totalItems: response.total,
+        totalPages: Math.ceil(response.total / pagination.limit)
       }));
       setError(null);
-    } catch (error) {
-      console.error('❌ Erro ao buscar faturas pendentes:', error);
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
-      setBillings([]);
+    } catch (err) {
+      console.error('❌ Erro ao buscar faturas:', err);
       enqueueSnackbar('Erro ao carregar faturas', { variant: 'error' });
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      setBillings([]);
     } finally {
       setLoading(false);
     }

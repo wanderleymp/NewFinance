@@ -20,6 +20,11 @@ export default defineConfig({
         target: 'https://dev.agilefinance.com.br',
         changeOrigin: true,
         secure: false
+      },
+      '/movements': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

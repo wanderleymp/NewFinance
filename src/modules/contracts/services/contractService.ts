@@ -49,77 +49,60 @@ export const contractService = {
     currentPage: number;
   }> {
     try {
-      if (this.dataSource === 'api') {
-        console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
-        
-        // Constrói os parâmetros da query
-        const queryParams = {
-          page,
-          limit,
-          ...(search?.trim() ? { search: search.trim() } : {}) // Só inclui search se tiver valor
-        };
+      console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
+      
+      // Constrói os parâmetros da query
+      const queryParams: Record<string, any> = {
+        page,
+        limit
+      };
 
-        console.log('🔍 ContractService - Parâmetros da requisição:', queryParams);
-
-        const response = await api.get('/contracts-recurring', { 
-          params: queryParams
-        });
-
-        console.log('🔍 ContractService - Resposta bruta:', response.data);
-        
-        // Mapeia cada item da resposta para o formato Contract
-        const mappedContracts = (response.data.items || []).map((item: any) => ({
-          id: item.contract_id,
-          name: item.contract_name,
-          value: parseFloat(item.contract_value || '0'),
-          total_amount: item.contract_value, // Valor original
-          startDate: item.start_date ? new Date(item.start_date) : null,
-          endDate: item.end_date ? new Date(item.end_date) : null,
-          status: item.status?.toLowerCase() || 'inactive',
-          groupName: item.group_name || '',
-          fullName: item.full_name || item.contract_name || '',
-          recurrencePeriod: item.recurrence_period?.toLowerCase() === 'monthly' ? 'monthly' : 'yearly',
-          dueDay: parseInt(item.due_day || '0', 10),
-          daysBefore: parseInt(item.days_before_due || '0', 10),
-          lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
-          nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
-          billingReference: item.billing_reference || '',
-          contractGroupId: item.contract_group_id || 0,
-          modelMovementId: item.model_movement_id || 0,
-          representativePersonId: item.representative_person_id || null,
-          commissionedValue: item.commissioned_value ? parseFloat(item.commissioned_value) : null,
-          accountEntryId: item.account_entry_id || null,
-          lastDecimoBillingYear: item.last_decimo_billing_year || null
-        }));
-
-        const mappedResponse = {
-          contracts: mappedContracts,
-          total: response.data.meta?.totalItems || 0,
-          totalPages: response.data.meta?.totalPages || 0,
-          currentPage: response.data.meta?.currentPage || page
-        };
-
-        console.log('🔍 ContractService - Resposta mapeada:', mappedResponse);
-        
-        return mappedResponse;
-      } else {
-        // Dados mock
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        
-        const paginatedContracts = mockContractsData.data.slice(startIndex, endIndex);
-        const totalContracts = mockContractsData.data.length;
-        const totalPages = mockContractsData.meta.totalPages;
-
-        return {
-          contracts: paginatedContracts,
-          total: totalContracts,
-          totalPages,
-          currentPage: page
-        };
+      // Adiciona parâmetro de busca apenas se não estiver vazio
+      if (search && search.trim() !== '') {
+        queryParams.search = search.trim();
       }
+
+      console.log('🔍 ContractService - Parâmetros da requisição:', queryParams);
+
+      const response = await api.get('/contracts-recurring', { 
+        params: queryParams
+      });
+
+      console.log('🔍 ContractService - Resposta bruta:', response.data);
+      
+      // Mapeia cada item da resposta para o formato Contract
+      const mappedContracts = (response.data.items || []).map((item: any) => ({
+        id: item.contract_id,
+        name: item.contract_name,
+        value: parseFloat(item.contract_value || '0'),
+        total_amount: item.contract_value, // Valor original
+        startDate: item.start_date ? new Date(item.start_date) : null,
+        endDate: item.end_date ? new Date(item.end_date) : null,
+        status: item.status?.toLowerCase() || 'inactive',
+        groupName: item.group_name || '',
+        fullName: item.full_name || item.contract_name || '',
+        recurrencePeriod: item.recurrence_period?.toLowerCase() === 'monthly' ? 'monthly' : 'yearly',
+        dueDay: parseInt(item.due_day || '0', 10),
+        daysBefore: parseInt(item.days_before_due || '0', 10),
+        lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
+        nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
+        billingReference: item.billing_reference || '',
+        contractGroupId: item.contract_group_id || 0,
+        modelMovementId: item.model_movement_id || 0,
+        representativePersonId: item.representative_person_id || null,
+        commissionedValue: item.commissioned_value ? parseFloat(item.commissioned_value) : null,
+        accountEntryId: item.account_entry_id || null,
+        lastDecimoBillingYear: item.last_decimo_billing_year || null
+      }));
+
+      return {
+        contracts: mappedContracts,
+        total: response.data.meta?.totalItems || 0,
+        totalPages: response.data.meta?.totalPages || 0,
+        currentPage: response.data.meta?.currentPage || page
+      };
     } catch (error) {
-      console.error('Erro ao buscar contratos:', error);
+      console.error('❌ Erro ao buscar contratos:', error);
       throw error;
     }
   },
@@ -199,31 +182,19 @@ export const contractService = {
     }
   },
 
-  async getPendingBillings(page = 1, limit = 10): Promise<PaginatedResponse<ContractBilling>> {
-    try {
-      const response = await api.get('/contracts-recurring/pending-billings', {
-        params: { page, limit }
-      });
-      console.log('🔍 Resposta completa da API:', response);
+  async getPendingBillings(page = 1, limit = 10, contractId?: string | number) {
+    console.log('🔍 Buscando faturas pendentes', { page, limit, contractId });
+    
+    const endpoint = contractId 
+      ? `/contracts-recurring/${contractId}/billing` 
+      : '/contracts-recurring/billing';
 
-      const mappedBillings = response.data.items.map((billing: any) => ({
-        id: billing.account_entry_id || billing.contract_id,
-        contractNumber: billing.contract_id?.toString(),
-        clientName: billing.full_name,
-        billingDate: billing.next_billing_date || billing.last_billing_date,
-        amount: parseFloat(billing.contract_value),
-        status: billing.status
-      }));
+    const response = await api.get(endpoint, {
+      params: { page, limit }
+    });
 
-      return {
-        items: mappedBillings,
-        meta: response.data.meta,
-        links: response.data.links
-      };
-    } catch (error) {
-      console.error('Erro ao buscar faturas pendentes:', error);
-      throw error;
-    }
+    console.log('📋 Resposta de faturas pendentes:', response.data);
+    return response.data;
   },
 
   async processBilling(contractId: string | number): Promise<void> {
