@@ -401,10 +401,10 @@ export const movementsService = {
   },
 
   // Método para cancelar um movimento
-  async cancel(movementId) {
+  async cancel(movementId, status) {
     try {
-      console.log(`🚨 Iniciando cancelamento do movimento ${movementId}`);
-      const response = await api.post(`/movements/${movementId}/cancel`);
+      console.log(`🚨 Iniciando cancelamento do movimento ${movementId} com status ${status}`);
+      const response = await api.post(`/movements/${movementId}/cancel`, { status });
       console.log(`✅ Resposta do cancelamento:`, {
         status: response.status,
         data: response.data

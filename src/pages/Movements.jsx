@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -536,7 +536,7 @@ const InstallmentRow = ({ installment }) => {
   );
 };
 
-const MovementRow = ({ movement }) => {
+const MovementRow = ({ movement, onMovementUpdate }) => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [open, setOpen] = useState(false);
@@ -605,42 +605,78 @@ const MovementRow = ({ movement }) => {
 
   const handleCancelMovement = async () => {
     try {
-      console.log('🚨 Tentando cancelar movimento:', {
+      console.log('🔄 Iniciando cancelamento do movimento:', {
         movementId,
         statusName,
-        currentStatus: movement.movement_status_id,
-        totalAmount,
-        movementDate
+        currentStatus: movement.movement_status_id
       });
 
-      // Verificar condições de cancelamento
-      if (movement.movement_status_id === 3) { // Assumindo 3 como status de cancelado
+      if (movement.movement_status_id === MOVEMENT_STATUS.CANCELED) {
         enqueueSnackbar('Movimentação já está cancelada!', { variant: 'warning' });
         return;
       }
 
-      const result = await movementsService.cancel(movementId);
+      // Envia o status CANCELED na requisição
+      const result = await movementsService.cancel(movementId, MOVEMENT_STATUS.CANCELED);
       console.log('✅ Movimento cancelado com sucesso:', result);
-      enqueueSnackbar('Movimentação cancelada com sucesso!', { variant: 'success' });
-      window.location.reload();
+      
+      // Atualiza o estado local primeiro
+      const updatedMovement = {
+        ...movement,
+        movement_status_id: MOVEMENT_STATUS.CANCELED,
+        status_name: 'Cancelado'
+      };
+      
+      // Notifica o componente pai da atualização
+      if (typeof onMovementUpdate === 'function') {
+        onMovementUpdate(updatedMovement);
+      }
+      
+      // Força uma nova busca dos dados
+      try {
+        const refreshedData = await movementsService.get(movementId);
+        if (refreshedData) {
+          // Atualiza o movimento na lista local
+          setMovements(prevMovements => 
+            prevMovements.map(mov => 
+              mov.movement_id === movementId ? refreshedData : mov
+            )
+          );
+        }
+      } catch (refreshError) {
+        console.error('Erro ao atualizar dados após cancelamento:', refreshError);
+      }
+
+      // Mostra mensagem de sucesso
+      enqueueSnackbar('Movimentação cancelada com sucesso!', { 
+        variant: 'success',
+        autoHideDuration: 3000
+      });
+
+      // Força atualização da lista completa
+      fetchMovements();
+      
     } catch (error) {
-      console.error('❌ Erro detalhado ao cancelar movimentação:', {
+      console.error('❌ Erro ao cancelar movimentação:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status,
-        config: error.config,
-        movementDetails: {
-          id: movementId,
-          currentStatus: movement.movement_status_id,
-          statusName
-        }
+        status: error.response?.status
       });
-      enqueueSnackbar(
-        error.response?.data?.message || 
-        error.message || 
-        'Erro ao cancelar movimentação', 
-        { variant: 'error' }
-      );
+      
+      if (error.response?.status === 401) {
+        enqueueSnackbar('Sessão expirada. Por favor, faça login novamente.', { 
+          variant: 'error',
+          autoHideDuration: 5000
+        });
+        navigate('/login');
+      } else {
+        enqueueSnackbar(
+          error.response?.data?.message || 
+          error.message || 
+          'Erro ao cancelar movimentação', 
+          { variant: 'error' }
+        );
+      }
     }
   };
 
@@ -1061,7 +1097,7 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
 const MOVEMENT_STATUS = {
   DRAFT: 1,
   CONFIRMED: 2,
-  CANCELED: 99
+  CANCELED: 3
 };
 
 const MOVEMENT_STATUS_LABELS = {
@@ -1161,7 +1197,7 @@ const Movements = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState([]);
-  const [viewMode, setViewMode] = useState('list'); // 'list' ou 'card'
+  const [viewMode, setViewMode] = useState('list');
   const [orderBy, setOrderBy] = useState('date');
   const [orderDirection, setOrderDirection] = useState('desc');
   const [page, setPage] = useState(0);
@@ -1171,18 +1207,20 @@ const Movements = () => {
   const [selectedStatuses, setSelectedStatuses] = useState([
     MOVEMENT_STATUS.DRAFT, 
     MOVEMENT_STATUS.CONFIRMED
-  ]); // Padrão: Rascunho e Confirmado, excluindo Cancelado
+  ]);
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTimeout, setSearchTimeout] = useState(null);
   const [movementTypeDialogOpen, setMovementTypeDialogOpen] = useState(false);
   const [movementTypeOptions, setMovementTypeOptions] = useState([]);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [error, setError] = useState(null);
 
-  const fetchMovements = async () => {
+  const fetchMovements = useCallback(async () => {
     try {
       setLoading(true);
-      
+      setError(null);
+
       const allNonCanceledStatuses = [
         MOVEMENT_STATUS.DRAFT, 
         MOVEMENT_STATUS.CONFIRMED
@@ -1190,19 +1228,16 @@ const Movements = () => {
 
       const params = {
         page: page + 1,
-        limit: rowsPerPage,
-        orderBy: orderBy || 'date',
-        orderDirection: orderDirection || 'desc',
-        startDate: format(dateRange[0], 'yyyy-MM-dd'),
-        endDate: format(dateRange[1], 'yyyy-MM-dd'),
-        include: 'payments.installments.boletos',
-        search: searchQuery || undefined,
-        movement_status_id: selectedStatuses.length > 0 
+        per_page: rowsPerPage,
+        order_by: orderBy,
+        order_direction: orderDirection,
+        start_date: format(dateRange[0], 'yyyy-MM-dd'),
+        end_date: format(dateRange[1], 'yyyy-MM-dd'),
+        status: selectedStatuses.length > 0 
           ? selectedStatuses 
           : allNonCanceledStatuses,
         type: typeFilter !== 'all' ? typeFilter : undefined,
-        orderBySecondary: 'movement_id',
-        orderDirectionSecondary: 'desc'
+        search: searchQuery
       };
 
       console.log('🔍 Parâmetros detalhados da requisição:', {
@@ -1213,428 +1248,202 @@ const Movements = () => {
 
       const response = await movementsService.list(params);
       
-      console.log('🚨 Estrutura da resposta:', {
-        items: response.items,
-        total: response.total,
-        page: response.page,
-        limit: response.limit,
-        totalPages: response.totalPages,
-        itemsType: typeof response.items,
-        itemsLength: response.items?.length || 0
-      });
-      
-      const movementsData = response.items || [];
-      const totalCount = response.total || movementsData.length || 0;
-
-      setMovements(movementsData);
-      setTotalCount(totalCount);
-      setPage(response.page - 1); // Ajuste para página baseada em 0
-      setRowsPerPage(response.limit);
-      
+      if (response && response.items) {
+        setMovements(response.items);
+        setTotalCount(response.total_count || response.items.length);
+      } else {
+        setMovements([]);
+        setTotalCount(0);
+      }
     } catch (error) {
-      console.error('🔴 Erro na busca de movimentações:', error);
-      enqueueSnackbar('Erro ao carregar movimentos', { variant: 'error' });
+      console.error('Erro ao carregar movimentações:', error);
+      setError('Erro ao carregar movimentações. Por favor, tente novamente.');
       setMovements([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter, searchQuery]);
 
-  const handleSearch = (event) => {
-    const { value } = event.target;
-    setSearchQuery(value);
+  const handleMovementUpdate = useCallback(async (updatedMovement) => {
+    console.log('🔄 Atualizando movimento na lista:', updatedMovement);
+    await fetchMovements(); // Recarrega a lista completa
+  }, [fetchMovements]);
 
-    // Limpa o timeout anterior se existir
+  useEffect(() => {
+    fetchMovements();
+  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter]);
+
+  useEffect(() => {
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
 
-    // Cria um novo timeout para fazer a busca
     const timeoutId = setTimeout(() => {
       setPage(0); // Reset da página ao buscar
       fetchMovements();
-    }, 500); // Delay de 500ms
+    }, 500);
 
     setSearchTimeout(timeoutId);
-  };
 
-  useEffect(() => {
-    fetchMovements();
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter, searchQuery]); // Adicionado searchQuery
-
-  // Limpa o timeout ao desmontar o componente
-  useEffect(() => {
     return () => {
       if (searchTimeout) {
         clearTimeout(searchTimeout);
       }
     };
-  }, [searchTimeout]);
+  }, [searchQuery]);
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
+  if (loading && movements.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleSort = (property) => {
-    const isAsc = orderBy === property && orderDirection === 'asc';
-    setOrderDirection(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-    setPage(0); // Reset página ao ordenar
-  };
-
-  const handleNewMovement = () => {
-    // Abrir um modal de seleção de tipo de movimento
-    const options = [
-      { 
-        label: 'Movimento Expresso', 
-        description: 'Rápido e simples, para lançamentos básicos', 
-        path: '/movements/new-express',
-        icon: <SpeedIcon />
-      },
-      { 
-        label: 'Movimento Detalhado', 
-        description: 'Completo, com múltiplos itens e pagamentos', 
-        path: '/movements/new-detailed',
-        icon: <ListAltIcon />
-      }
-    ];
-
-    setMovementTypeDialogOpen(true);
-    setMovementTypeOptions(options);
-  };
-
-  const toggleAIAssistant = () => {
-    setIsAIModalOpen(!isAIModalOpen);
-  };
+  if (error) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="error" gutterBottom>{error}</Typography>
+        <Button 
+          variant="contained" 
+          onClick={fetchMovements}
+          startIcon={<RefreshIcon />}
+        >
+          Tentar Novamente
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>
-      {/* Cabeçalho com título e botões de visualização */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3
-      }}>
-        <Typography variant="h5">Movimentos</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
+      {/* Cabeçalho e Filtros */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Movimentações
+        </Typography>
+        
+        {/* Barra de Ferramentas */}
+        <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <DateRangeSelector 
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+          />
+          
+          <MovementStatusFilter
+            selectedStatuses={selectedStatuses}
+            onStatusChange={setSelectedStatuses}
+          />
+          
+          <TextField
             size="small"
-            onChange={(e, newViewMode) => {
-              if (newViewMode !== null) {
-                setViewMode(newViewMode);
-              }
+            variant="outlined"
+            placeholder="Pesquisar..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
             }}
+          />
+          
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setMovementTypeDialogOpen(true)}
+            startIcon={<AddIcon />}
           >
-            <ToggleButton value="list">
-              <ListViewIcon fontSize="small" />
-            </ToggleButton>
-            <ToggleButton value="card">
-              <GridViewIcon fontSize="small" />
-            </ToggleButton>
-          </ToggleButtonGroup>
+            Nova Movimentação
+          </Button>
         </Box>
       </Box>
 
-      {/* Barra de filtros */}
-      <Box sx={{ mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12}>
-            <OutlinedInput
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Buscar movimentações..."
-              size="small"
-              fullWidth
-              startAdornment={
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" color="action" />
-                </InputAdornment>
-              }
-              sx={{
-                borderRadius: 2,
-                backgroundColor: 'background.paper',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'divider',
-                },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <DateRangeSelector
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <MovementStatusFilter 
-              selectedStatuses={selectedStatuses}
-              onStatusChange={(newStatuses) => {
-                setSelectedStatuses(newStatuses);
-                // Refetch movements quando status mudar
-                fetchMovements();
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo</InputLabel>
-              <Select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                label="Tipo"
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="1">Venda</MenuItem>
-                <MenuItem value="2">Compra</MenuItem>
-                <MenuItem value="3">Contrato Venda</MenuItem>
-                <MenuItem value="4">Contrato Compra</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleNewMovement}
-              sx={{ 
-                bgcolor: 'primary.main',
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-                textTransform: 'none',
-                borderRadius: 1
+      {/* Tabela de Movimentações */}
+      {movements.length > 0 ? (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" />
+                <TableCell>Data</TableCell>
+                <TableCell>Descrição</TableCell>
+                <TableCell>Código</TableCell>
+                <TableCell>Código Cliente</TableCell>
+                <TableCell>Nome Cliente</TableCell>
+                <TableCell>Tipo</TableCell>
+                <TableCell>Valor</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {movements.map((movement) => (
+                <MovementRow 
+                  key={movement.movement_id} 
+                  movement={movement}
+                  onMovementUpdate={handleMovementUpdate}
+                />
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+          />
+        </TableContainer>
+      ) : (
+        <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1" color="textSecondary">
+            Nenhuma movimentação encontrada
+          </Typography>
+        </Paper>
+      )}
+
+      {/* Diálogo de Nova Movimentação */}
+      <Dialog
+        open={movementTypeDialogOpen}
+        onClose={() => setMovementTypeDialogOpen(false)}
+      >
+        <DialogTitle>Escolha o tipo de movimentação</DialogTitle>
+        <DialogContent>
+          <List>
+            <ListItem 
+              button
+              onClick={() => {
+                setMovementTypeDialogOpen(false);
+                navigate('/movements/new/express');
               }}
             >
-              Nova Movimentação
-            </Button>
-          </Grid>
-        </Grid>
-      </Box>
-
-      {loading ? (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress />
-        </Box>
-      ) : viewMode === 'list' ? (
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            overflow: 'hidden',
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider',
-            background: 'transparent',
-          }}
-        >
-          <TableContainer>
-            <Table sx={{ minWidth: 750 }} size="medium">
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox" />
-                  <TableCell>
-                    <TableSortLabel
-                      active={orderBy === 'date'}
-                      direction={orderBy === 'date' ? orderDirection : 'asc'}
-                      onClick={() => onSort('date')}
-                    >
-                      Data
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>Descrição</TableCell>
-                  <TableCell>Código</TableCell>
-                  <TableCell>Código Cliente</TableCell>
-                  <TableCell>Nome Cliente</TableCell>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Ações</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {movements.map((movement) => (
-                  <MovementRow key={movement.movement_id} movement={movement} />
-                ))}
-                {movements.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center">
-                      Nenhuma movimentação encontrada
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            px: 2,
-            py: 1.5,
-            borderTop: '1px solid',
-            borderColor: 'divider'
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Total de registros: {totalCount}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Itens por página:
-              </Typography>
-              <Select
-                value={rowsPerPage}
-                onChange={(e) => handleChangeRowsPerPage(e)}
-                size="small"
-                sx={{ minWidth: 80 }}
-              >
-                <MenuItem value={10}>10</MenuItem>
-                <MenuItem value={25}>25</MenuItem>
-                <MenuItem value={50}>50</MenuItem>
-              </Select>
-              <Typography variant="body2" color="text.secondary">
-                {`${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, totalCount)} de ${totalCount}`}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <IconButton 
-                  size="small"
-                  onClick={() => handleChangePage(null, page - 1)}
-                  disabled={page === 0}
-                >
-                  <BeforeIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => handleChangePage(null, page + 1)}
-                  disabled={page >= Math.ceil(totalCount / rowsPerPage) - 1}
-                >
-                  <NextIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </Box>
-          </Box>
-        </Paper>
-      ) : (
-        <Grid container spacing={2}>
-          {movements.map((movement) => (
-            <Grid item xs={12} sm={6} md={4} key={movement.movement_id}>
-              <MovementCard movement={movement} />
-            </Grid>
-          ))}
-        </Grid>
-      )}
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[6, 10, 24, 48]}
-          labelRowsPerPage="Itens por página"
-          labelDisplayedRows={({ from, to, count }) => 
-            `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
-          }
-        />
-      </Box>
-
-      <Fab 
-        color="primary" 
-        onClick={toggleAIAssistant}
-        sx={{ 
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          background: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)',
-          boxShadow: '0 10px 25px rgba(37, 117, 252, 0.3)',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'scale(1.1)',
-            boxShadow: '0 15px 35px rgba(37, 117, 252, 0.4)',
-          },
-          '@keyframes pulse': {
-            '0%': {
-              transform: 'scale(0.95)',
-              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0.7)',
-            },
-            '70%': {
-              transform: 'scale(1)',
-              boxShadow: '0 0 0 20px rgba(37, 117, 252, 0)',
-            },
-            '100%': {
-              transform: 'scale(0.95)',
-              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0)',
-            },
-          },
-          '&:not(:hover)': {
-            animation: 'pulse 2s infinite',
-          },
-        }}
-      >
-        <AIIcon />
-      </Fab>
-
-      <Dialog
-        open={isAIModalOpen}
-        onClose={toggleAIAssistant}
-        aria-labelledby="ai-assistant-dialog"
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle id="ai-assistant-dialog">
-          AI Financial Assistant
-          <Button 
-            onClick={toggleAIAssistant} 
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <CloseIcon />
-          </Button>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            How can I help you with your finances today? Ask me anything about your financial data, transactions, or insights.
-          </DialogContentText>
-          {/* Future: Add AI chat interface or input */}
+              <ListItemText 
+                primary="Movimentação Expressa" 
+                secondary="Criar uma movimentação rápida com poucos campos"
+              />
+            </ListItem>
+            <ListItem 
+              button
+              onClick={() => {
+                setMovementTypeDialogOpen(false);
+                navigate('/movements/new/detailed');
+              }}
+            >
+              <ListItemText 
+                primary="Movimentação Detalhada" 
+                secondary="Criar uma movimentação com todos os campos disponíveis"
+              />
+            </ListItem>
+          </List>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={toggleAIAssistant} color="primary">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog 
-        open={movementTypeDialogOpen} 
-        onClose={() => setMovementTypeDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Selecione o tipo de movimento</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2}>
-            {movementTypeOptions.map((option) => (
-              <Button 
-                key={option.path} 
-                variant="contained" 
-                startIcon={option.icon} 
-                onClick={() => navigate(option.path)}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMovementTypeDialogOpen(false)}>Cancelar</Button>
-        </DialogActions>
       </Dialog>
     </Box>
   );
