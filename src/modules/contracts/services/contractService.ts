@@ -202,8 +202,13 @@ export const contractService = {
         next_billing_date: item.next_billing_date,
         last_billing_date: item.last_billing_date,
         contract_value: Number(item.contract_value || 0),
-        // Define status como 'pending' se o contrato estiver ativo
-        status: item.status === 'active' ? 'pending' : item.status
+        status: item.status === 'active' ? 'pending' : item.status,
+        // Adiciona o histórico de faturamentos
+        billings: (item.billings || []).map(billing => ({
+          id: billing.movement_id,
+          date: billing.movement_date,
+          amount: Number(billing.total_amount || 0)
+        }))
       }));
 
       console.log('🔍 Contratos mapeados:', items);

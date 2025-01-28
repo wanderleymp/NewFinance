@@ -13,10 +13,14 @@ import {
   Pagination,
   CircularProgress,
   Grid,
-  Chip
+  Chip,
+  Collapse,
+  IconButton
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useParams, useLocation } from 'react-router-dom';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
@@ -29,6 +33,11 @@ interface ContractBilling {
   last_billing_date: string;
   contract_value: number;
   status: string;
+  billings: {
+    id: number;
+    date: string;
+    amount: number;
+  }[];
 }
 
 export default function ContractBillingPage() {
@@ -45,8 +54,9 @@ export default function ContractBillingPage() {
 
   const [billings, setBillings] = useState<ContractBilling[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingIds, setProcessingIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [processingIds, setProcessingIds] = useState<string[]>([]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -94,7 +104,8 @@ export default function ContractBillingPage() {
           next_billing_date: item.next_billing_date,
           last_billing_date: item.last_billing_date,
           contract_value: item.contract_value,
-          status: item.status
+          status: item.status,
+          billings: item.billings
         };
       });
       
@@ -213,6 +224,7 @@ export default function ContractBillingPage() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox" />
               <TableCell>ID Contrato</TableCell>
               <TableCell>Cliente</TableCell>
               <TableCell>Próximo Faturamento</TableCell>
@@ -224,67 +236,113 @@ export default function ContractBillingPage() {
           </TableHead>
           <TableBody>
             {billings.map((billing, index) => (
-              <TableRow 
-                key={`${billing.id || index}`}
-                sx={{ 
-                  backgroundColor: billing.status !== 'pending' 
-                    ? 'rgba(0, 0, 0, 0.05)' 
-                    : 'inherit',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.08)'
-                  }
-                }}
-              >
-                <TableCell>{billing.contract_id}</TableCell>
-                <TableCell>{billing.client_name}</TableCell>
-                <TableCell>
-                  {billing.next_billing_date 
-                    ? new Date(billing.next_billing_date).toLocaleDateString('pt-BR')
-                    : 'Não definido'}
-                </TableCell>
-                <TableCell>
-                  {billing.last_billing_date
-                    ? new Date(billing.last_billing_date).toLocaleDateString('pt-BR')
-                    : 'Não definido'}
-                </TableCell>
-                <TableCell>
-                  {billing.contract_value.toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  })}
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={billing.status === 'pending' ? 'Pendente' : 'Processado'}
-                    color={billing.status === 'pending' ? 'warning' : 'success'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button 
-                    variant="contained" 
-                    color="primary" 
-                    onClick={() => handleProcessBilling(billing.contract_id?.toString() || '')}
-                    disabled={
-                      billing.status !== 'pending' || 
-                      !billing.next_billing_date || 
-                      processingIds.includes(billing.contract_id?.toString() || '')
+              <React.Fragment key={`${billing.id || index}`}>
+                <TableRow 
+                  sx={{ 
+                    backgroundColor: billing.status !== 'pending' 
+                      ? 'rgba(0, 0, 0, 0.05)' 
+                      : 'inherit',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.08)'
                     }
-                    startIcon={
-                      processingIds.includes(billing.contract_id?.toString() || '') 
-                        ? <CircularProgress size={20} /> 
-                        : null
-                    }
-                    size="small"
-                  >
-                    {processingIds.includes(billing.contract_id?.toString() || '') 
-                      ? 'Processando...' 
-                      : !billing.next_billing_date
-                        ? 'Sem data'
-                        : 'Processar'}
-                  </Button>
-                </TableCell>
-              </TableRow>
+                  }}
+                >
+                  <TableCell padding="checkbox">
+                    <IconButton
+                      size="small"
+                      onClick={() => setExpandedId(expandedId === billing.contract_id ? null : billing.contract_id)}
+                    >
+                      {expandedId === billing.contract_id ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>{billing.contract_id}</TableCell>
+                  <TableCell>{billing.client_name}</TableCell>
+                  <TableCell>
+                    {billing.next_billing_date 
+                      ? new Date(billing.next_billing_date).toLocaleDateString('pt-BR')
+                      : 'Não definido'}
+                  </TableCell>
+                  <TableCell>
+                    {billing.last_billing_date
+                      ? new Date(billing.last_billing_date).toLocaleDateString('pt-BR')
+                      : 'Não definido'}
+                  </TableCell>
+                  <TableCell>
+                    {billing.contract_value.toLocaleString('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={billing.status === 'pending' ? 'Pendente' : 'Processado'}
+                      color={billing.status === 'pending' ? 'warning' : 'success'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={() => handleProcessBilling(billing.contract_id?.toString() || '')}
+                      disabled={
+                        billing.status !== 'pending' || 
+                        !billing.next_billing_date || 
+                        processingIds.includes(billing.contract_id?.toString() || '')
+                      }
+                      startIcon={
+                        processingIds.includes(billing.contract_id?.toString() || '') 
+                          ? <CircularProgress size={20} /> 
+                          : null
+                      }
+                      size="small"
+                    >
+                      {processingIds.includes(billing.contract_id?.toString() || '') 
+                        ? 'Processando...' 
+                        : !billing.next_billing_date
+                          ? 'Sem data'
+                          : 'Processar'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                {/* Linha expandida com histórico de faturamentos */}
+                <TableRow>
+                  <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
+                    <Collapse in={expandedId === billing.contract_id} timeout="auto" unmountOnExit>
+                      <Box sx={{ margin: 1 }}>
+                        <Typography variant="h6" gutterBottom component="div">
+                          Histórico de Faturamentos
+                        </Typography>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>ID</TableCell>
+                              <TableCell>Data</TableCell>
+                              <TableCell>Valor</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {billing.billings.map((bill) => (
+                              <TableRow key={bill.id}>
+                                <TableCell>{bill.id}</TableCell>
+                                <TableCell>
+                                  {new Date(bill.date).toLocaleDateString('pt-BR')}
+                                </TableCell>
+                                <TableCell>
+                                  {bill.amount.toLocaleString('pt-BR', {
+                                    style: 'currency',
+                                    currency: 'BRL'
+                                  })}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>
