@@ -9,28 +9,35 @@ export const ModificationType = {
 
 export type ModificationType = keyof typeof ModificationType;
 
+export interface ContractBilling {
+  movement_id: number;
+  movement_date: string;
+  total_amount: number;
+}
+
 export interface Contract {
-  id: number;
-  name: string;
-  value: number;
-  total_amount: string; // Valor original do contrato
-  startDate: Date;
-  endDate: Date | null;
+  full_name: string;
+  group_name: string;
+  contract_name: string;
+  contract_value: string;
+  start_date: string;
+  end_date: string | null;
+  recurrence_period: 'monthly' | 'yearly';
+  due_day: number;
+  days_before_due: number;
   status: string;
-  groupName: string;
-  fullName: string;
-  recurrencePeriod: 'monthly' | 'yearly';
-  dueDay: number;
-  daysBefore: number;
-  lastBillingDate: Date | null;
-  nextBillingDate: Date | null;
-  billingReference: string;
-  contractGroupId: number;
-  modelMovementId: number;
-  representativePersonId: number | null;
-  commissionedValue: number | null;
-  accountEntryId: number | null;
-  lastDecimoBillingYear: number | null;
+  model_movement_id: number;
+  last_billing_date: string | null;
+  next_billing_date: string | null;
+  contract_id: number;
+  contract_group_id: number;
+  billing_reference: string;
+  representative_person_id: number | null;
+  commissioned_value: number | null;
+  account_entry_id: number | null;
+  last_decimo_billing_year: number | null;
+  last_adjustment: string | null;
+  billings: ContractBilling[];
 }
 
 export interface ExtraService {

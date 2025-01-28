@@ -69,15 +69,22 @@ export const contractService = {
       });
 
       console.log('🔍 ContractService - Resposta bruta:', response.data);
-      
+
+      // Validação da resposta
+      if (!response.data) {
+        return {
+          contracts: [],
+          total: 0,
+          totalPages: 0,
+          currentPage: page
+        };
+      }
+
       // Mapeia cada item da resposta para o formato Contract
       const mappedContracts = (response.data.items || []).map((item: any) => ({
         id: item.contract_id,
-        name: item.contract_name,
-        value: parseFloat(item.contract_value || '0'),
-        total_amount: item.contract_value, // Valor original
-        startDate: item.start_date ? new Date(item.start_date) : null,
-        endDate: item.end_date ? new Date(item.end_date) : null,
+        name: item.contract_name || '',
+        value: Number(item.contract_value || 0),
         status: item.status?.toLowerCase() || 'inactive',
         groupName: item.group_name || '',
         fullName: item.full_name || item.contract_name || '',
@@ -89,10 +96,8 @@ export const contractService = {
         billingReference: item.billing_reference || '',
         contractGroupId: item.contract_group_id || 0,
         modelMovementId: item.model_movement_id || 0,
-        representativePersonId: item.representative_person_id || null,
-        commissionedValue: item.commissioned_value ? parseFloat(item.commissioned_value) : null,
-        accountEntryId: item.account_entry_id || null,
-        lastDecimoBillingYear: item.last_decimo_billing_year || null
+        startDate: item.start_date ? new Date(item.start_date) : null,
+        endDate: item.end_date ? new Date(item.end_date) : null
       }));
 
       return {
@@ -107,55 +112,60 @@ export const contractService = {
     }
   },
 
-  async createContract(contractData: Partial<Contract>): Promise<Contract> {
+  async getContractById(id: number) {
     try {
-      if (this.dataSource === 'api') {
-        const response = await api.post('/contracts-recurring', contractData);
-        return response.data;
-      } else {
-        // Simular criação de contrato com dados mock
-        const newContract: Contract = {
-          ...contractData,
-          contract_id: mockContractsData.data.length + 1,
-          contract_name: contractData.contract_name || 'Novo Contrato',
-          contract_value: contractData.contract_value || '0.00',
-          start_date: contractData.start_date || new Date().toISOString(),
-          status: contractData.status || 'active'
-        } as Contract;
-
-        mockContractsData.data.push(newContract);
-        return newContract;
-      }
+      const response = await api.get(`/contracts-recurring/${id}`);
+      return response.data;
     } catch (error) {
-      console.error('Erro ao criar contrato:', error);
+      console.error('❌ Erro ao buscar contrato:', error);
       throw error;
     }
   },
 
-  async updateContract(id: number, contractData: Partial<Contract>): Promise<Contract> {
+  async createOrUpdateContract(id?: number, contractData: Partial<Contract>): Promise<Contract> {
     try {
       if (this.dataSource === 'api') {
-        const response = await api.put(`/contracts-recurring/${id}`, contractData);
-        return response.data;
-      } else {
-        // Atualizar contrato nos dados mock
-        const contractIndex = mockContractsData.data.findIndex(
-          contract => contract.contract_id === id
-        );
-
-        if (contractIndex === -1) {
-          throw new Error('Contrato não encontrado');
+        if (id) {
+          const response = await api.put(`/contracts-recurring/${id}`, contractData);
+          return response.data;
+        } else {
+          const response = await api.post('/contracts-recurring', contractData);
+          return response.data;
         }
+      } else {
+        if (id) {
+          // Atualizar contrato nos dados mock
+          const contractIndex = mockContractsData.data.findIndex(
+            contract => contract.contract_id === id
+          );
 
-        mockContractsData.data[contractIndex] = {
-          ...mockContractsData.data[contractIndex],
-          ...contractData
-        };
+          if (contractIndex === -1) {
+            throw new Error('Contrato não encontrado');
+          }
 
-        return mockContractsData.data[contractIndex];
+          mockContractsData.data[contractIndex] = {
+            ...mockContractsData.data[contractIndex],
+            ...contractData
+          };
+
+          return mockContractsData.data[contractIndex];
+        } else {
+          // Simular criação de contrato com dados mock
+          const newContract: Contract = {
+            ...contractData,
+            contract_id: mockContractsData.data.length + 1,
+            contract_name: contractData.contract_name || 'Novo Contrato',
+            contract_value: contractData.contract_value || '0.00',
+            start_date: contractData.start_date || new Date().toISOString(),
+            status: contractData.status || 'active'
+          } as Contract;
+
+          mockContractsData.data.push(newContract);
+          return newContract;
+        }
       }
     } catch (error) {
-      console.error('Erro ao atualizar contrato:', error);
+      console.error('❌ Erro ao criar ou atualizar contrato:', error);
       throw error;
     }
   },
