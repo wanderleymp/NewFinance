@@ -113,6 +113,14 @@ const ContractsPage: React.FC = () => {
     navigate('/contracts/billing');
   };
 
+  const handleNewContract = () => {
+    navigate('/contracts/form');
+  };
+
+  const handleEditContract = (contractId: number) => {
+    navigate(`/contracts/form/${contractId}`);
+  };
+
   // Renderização do conteúdo
   const renderContractContent = () => {
     if (loading) {
@@ -180,7 +188,7 @@ const ContractsPage: React.FC = () => {
                 <TableCell>
                   <IconButton
                     size="small"
-                    onClick={() => navigate(`/contracts/${contract.id}/edit`)}
+                    onClick={() => handleEditContract(contract.id)}
                   >
                     <EditIcon />
                   </IconButton>
@@ -205,7 +213,7 @@ const ContractsPage: React.FC = () => {
           <Grid item xs={12} sm={6} md={4} key={contract.id}>
             <ContractCard
               contract={contract}
-              onEdit={() => navigate(`/contracts/${contract.id}/edit`)}
+              onEdit={() => handleEditContract(contract.id)}
               onServices={() => {
                 setSelectedContractForServices(contract);
                 setOpenServiceModal(true);
@@ -229,7 +237,7 @@ const ContractsPage: React.FC = () => {
             variant="contained"
             color="primary"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/contracts/new')}
+            onClick={handleNewContract}
             sx={{ mr: 1 }}
           >
             Novo Contrato
