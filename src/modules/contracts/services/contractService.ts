@@ -183,18 +183,43 @@ export const contractService = {
   },
 
   async getPendingBillings(page = 1, limit = 10, contractId?: string | number) {
-    console.log('🔍 Buscando faturas pendentes', { page, limit, contractId });
-    
-    const endpoint = contractId 
-      ? `/contracts-recurring/${contractId}/billing` 
-      : '/contracts-recurring/billing';
+    try {
+      console.log('🔍 Buscando faturas pendentes', { page, limit, contractId });
+      
+      const endpoint = contractId 
+        ? `/contracts-recurring/${contractId}/billing` 
+        : '/contracts-recurring/billing';
 
-    const response = await api.get(endpoint, {
-      params: { page, limit }
-    });
+      const response = await api.get(endpoint, {
+        params: { page, limit }
+      });
 
-    console.log('📋 Resposta de faturas pendentes:', response.data);
-    return response.data;
+      // Mapeia os dados do contrato
+      const items = response.data.items.map(item => ({
+        id: item.contract_id,
+        contract_id: item.contract_id,
+        client_name: item.full_name,
+        next_billing_date: item.next_billing_date,
+        last_billing_date: item.last_billing_date,
+        contract_value: Number(item.contract_value || 0),
+        // Define status como 'pending' se o contrato estiver ativo
+        status: item.status === 'active' ? 'pending' : item.status
+      }));
+
+      console.log('🔍 Contratos mapeados:', items);
+
+      return {
+        items,
+        meta: response.data.meta || {
+          currentPage: page,
+          totalItems: items.length,
+          totalPages: Math.ceil(items.length / limit)
+        }
+      };
+    } catch (error) {
+      console.error('❌ Erro ao buscar faturas:', error);
+      throw error;
+    }
   },
 
   async processBilling(contractId: string | number): Promise<void> {

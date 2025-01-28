@@ -11,7 +11,9 @@ import {
   Paper, 
   Button,
   Pagination,
-  CircularProgress
+  CircularProgress,
+  Grid,
+  Chip
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useParams, useLocation } from 'react-router-dom';
@@ -20,11 +22,12 @@ import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
 
 interface ContractBilling {
-  id: number | string;
-  contractNumber?: string;
-  clientName: string;
-  billingDate?: Date | string;
-  amount: number;
+  id: number;
+  contract_id: number;
+  client_name: string;
+  next_billing_date: string;
+  last_billing_date: string;
+  contract_value: number;
   status: string;
 }
 
@@ -48,7 +51,7 @@ export default function ContractBillingPage() {
     page: 1,
     limit: 10,
     totalItems: 0,
-    totalPages: 0
+    totalPages: 1
   });
   const { enqueueSnackbar } = useSnackbar();
 
@@ -66,13 +69,43 @@ export default function ContractBillingPage() {
         ? await contractService.getPendingBillings(page, pagination.limit, contractId)
         : await contractService.getPendingBillings(page, pagination.limit);
 
-      console.log('📋 Faturas recebidas:', response);
+      // Log detalhado da estrutura dos dados
+      console.log('📋 Estrutura detalhada da primeira fatura:', 
+        JSON.stringify(response.items[0], null, 2)
+      );
       
-      setBillings(response.items);
+      // Mapeia os dados corretamente baseado na estrutura real
+      const mappedBillings = response.items.map(item => {
+        // Log para debug
+        console.log('🔍 Mapeando item:', {
+          id: item.id,
+          contract_id: item.contract_id,
+          client_name: item.client_name,
+          next_billing_date: item.next_billing_date,
+          last_billing_date: item.last_billing_date,
+          contract_value: item.contract_value,
+          status: item.status
+        });
+
+        return {
+          id: item.id,
+          contract_id: item.contract_id,
+          client_name: item.client_name,
+          next_billing_date: item.next_billing_date,
+          last_billing_date: item.last_billing_date,
+          contract_value: item.contract_value,
+          status: item.status
+        };
+      });
+      
+      console.log('Faturas mapeadas:', mappedBillings);
+      
+      setBillings(mappedBillings);
       setPagination(prevState => ({
         ...prevState,
-        totalItems: response.total,
-        totalPages: Math.ceil(response.total / pagination.limit)
+        page: response.meta?.currentPage || 1,
+        totalItems: response.meta?.totalItems || 0,
+        totalPages: response.meta?.totalPages || 1
       }));
       setError(null);
     } catch (err) {
@@ -141,62 +174,114 @@ export default function ContractBillingPage() {
     );
   }
 
+  const totalAmount = billings.reduce((sum, billing) => sum + billing.contract_value, 0);
+  const pendingCount = billings.filter(billing => billing.status === 'pending').length;
+
   return (
-    <Box sx={{ width: '100%', typography: 'body1', padding: 2 }}>
-      <Typography variant="h4" gutterBottom>
-        Faturas Pendentes
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h5" gutterBottom>
+        Faturamento de Contratos
       </Typography>
+
+      {/* Card de Resumo */}
+      <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.main', color: 'white' }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6">Total de Contratos</Typography>
+            <Typography variant="h4">{billings.length}</Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6">Valor Total</Typography>
+            <Typography variant="h4">
+              {totalAmount.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              })}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6">Status</Typography>
+            <Typography variant="h4">
+              {pendingCount > 0 ? `${pendingCount} Pendentes` : 'Processado'}
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Tabela de Contratos */}
       <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="billing table">
+        <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Número do Contrato</TableCell>
+              <TableCell>ID Contrato</TableCell>
               <TableCell>Cliente</TableCell>
-              <TableCell>Data de Faturamento</TableCell>
-              <TableCell>Valor</TableCell>
+              <TableCell>Próximo Faturamento</TableCell>
+              <TableCell>Último Faturamento</TableCell>
+              <TableCell>Valor Contrato</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {billings.map((billing, index) => (
               <TableRow 
-                key={`${billing.id}-${index}`}
+                key={`${billing.id || index}`}
                 sx={{ 
                   backgroundColor: billing.status !== 'pending' 
                     ? 'rgba(0, 0, 0, 0.05)' 
-                    : 'inherit' 
+                    : 'inherit',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.08)'
+                  }
                 }}
               >
-                <TableCell>{billing.contractNumber || 'N/A'}</TableCell>
-                <TableCell>{billing.clientName}</TableCell>
+                <TableCell>{billing.contract_id}</TableCell>
+                <TableCell>{billing.client_name}</TableCell>
                 <TableCell>
-                  {billing.billingDate 
-                    ? new Date(billing.billingDate).toLocaleDateString() 
-                    : 'Data não disponível'}
+                  {billing.next_billing_date 
+                    ? new Date(billing.next_billing_date).toLocaleDateString('pt-BR')
+                    : 'Não definido'}
                 </TableCell>
                 <TableCell>
-                  {billing.amount
-                    ? billing.amount.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      })
-                    : 'Valor não disponível'}
+                  {billing.last_billing_date
+                    ? new Date(billing.last_billing_date).toLocaleDateString('pt-BR')
+                    : 'Não definido'}
+                </TableCell>
+                <TableCell>
+                  {billing.contract_value.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  })}
+                </TableCell>
+                <TableCell>
+                  <Chip 
+                    label={billing.status === 'pending' ? 'Pendente' : 'Processado'}
+                    color={billing.status === 'pending' ? 'warning' : 'success'}
+                    size="small"
+                  />
                 </TableCell>
                 <TableCell>
                   <Button 
                     variant="contained" 
                     color="primary" 
-                    onClick={() => handleProcessBilling(billing.id.toString())}
-                    disabled={processingIds.includes(billing.id.toString())}
+                    onClick={() => handleProcessBilling(billing.contract_id?.toString() || '')}
+                    disabled={
+                      billing.status !== 'pending' || 
+                      !billing.next_billing_date || 
+                      processingIds.includes(billing.contract_id?.toString() || '')
+                    }
                     startIcon={
-                      processingIds.includes(billing.id.toString()) 
+                      processingIds.includes(billing.contract_id?.toString() || '') 
                         ? <CircularProgress size={20} /> 
                         : null
                     }
+                    size="small"
                   >
-                    {processingIds.includes(billing.id.toString()) 
+                    {processingIds.includes(billing.contract_id?.toString() || '') 
                       ? 'Processando...' 
-                      : 'Processar'}
+                      : !billing.next_billing_date
+                        ? 'Sem data'
+                        : 'Processar'}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -204,21 +289,17 @@ export default function ContractBillingPage() {
           </TableBody>
         </Table>
       </TableContainer>
-      
+
       <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>
         <Pagination 
-          count={pagination.totalPages}
-          page={pagination.page}
+          count={Number(pagination.totalPages) || 0}
+          page={Number(pagination.page) || 1}
           onChange={handlePageChange}
           color="primary"
           showFirstButton
           showLastButton
         />
       </Box>
-      
-      <Typography variant="body2" sx={{ marginTop: 1, textAlign: 'center' }}>
-        Total de faturas: {pagination.totalItems}
-      </Typography>
     </Box>
   );
 }
