@@ -182,16 +182,20 @@ export const contractService = {
     }
   },
 
-  async getPendingBillings(page = 1, limit = 10, contractId?: string | number) {
+  async getPendingBillings(page = 1, limit = 10, contractId?: string | number, search?: string) {
     try {
-      console.log('🔍 Buscando faturas pendentes', { page, limit, contractId });
+      console.log('🔍 Buscando faturas pendentes', { page, limit, contractId, search });
       
       const endpoint = contractId 
         ? `/contracts-recurring/${contractId}/billing` 
         : '/contracts-recurring/billing';
 
       const response = await api.get(endpoint, {
-        params: { page, limit }
+        params: { 
+          page, 
+          limit,
+          ...(search ? { search } : {})
+        }
       });
 
       // Mapeia os dados do contrato
@@ -203,15 +207,12 @@ export const contractService = {
         last_billing_date: item.last_billing_date,
         contract_value: Number(item.contract_value || 0),
         status: item.status === 'active' ? 'pending' : item.status,
-        // Adiciona o histórico de faturamentos
         billings: (item.billings || []).map(billing => ({
           id: billing.movement_id,
           date: billing.movement_date,
           amount: Number(billing.total_amount || 0)
         }))
       }));
-
-      console.log('🔍 Contratos mapeados:', items);
 
       return {
         items,
@@ -227,13 +228,32 @@ export const contractService = {
     }
   },
 
-  async processBilling(contractId: string | number): Promise<void> {
+  async processBilling(contractId: string) {
     try {
       const response = await api.post(`/contracts-recurring/${contractId}/billing`);
       console.log('✅ Fatura processada com sucesso:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Erro ao processar fatura:', error);
+      throw error;
+    }
+  },
+
+  async processBulkBilling(contractIds: number[]) {
+    try {
+      console.log('🔄 Processando contratos em lote:', contractIds);
+      
+      // Monta o corpo da requisição com o array de IDs
+      const requestBody = {
+        body: contractIds
+      };
+      
+      console.log('📦 Corpo da requisição:', requestBody);
+      
+      const response = await api.post('/contracts-recurring/billing', requestBody);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao processar faturas em lote:', error);
       throw error;
     }
   },
