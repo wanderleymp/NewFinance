@@ -18,6 +18,8 @@ import {
 import { useSnackbar } from 'notistack';
 import { format } from 'date-fns';
 import { contractService } from '../services/ContractService';
+import ContractServices from '../components/ContractServices';
+import { ContractService } from '../types/contractService';
 
 interface ContractFormData {
   contract_name: string;
@@ -27,15 +29,24 @@ interface ContractFormData {
   status: string;
   group_name: string;
   full_name: string;
+  person_id: number;
+  contract_group_id: number;
   recurrence_period: 'monthly' | 'yearly';
   due_day: number;
   days_before_due: number;
   billing_reference: string;
-  contract_group_id: number;
   model_movement_id: number;
   representative_person_id: number | null;
   commissioned_value: number | null;
   account_entry_id: number | null;
+  payment_method: string;
+  services: ContractService[];
+  last_billing_date: string | null;
+  next_billing_date: string | null;
+  last_decimo_billing_year: number;
+  last_adjustment: number;
+  contract_adjustments: any[];
+  billings: any[];
 }
 
 const initialFormData: ContractFormData = {
@@ -46,15 +57,24 @@ const initialFormData: ContractFormData = {
   status: 'active',
   group_name: '',
   full_name: '',
+  person_id: 0,
+  contract_group_id: 0,
   recurrence_period: 'monthly',
   due_day: 1,
   days_before_due: 0,
   billing_reference: '',
-  contract_group_id: 0,
   model_movement_id: 0,
   representative_person_id: null,
   commissioned_value: null,
   account_entry_id: null,
+  payment_method: '',
+  services: [],
+  last_billing_date: null,
+  next_billing_date: null,
+  last_decimo_billing_year: 0,
+  last_adjustment: 0,
+  contract_adjustments: [],
+  billings: [],
 };
 
 const ContractFormPage: React.FC = () => {
@@ -65,7 +85,6 @@ const ContractFormPage: React.FC = () => {
   const [formData, setFormData] = useState<ContractFormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof ContractFormData, string>>>({});
 
-  // Carrega os dados do contrato se estiver editando
   useEffect(() => {
     const loadContract = async () => {
       if (!id) return;
@@ -73,24 +92,61 @@ const ContractFormPage: React.FC = () => {
       try {
         setLoading(true);
         const response = await contractService.getContractById(Number(id));
-        setFormData({
-          contract_name: response.contract_name,
-          contract_value: response.contract_value,
-          start_date: format(new Date(response.start_date), 'yyyy-MM-dd'),
-          end_date: response.end_date ? format(new Date(response.end_date), 'yyyy-MM-dd') : null,
-          status: response.status,
-          group_name: response.group_name,
-          full_name: response.full_name,
-          recurrence_period: response.recurrence_period as 'monthly' | 'yearly',
-          due_day: response.due_day,
-          days_before_due: response.days_before_due,
-          billing_reference: response.billing_reference,
-          contract_group_id: response.contract_group_id,
-          model_movement_id: response.model_movement_id,
-          representative_person_id: response.representative_person_id,
-          commissioned_value: response.commissioned_value,
-          account_entry_id: response.account_entry_id,
-        });
+        
+        if (response) {
+          setFormData({
+            contract_name: response.contract_name,
+            contract_value: response.contract_value,
+            start_date: format(new Date(response.start_date), 'yyyy-MM-dd'),
+            end_date: response.end_date ? format(new Date(response.end_date), 'yyyy-MM-dd') : null,
+            status: response.status,
+            
+            group_name: response.group_name,
+            full_name: response.full_name,
+            person_id: response.person_id,
+            contract_group_id: response.contract_group_id,
+            
+            recurrence_period: response.recurrence_period as 'monthly' | 'yearly',
+            due_day: response.due_day,
+            days_before_due: response.days_before_due,
+            billing_reference: response.billing_reference,
+            
+            model_movement_id: response.model_movement_id,
+            representative_person_id: response.representative_person_id,
+            commissioned_value: response.commissioned_value,
+            account_entry_id: response.account_entry_id,
+            payment_method: response.payment_method,
+            
+            services: response.items.map(item => ({
+              id: item.item_id,
+              name: item.item_name,
+              quantity: item.quantity,
+              unit_value: item.unit_price,
+              total_value: item.total_price
+            })),
+
+            last_billing_date: response.last_billing_date ? format(new Date(response.last_billing_date), 'yyyy-MM-dd') : null,
+            next_billing_date: response.next_billing_date ? format(new Date(response.next_billing_date), 'yyyy-MM-dd') : null,
+            last_decimo_billing_year: response.last_decimo_billing_year,
+            last_adjustment: response.last_adjustment,
+            
+            contract_adjustments: response.contract_adjustments?.map(adjustment => ({
+              id: adjustment.adjustment_history_id,
+              previous_value: adjustment.previous_value,
+              new_value: adjustment.new_value,
+              change_date: format(new Date(adjustment.change_date), 'yyyy-MM-dd'),
+              change_type: adjustment.change_type,
+              description: adjustment.description
+            })),
+            
+            billings: response.billings?.map(billing => ({
+              id: billing.movement_id,
+              total_amount: billing.total_amount,
+              movement_date: format(new Date(billing.movement_date), 'yyyy-MM-dd'),
+              description: billing.description
+            }))
+          });
+        }
       } catch (error) {
         console.error('Erro ao carregar contrato:', error);
         enqueueSnackbar('Erro ao carregar dados do contrato', { variant: 'error' });
@@ -100,7 +156,7 @@ const ContractFormPage: React.FC = () => {
     };
 
     loadContract();
-  }, [id, enqueueSnackbar]);
+  }, [id, enqueueSnackbar, navigate]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof ContractFormData, string>> = {};
@@ -129,8 +185,8 @@ const ContractFormPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     
     if (!validateForm()) {
       enqueueSnackbar('Por favor, corrija os erros no formulário', { variant: 'error' });
@@ -140,14 +196,14 @@ const ContractFormPage: React.FC = () => {
     try {
       setLoading(true);
       
-      if (id) {
-        await contractService.updateContract(Number(id), formData);
-        enqueueSnackbar('Contrato atualizado com sucesso', { variant: 'success' });
-      } else {
-        await contractService.createContract(formData);
-        enqueueSnackbar('Contrato criado com sucesso', { variant: 'success' });
-      }
+      const contractData = {
+        ...formData,
+        items: formData.services, 
+      };
       
+      await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
+      
+      enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
       navigate('/contracts');
     } catch (error) {
       console.error('Erro ao salvar contrato:', error);
@@ -165,13 +221,47 @@ const ContractFormPage: React.FC = () => {
       [field]: e.target.value
     }));
     
-    // Limpa o erro do campo quando ele é alterado
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
         [field]: undefined
       }));
     }
+  };
+
+  const handleAddService = (service: ContractService) => {
+    setFormData(prev => ({
+      ...prev,
+      services: [...prev.services, service],
+      contract_value: String(prev.services.reduce((total, s) => total + s.total_value, 0) + service.total_value)
+    }));
+  };
+
+  const handleRemoveService = (index: number) => {
+    setFormData(prev => {
+      const newServices = [...prev.services];
+      const removedService = newServices[index];
+      newServices.splice(index, 1);
+      
+      return {
+        ...prev,
+        services: newServices,
+        contract_value: String(prev.services.reduce((total, s) => total + s.total_value, 0) - removedService.total_value)
+      };
+    });
+  };
+
+  const handleUpdateService = (index: number, service: ContractService) => {
+    setFormData(prev => {
+      const newServices = [...prev.services];
+      newServices[index] = service;
+      
+      return {
+        ...prev,
+        services: newServices,
+        contract_value: String(newServices.reduce((total, s) => total + s.total_value, 0))
+      };
+    });
   };
 
   if (loading) {
@@ -404,6 +494,17 @@ const ContractFormPage: React.FC = () => {
                   value={formData.account_entry_id || ''}
                   onChange={handleInputChange('account_entry_id')}
                 />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Box mt={4}>
+                  <ContractServices
+                    services={formData.services}
+                    onAddService={handleAddService}
+                    onRemoveService={handleRemoveService}
+                    onUpdateService={handleUpdateService}
+                  />
+                </Box>
               </Grid>
 
               {/* Botões */}

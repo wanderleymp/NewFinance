@@ -112,60 +112,66 @@ export const contractService = {
     }
   },
 
-  async getContractById(id: number) {
+  async getContractById(id: number): Promise<Contract> {
     try {
       const response = await api.get(`/contracts-recurring/${id}`);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao buscar contrato:', error);
+      console.error('Erro ao buscar contrato:', error);
       throw error;
     }
   },
 
   async createOrUpdateContract(id?: number, contractData: Partial<Contract>): Promise<Contract> {
     try {
-      if (this.dataSource === 'api') {
-        if (id) {
-          const response = await api.put(`/contracts-recurring/${id}`, contractData);
-          return response.data;
-        } else {
-          const response = await api.post('/contracts-recurring', contractData);
-          return response.data;
-        }
-      } else {
-        if (id) {
-          // Atualizar contrato nos dados mock
-          const contractIndex = mockContractsData.data.findIndex(
-            contract => contract.contract_id === id
-          );
+      const endpoint = id ? `/contracts-recurring/${id}` : '/contracts-recurring';
+      const method = id ? 'PUT' : 'POST';
 
-          if (contractIndex === -1) {
-            throw new Error('Contrato não encontrado');
-          }
-
-          mockContractsData.data[contractIndex] = {
-            ...mockContractsData.data[contractIndex],
-            ...contractData
-          };
-
-          return mockContractsData.data[contractIndex];
-        } else {
-          // Simular criação de contrato com dados mock
-          const newContract: Contract = {
-            ...contractData,
-            contract_id: mockContractsData.data.length + 1,
-            contract_name: contractData.contract_name || 'Novo Contrato',
-            contract_value: contractData.contract_value || '0.00',
-            start_date: contractData.start_date || new Date().toISOString(),
-            status: contractData.status || 'active'
-          } as Contract;
-
-          mockContractsData.data.push(newContract);
-          return newContract;
-        }
+      // Calcula o valor total do contrato baseado nos serviços
+      if (contractData.services) {
+        contractData.contract_value = String(
+          contractData.services.reduce((total, service) => total + service.total_value, 0)
+        );
       }
+
+      const response = await api.request({
+        url: endpoint,
+        method,
+        data: contractData,
+      });
+
+      return response.data;
     } catch (error) {
-      console.error('❌ Erro ao criar ou atualizar contrato:', error);
+      console.error('Erro ao salvar contrato:', error);
+      throw error;
+    }
+  },
+
+  async addServiceToContract(contractId: number, service: Omit<ContractService, 'id' | 'contract_id'>): Promise<ContractService> {
+    try {
+      const response = await api.post(`/contracts-recurring/${contractId}/services`, service);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao adicionar serviço ao contrato:', error);
+      throw error;
+    }
+  },
+
+  async removeServiceFromContract(contractId: number, serviceId: number): Promise<void> {
+    try {
+      await api.delete(`/contracts-recurring/${contractId}/services/${serviceId}`);
+    } catch (error) {
+      console.error('Erro ao remover serviço do contrato:', error);
+      throw error;
+    }
+  },
+
+  async updateContractService(contractId: number, serviceId: number, service: Partial<ContractService>): Promise<ContractService> {
+    try {
+      const response = await api.put(`/contracts-recurring/${contractId}/services/${serviceId}`, service);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao atualizar serviço do contrato:', error);
       throw error;
     }
   },
