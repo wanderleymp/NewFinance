@@ -129,6 +129,7 @@ function App() {
                   <Route path="/home" element={<Home />} />
                   <Route path="/movements" element={<Movements />} />
                   <Route path="/movements/new-express" element={<NewMovementExpress />} />
+                  <Route path="/movements/new/express" element={<NewMovementExpress />} />
                   <Route path="/receivables" element={<Receivables />} />
                   <Route path="/contacts" element={<Contacts />} />
                   <Route path="/payment-methods" element={<PaymentMethods />} />

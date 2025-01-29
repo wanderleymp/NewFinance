@@ -20,7 +20,18 @@ import {
   ListItem,
   ListItemText,
   TableSortLabel,
-  Radio
+  Radio,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -52,7 +63,8 @@ import {
   Speed as SpeedIcon,
   ListAlt as ListAltIcon,
   RocketLaunch as AIIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  FlashOn as FlashOnIcon
 } from '@mui/icons-material';
 import FilterListIcon from '@mui/icons-material/FilterList'; // Importação correta do ícone
 import { movementsService } from '../services/api';
@@ -66,26 +78,14 @@ import {
   Stack, 
   ToggleButtonGroup, 
   ToggleButton, 
-  FormControl, 
-  InputLabel, 
-  Select, 
   Pagination, 
   InputAdornment, 
-  TextField, 
   OutlinedInput, 
   TablePagination, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  DialogContentText, 
   Fab, 
   Checkbox,
   Divider,
   Menu,
-  MenuItem,
-  CircularProgress,
-  Button,
   Link
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -1286,6 +1286,23 @@ const Movements = () => {
     statusId: '',
     typeId: ''
   });
+  const [openNewMovementModal, setOpenNewMovementModal] = useState(false);
+
+  // Função para abrir o modal de novo movimento
+  const handleOpenNewMovementModal = () => {
+    setOpenNewMovementModal(true);
+  };
+
+  // Função para fechar o modal de novo movimento
+  const handleCloseNewMovementModal = () => {
+    setOpenNewMovementModal(false);
+  };
+
+  // Função para criar novo movimento
+  const handleNewMovement = (type) => {
+    navigate(`/movements/new/${type}`);
+    handleCloseNewMovementModal();
+  };
 
   // Função para atualizar um movimento na lista
   const handleMovementUpdate = (updatedMovement) => {
@@ -1370,6 +1387,17 @@ const Movements = () => {
           gap: 2
         }}
       >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleOpenNewMovementModal}
+            startIcon={<AddIcon />}
+          >
+            Novo Movimento
+          </Button>
+        </Box>
+
         <MovementFilters
           startDate={startDate}
           endDate={endDate}
@@ -1404,6 +1432,24 @@ const Movements = () => {
           onMovementUpdate={handleMovementUpdate}
         />
       )}
+      {/* Modal de Novo Movimento */}
+      <Dialog open={openNewMovementModal} onClose={handleCloseNewMovementModal}>
+        <DialogTitle>Selecione o Tipo de Movimento</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300, p: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => handleNewMovement('express')}
+              startIcon={<FlashOnIcon />}
+            >
+              Movimento Express
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseNewMovementModal}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
