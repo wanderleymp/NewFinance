@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import { 
   Box, 
   Typography, 
@@ -17,7 +19,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  TableSortLabel
+  TableSortLabel,
+  Radio
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -52,12 +55,10 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import FilterListIcon from '@mui/icons-material/FilterList'; // Importação correta do ícone
-import { useSnackbar } from 'notistack';
 import { movementsService } from '../services/api';
 import MovementForm from '../components/MovementForm';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid } from 'date-fns';
+import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid, sub } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   Card, 
@@ -87,6 +88,9 @@ import {
   Button,
   Link
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 // Funções utilitárias para cores de status e tipo
 const getStatusColor = (status) => {
@@ -541,10 +545,10 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
   const { enqueueSnackbar } = useSnackbar();
   const [open, setOpen] = useState(false);
 
-  // Log completo do movimento para diagnóstico
-  console.log('🚨 Movimento completo:', JSON.stringify(movement, null, 2));
+  // Log para debug
+  console.log('🎯 Dados do movimento recebidos:', movement);
 
-  // Mapeamento dos novos campos da API
+  // Mapeamento dos campos da API
   const movementId = movement.movement_id;
   const customerName = movement.full_name || 'Cliente não especificado';
   const totalAmount = movement.total_amount;
@@ -552,6 +556,12 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
   const description = movement.description;
   const statusName = movement.status_name;
   const typeName = movement.type_name;
+
+  // Se não tiver ID, não renderiza a linha
+  if (!movementId) {
+    console.warn('⚠️ Movimento sem ID detectado:', movement);
+    return null;
+  }
 
   // Detalhes de pagamentos
   const payments = movement.payments || [];
@@ -595,15 +605,18 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
     );
   };
 
-  const handleViewDetails = () => {
+  const handleViewDetails = (e) => {
+    e.stopPropagation();
     navigate(`/movements/${movementId}`);
   };
 
-  const handleEditMovement = () => {
+  const handleEditMovement = (e) => {
+    e.stopPropagation();
     navigate(`/movements/edit/${movementId}`);
   };
 
-  const handleCancelMovement = async () => {
+  const handleCancelMovement = async (e) => {
+    e.stopPropagation();
     try {
       console.log('🔄 Iniciando cancelamento do movimento:', {
         movementId,
@@ -724,81 +737,74 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
 
   return (
     <>
-      <TableRow
+      <TableRow 
         hover
-        sx={{ 
-          cursor: 'pointer',
-          '& > *': { borderBottom: 'unset' },
-        }}
         onClick={() => setOpen(!open)}
+        sx={{ 
+          '&:last-child td, &:last-child th': { border: 0 },
+          cursor: 'pointer',
+          backgroundColor: open ? 'action.hover' : 'inherit'
+        }}
       >
         <TableCell padding="checkbox">
           <IconButton
+            aria-label="expand row"
             size="small"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               setOpen(!open);
             }}
           >
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>{movementId}</TableCell>
-        <TableCell>{customerName}</TableCell>
-        <TableCell>{formatCurrency(totalAmount)}</TableCell>
-        <TableCell>{format(parseISO(movementDate), 'dd/MM/yyyy')}</TableCell>
-        <TableCell>{description}</TableCell>
-        <TableCell>
+        <TableCell align="left">{format(parseISO(movementDate), 'dd/MM/yyyy')}</TableCell>
+        <TableCell align="left">{description}</TableCell>
+        <TableCell align="center">{movementId}</TableCell>
+        <TableCell align="center">{movement.person_id}</TableCell>
+        <TableCell align="left">{customerName}</TableCell>
+        <TableCell align="left">{typeName}</TableCell>
+        <TableCell align="right">{formatCurrency(totalAmount)}</TableCell>
+        <TableCell align="center">
           <Chip 
-            label={statusName} 
-            size="small" 
-            color={getStatusColor(statusName)} 
+            label={statusName}
+            color={getStatusColor(statusName)}
+            size="small"
           />
         </TableCell>
-        <TableCell>
-          <Chip 
-            label={typeName} 
-            size="small" 
-            color={getTypeColor(typeName)} 
-          />
-        </TableCell>
-        <TableCell align="right">
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Tooltip title="Gerar Nota Fiscal">
-              <IconButton
+        <TableCell align="center">
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+            <Tooltip title="Visualizar Detalhes">
+              <IconButton 
                 size="small"
-                color="primary"
-                onClick={handleGenerateInvoice}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewDetails();
+                }}
               >
-                <PostAddIcon fontSize="small" />
+                <VisibilityIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Enviar Notificação">
+            <Tooltip title="Editar">
               <IconButton
                 size="small"
-                color="primary"
-                onClick={handleNotificationClick}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditMovement();
+                }}
               >
-                <NotificationsIcon fontSize="small" />
+                <EditIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Cancelar">
               <IconButton
                 size="small"
-                color="error"
-                onClick={handleCancelMovement}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelMovement();
+                }}
               >
-                <CancelIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Detalhes">
-              <IconButton onClick={handleViewDetails}>
-                <VisibilityIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Editar">
-              <IconButton onClick={handleEditMovement}>
-                <EditIcon />
+                <CancelIcon />
               </IconButton>
             </Tooltip>
           </Box>
@@ -821,7 +827,7 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
 };
 
 const MovementTable = ({ 
-  movements, 
+  movements = [], 
   onSort, 
   orderBy, 
   orderDirection, 
@@ -829,12 +835,15 @@ const MovementTable = ({
   rowsPerPage, 
   onPageChange, 
   onRowsPerPageChange, 
-  totalCount 
+  totalCount,
+  onMovementUpdate 
 }) => {
-  const [selectedMovement, setSelectedMovement] = useState(null);
+  const safeMovements = Array.isArray(movements) ? movements : [];
 
-  const handleClick = (movement) => {
-    setSelectedMovement(selectedMovement === movement ? null : movement);
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && orderDirection === 'asc';
+    onSort(property, isAsc ? 'desc' : 'asc');
+    setPage(0);
   };
 
   return (
@@ -856,20 +865,15 @@ const MovementTable = ({
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">
-                <TableSortLabel
-                  hideSortIcon
-                  active={false}
-                >
-                  <IconButton size="small" disabled>
-                    <KeyboardArrowDownIcon />
-                  </IconButton>
-                </TableSortLabel>
+                <IconButton size="small" disabled>
+                  <KeyboardArrowDownIcon />
+                </IconButton>
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'date'}
-                  direction={orderBy === 'date' ? orderDirection : 'asc'}
-                  onClick={() => onSort('date')}
+                  active={orderBy === 'movement_date'}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('movement_date')}
                 >
                   Data
                 </TableSortLabel>
@@ -877,44 +881,44 @@ const MovementTable = ({
               <TableCell>
                 <TableSortLabel
                   active={orderBy === 'description'}
-                  direction={orderBy === 'description' ? orderDirection : 'asc'}
-                  onClick={() => onSort('description')}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('description')}
                 >
                   Descrição
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 <TableSortLabel
                   active={orderBy === 'movement_id'}
-                  direction={orderBy === 'movement_id' ? orderDirection : 'asc'}
-                  onClick={() => onSort('movement_id')}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('movement_id')}
                 >
                   Código
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 <TableSortLabel
                   active={orderBy === 'person_id'}
-                  direction={orderBy === 'person_id' ? orderDirection : 'asc'}
-                  onClick={() => onSort('person_id')}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('person_id')}
                 >
                   Código Cliente
                 </TableSortLabel>
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'person_name'}
-                  direction={orderBy === 'person_name' ? orderDirection : 'asc'}
-                  onClick={() => onSort('person_name')}
+                  active={orderBy === 'full_name'}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('full_name')}
                 >
                   Nome Cliente
                 </TableSortLabel>
               </TableCell>
               <TableCell>
                 <TableSortLabel
-                  active={orderBy === 'movement_type_id'}
-                  direction={orderBy === 'movement_type_id' ? orderDirection : 'asc'}
-                  onClick={() => onSort('movement_type_id')}
+                  active={orderBy === 'type_name'}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('type_name')}
                 >
                   Tipo
                 </TableSortLabel>
@@ -922,62 +926,47 @@ const MovementTable = ({
               <TableCell align="right">
                 <TableSortLabel
                   active={orderBy === 'total_amount'}
-                  direction={orderBy === 'total_amount' ? orderDirection : 'asc'}
-                  onClick={() => onSort('total_amount')}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('total_amount')}
                 >
                   Valor
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell align="center">
                 <TableSortLabel
                   active={orderBy === 'status_name'}
-                  direction={orderBy === 'status_name' ? orderDirection : 'asc'}
-                  onClick={() => onSort('status_name')}
+                  direction={orderDirection.toLowerCase()}
+                  onClick={() => handleRequestSort('status_name')}
                 >
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(movements) && movements.map((movement) => (
-              <MovementRow key={movement.movement_id} movement={movement} />
+            {safeMovements.map((movement) => (
+              <MovementRow 
+                key={movement.movement_id} 
+                movement={movement}
+                onMovementUpdate={onMovementUpdate}
+              />
             ))}
-            {(!movements || movements.length === 0) && (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  Nenhuma movimentação encontrada
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        gap: 2,
-        p: 2,
-        borderTop: '1px solid',
-        borderColor: 'divider'
-      }}>
-        <Typography variant="body2" color="text.secondary">
-          Total de registros: {totalCount}
-        </Typography>
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          onPageChange={onPageChange}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={onRowsPerPageChange}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="Itens por página"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-        />
-      </Box>
+      <TablePagination
+        component="div"
+        count={totalCount}
+        page={page}
+        onPageChange={onPageChange}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={onRowsPerPageChange}
+        labelRowsPerPage="Itens por página"
+        labelDisplayedRows={({ from, to, count }) => 
+          `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
+        }
+      />
     </Paper>
   );
 };
@@ -1033,7 +1022,7 @@ const DateRangeSelector = ({ dateRange, onDateRangeChange }) => {
   // Garantir que dateRange é um array com duas datas válidas
   const [startDate, endDate] = Array.isArray(dateRange) && dateRange.length === 2 
     ? dateRange.map(date => date instanceof Date ? date : new Date())
-    : [subDays(new Date(), 30), new Date()];
+    : [subDays(new Date(), 7), new Date()];
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1122,25 +1111,13 @@ const MovementStatusFilter = ({
   };
 
   const handleStatusToggle = (status) => {
-    const newSelectedStatuses = selectedStatuses.includes(status)
-      ? selectedStatuses.filter(s => s !== status)
-      : [...selectedStatuses, status];
-    
-    onStatusChange(newSelectedStatuses);
-  };
-
-  const allNonCanceledStatuses = [
-    MOVEMENT_STATUS.DRAFT, 
-    MOVEMENT_STATUS.CONFIRMED
-  ];
-
-  const isAllSelected = allNonCanceledStatuses
-    .every(status => selectedStatuses.includes(status));
-
-  const handleSelectAll = () => {
-    onStatusChange(
-      isAllSelected ? [] : [...allNonCanceledStatuses]
-    );
+    // Se o status já está selecionado, remove ele (nenhum filtro)
+    if (selectedStatuses.includes(status)) {
+      onStatusChange([]);
+    } else {
+      // Caso contrário, seleciona apenas este status
+      onStatusChange([status]);
+    }
   };
 
   return (
@@ -1154,7 +1131,11 @@ const MovementStatusFilter = ({
         variant="outlined"
         endIcon={<FilterListIcon />}
       >
-        Status ({selectedStatuses.length} selecionados)
+        Status: {selectedStatuses.length === 0 ? 'Nenhum' : (
+          selectedStatuses.includes(MOVEMENT_STATUS.DRAFT) ? 'Rascunho' :
+          selectedStatuses.includes(MOVEMENT_STATUS.CONFIRMED) ? 'Confirmado' :
+          selectedStatuses.includes(MOVEMENT_STATUS.CANCELED) ? 'Cancelado' : 'Nenhum'
+        )}
       </Button>
       <Menu
         id="status-filter-menu"
@@ -1162,32 +1143,123 @@ const MovementStatusFilter = ({
         open={open}
         onClose={handleClose}
       >
-        <MenuItem onClick={handleSelectAll}>
-          <Checkbox
-            checked={isAllSelected}
-            indeterminate={
-              selectedStatuses.length > 0 && 
-              selectedStatuses.length < allNonCanceledStatuses.length
-            }
-          />
-          Selecionar Todos
+        <MenuItem onClick={() => handleStatusToggle(MOVEMENT_STATUS.DRAFT)}>
+          <Radio checked={selectedStatuses.includes(MOVEMENT_STATUS.DRAFT)} />
+          Rascunho
         </MenuItem>
-        {[
-          { status: MOVEMENT_STATUS.DRAFT, label: 'Rascunho' },
-          { status: MOVEMENT_STATUS.CONFIRMED, label: 'Confirmado' },
-          { status: MOVEMENT_STATUS.CANCELED, label: 'Cancelado' }
-        ].map(({ status, label }) => (
-          <MenuItem 
-            key={status} 
-            onClick={() => handleStatusToggle(status)}
-          >
-            <Checkbox 
-              checked={selectedStatuses.includes(status)}
-            />
-            {label}
-          </MenuItem>
-        ))}
+        <MenuItem onClick={() => handleStatusToggle(MOVEMENT_STATUS.CONFIRMED)}>
+          <Radio checked={selectedStatuses.includes(MOVEMENT_STATUS.CONFIRMED)} />
+          Confirmado
+        </MenuItem>
+        <MenuItem onClick={() => handleStatusToggle(MOVEMENT_STATUS.CANCELED)}>
+          <Radio checked={selectedStatuses.includes(MOVEMENT_STATUS.CANCELED)} />
+          Cancelado
+        </MenuItem>
       </Menu>
+    </Box>
+  );
+};
+
+const MovementFilters = ({
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  searchParams,
+  onFilterChange
+}) => {
+  const [localSearchParams, setLocalSearchParams] = useState(searchParams);
+  const [searchTimeout, setSearchTimeout] = useState(null);
+
+  // Atualiza os filtros locais quando os props mudam
+  useEffect(() => {
+    setLocalSearchParams(searchParams);
+  }, [searchParams]);
+
+  // Debounce para atualização dos filtros
+  const updateFilters = useCallback((params) => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    const timeoutId = setTimeout(() => {
+      onFilterChange(params);
+    }, 500);
+
+    setSearchTimeout(timeoutId);
+  }, [onFilterChange]);
+
+  // Handler para mudança nos campos de texto
+  const handleInputChange = (field) => (event) => {
+    const newParams = {
+      ...localSearchParams,
+      [field]: event.target.value
+    };
+    setLocalSearchParams(newParams);
+    updateFilters(newParams);
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Filtros de Data */}
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <DatePicker
+            label="Data Inicial"
+            value={startDate}
+            onChange={onStartDateChange}
+            slotProps={{
+              textField: {
+                size: 'small'
+              }
+            }}
+          />
+          <DatePicker
+            label="Data Final"
+            value={endDate}
+            onChange={onEndDateChange}
+            slotProps={{
+              textField: {
+                size: 'small'
+              }
+            }}
+          />
+        </Box>
+      </LocalizationProvider>
+
+      {/* Outros Filtros */}
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <TextField
+          size="small"
+          label="Código"
+          value={localSearchParams.movementId}
+          onChange={handleInputChange('movementId')}
+        />
+        <TextField
+          size="small"
+          label="Código Cliente"
+          value={localSearchParams.personId}
+          onChange={handleInputChange('personId')}
+        />
+        <TextField
+          size="small"
+          label="Descrição"
+          value={localSearchParams.description}
+          onChange={handleInputChange('description')}
+        />
+        <FormControl size="small">
+          <InputLabel>Tipo</InputLabel>
+          <Select
+            value={localSearchParams.typeId}
+            onChange={handleInputChange('typeId')}
+            label="Tipo"
+          >
+            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="1">Entrada</MenuItem>
+            <MenuItem value="2">Saída</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
     </Box>
   );
 };
@@ -1196,255 +1268,143 @@ const Movements = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
-  const [movements, setMovements] = useState([]);
-  const [viewMode, setViewMode] = useState('list');
-  const [orderBy, setOrderBy] = useState('date');
-  const [orderDirection, setOrderDirection] = useState('desc');
+  const [movements, setMovements] = useState([]); // Garantindo array vazio como estado inicial
+  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [dateRange, setDateRange] = useState([startOfDay(subDays(new Date(), 30)), endOfDay(new Date())]);
-  const [selectedStatuses, setSelectedStatuses] = useState([
-    MOVEMENT_STATUS.DRAFT, 
-    MOVEMENT_STATUS.CONFIRMED
-  ]);
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchTimeout, setSearchTimeout] = useState(null);
-  const [movementTypeDialogOpen, setMovementTypeDialogOpen] = useState(false);
-  const [movementTypeOptions, setMovementTypeOptions] = useState([]);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
-  const [error, setError] = useState(null);
+  const [orderBy, setOrderBy] = useState('movement_date');
+  const [orderDirection, setOrderDirection] = useState('DESC');
+  
+  // Inicializando com status Confirmado
+  const [selectedStatuses, setSelectedStatuses] = useState([MOVEMENT_STATUS.CONFIRMED]);
+  const [startDate, setStartDate] = useState(sub(new Date(), { days: 7 }));
+  const [endDate, setEndDate] = useState(new Date());
+  const [searchParams, setSearchParams] = useState({
+    personId: '',
+    movementId: '',
+    description: '',
+    statusId: '',
+    typeId: ''
+  });
 
-  const fetchMovements = useCallback(async () => {
+  // Função para atualizar um movimento na lista
+  const handleMovementUpdate = (updatedMovement) => {
+    setMovements(prevMovements => 
+      prevMovements.map(movement => 
+        movement.movement_id === updatedMovement.movement_id 
+          ? updatedMovement 
+          : movement
+      )
+    );
+  };
+
+  // Função para carregar os movimentos
+  const loadMovements = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      const allNonCanceledStatuses = [
-        MOVEMENT_STATUS.DRAFT, 
-        MOVEMENT_STATUS.CONFIRMED
-      ];
-
       const params = {
         page: page + 1,
-        per_page: rowsPerPage,
-        order_by: orderBy,
-        order_direction: orderDirection,
-        start_date: format(dateRange[0], 'yyyy-MM-dd'),
-        end_date: format(dateRange[1], 'yyyy-MM-dd'),
-        status: selectedStatuses.length > 0 
-          ? selectedStatuses 
-          : allNonCanceledStatuses,
-        type: typeFilter !== 'all' ? typeFilter : undefined,
-        search: searchQuery
+        limit: rowsPerPage,
+        orderBy,
+        orderDirection,
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(endDate, 'yyyy-MM-dd'),
+        ...searchParams,
+        // Adiciona o movement_status_id apenas se houver algum status selecionado
+        ...(selectedStatuses.length > 0 && { movement_status_id: selectedStatuses[0] })
       };
 
-      console.log('🔍 Parâmetros detalhados da requisição:', {
-        ...params,
-        selectedStatuses,
-        allNonCanceledStatuses
-      });
-
       const response = await movementsService.list(params);
+      console.log('Resposta da API:', response);
       
-      if (response && response.items) {
-        setMovements(response.items);
-        setTotalCount(response.total_count || response.items.length);
-      } else {
-        setMovements([]);
-        setTotalCount(0);
-      }
+      // A resposta está vindo em response.items
+      setMovements(response.items || []);
+      setTotalCount(response.total || 0);
     } catch (error) {
-      console.error('Erro ao carregar movimentações:', error);
-      setError('Erro ao carregar movimentações. Por favor, tente novamente.');
-      setMovements([]);
-      setTotalCount(0);
+      console.error('Erro ao carregar movimentos:', error);
+      enqueueSnackbar('Erro ao carregar movimentos!', { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter, searchQuery]);
+  }, [page, rowsPerPage, orderBy, orderDirection, startDate, endDate, searchParams, selectedStatuses, enqueueSnackbar]);
 
-  const handleMovementUpdate = useCallback(async (updatedMovement) => {
-    console.log('🔄 Atualizando movimento na lista:', updatedMovement);
-    await fetchMovements(); // Recarrega a lista completa
-  }, [fetchMovements]);
-
+  // Efeito para carregar os movimentos quando os parâmetros mudarem
   useEffect(() => {
-    fetchMovements();
-  }, [page, rowsPerPage, orderBy, orderDirection, dateRange, selectedStatuses, typeFilter]);
+    loadMovements();
+  }, [loadMovements]);
 
-  useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
+  // Handlers para ordenação e paginação
+  const handleSort = (field, direction) => {
+    setOrderDirection(direction);
+    setOrderBy(field);
+  };
 
-    const timeoutId = setTimeout(() => {
-      setPage(0); // Reset da página ao buscar
-      fetchMovements();
-    }, 500);
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
 
-    setSearchTimeout(timeoutId);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [searchQuery]);
+  // Handler para atualização dos filtros
+  const handleFilterChange = (filters) => {
+    // Remove o statusId dos filtros de busca pois agora ele é controlado separadamente
+    const { statusId, ...otherFilters } = filters;
+    setSearchParams(otherFilters);
+    setPage(0);
+  };
 
-  if (loading && movements.length === 0) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="error" gutterBottom>{error}</Typography>
-        <Button 
-          variant="contained" 
-          onClick={fetchMovements}
-          startIcon={<RefreshIcon />}
-        >
-          Tentar Novamente
-        </Button>
-      </Box>
-    );
-  }
+  const handleStatusChange = (statuses) => {
+    setSelectedStatuses(statuses);
+    setPage(0);
+  };
 
   return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      {/* Cabeçalho e Filtros */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Movimentações
-        </Typography>
-        
-        {/* Barra de Ferramentas */}
-        <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <DateRangeSelector 
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-          />
-          
+    <Box sx={{ p: 3 }}>
+      <Paper 
+        sx={{ 
+          p: 2, 
+          display: 'flex', 
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <MovementFilters
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          searchParams={searchParams}
+          onFilterChange={handleFilterChange}
+        />
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <MovementStatusFilter
             selectedStatuses={selectedStatuses}
-            onStatusChange={setSelectedStatuses}
+            onStatusChange={handleStatusChange}
           />
-          
-          <TextField
-            size="small"
-            variant="outlined"
-            placeholder="Pesquisar..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setMovementTypeDialogOpen(true)}
-            startIcon={<AddIcon />}
-          >
-            Nova Movimentação
-          </Button>
         </Box>
-      </Box>
+      </Paper>
 
-      {/* Tabela de Movimentações */}
-      {movements.length > 0 ? (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox" />
-                <TableCell>Data</TableCell>
-                <TableCell>Descrição</TableCell>
-                <TableCell>Código</TableCell>
-                <TableCell>Código Cliente</TableCell>
-                <TableCell>Nome Cliente</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Valor</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {movements.map((movement) => (
-                <MovementRow 
-                  key={movement.movement_id} 
-                  movement={movement}
-                  onMovementUpdate={handleMovementUpdate}
-                />
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            component="div"
-            count={totalCount}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-          />
-        </TableContainer>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
       ) : (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body1" color="textSecondary">
-            Nenhuma movimentação encontrada
-          </Typography>
-        </Paper>
+        <MovementTable
+          movements={movements}
+          onSort={handleSort}
+          orderBy={orderBy}
+          orderDirection={orderDirection}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          totalCount={totalCount}
+          onMovementUpdate={handleMovementUpdate}
+        />
       )}
-
-      {/* Diálogo de Nova Movimentação */}
-      <Dialog
-        open={movementTypeDialogOpen}
-        onClose={() => setMovementTypeDialogOpen(false)}
-      >
-        <DialogTitle>Escolha o tipo de movimentação</DialogTitle>
-        <DialogContent>
-          <List>
-            <ListItem 
-              button
-              onClick={() => {
-                setMovementTypeDialogOpen(false);
-                navigate('/movements/new/express');
-              }}
-            >
-              <ListItemText 
-                primary="Movimentação Expressa" 
-                secondary="Criar uma movimentação rápida com poucos campos"
-              />
-            </ListItem>
-            <ListItem 
-              button
-              onClick={() => {
-                setMovementTypeDialogOpen(false);
-                navigate('/movements/new/detailed');
-              }}
-            >
-              <ListItemText 
-                primary="Movimentação Detalhada" 
-                secondary="Criar uma movimentação com todos os campos disponíveis"
-              />
-            </ListItem>
-          </List>
-        </DialogContent>
-      </Dialog>
     </Box>
   );
 };
