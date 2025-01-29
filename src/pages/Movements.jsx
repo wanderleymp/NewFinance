@@ -1309,8 +1309,7 @@ const Movements = () => {
         orderDirection,
         startDate: format(startDate, 'yyyy-MM-dd'),
         endDate: format(endDate, 'yyyy-MM-dd'),
-        ...searchParams,
-        // Adiciona o movement_status_id apenas se houver algum status selecionado
+        ...(searchParams.description && { search: searchParams.description }),
         ...(selectedStatuses.length > 0 && { movement_status_id: selectedStatuses[0] })
       };
 
