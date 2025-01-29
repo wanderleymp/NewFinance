@@ -47,6 +47,7 @@ interface ContractFormData {
   last_adjustment: number;
   contract_adjustments: any[];
   billings: any[];
+  contract_id: number;
 }
 
 const initialFormData: ContractFormData = {
@@ -75,6 +76,7 @@ const initialFormData: ContractFormData = {
   last_adjustment: 0,
   contract_adjustments: [],
   billings: [],
+  contract_id: 0,
 };
 
 const ContractFormPage: React.FC = () => {
@@ -94,69 +96,37 @@ const ContractFormPage: React.FC = () => {
         const response = await contractService.getContractById(Number(id));
         
         if (response) {
+          console.log('Resposta do contrato:', response);
+          
+          // Mapeia os serviços do contrato
+          const mappedServices = response.items?.map(item => ({
+            id: item.item_id,
+            movement_item_id: item.movement_item_id,
+            name: item.item_name,
+            quantity: item.quantity,
+            unit_value: item.unit_price,
+            total_value: item.total_price,
+            contract_id: Number(id)
+          })) || [];
+
           setFormData({
-            contract_name: response.contract_name,
-            contract_value: response.contract_value,
+            ...response,
+            contract_id: Number(id),
             start_date: format(new Date(response.start_date), 'yyyy-MM-dd'),
             end_date: response.end_date ? format(new Date(response.end_date), 'yyyy-MM-dd') : null,
-            status: response.status,
-            
-            group_name: response.group_name,
-            full_name: response.full_name,
-            person_id: response.person_id,
-            contract_group_id: response.contract_group_id,
-            
-            recurrence_period: response.recurrence_period as 'monthly' | 'yearly',
-            due_day: response.due_day,
-            days_before_due: response.days_before_due,
-            billing_reference: response.billing_reference,
-            
-            model_movement_id: response.model_movement_id,
-            representative_person_id: response.representative_person_id,
-            commissioned_value: response.commissioned_value,
-            account_entry_id: response.account_entry_id,
-            payment_method: response.payment_method,
-            
-            services: response.items.map(item => ({
-              id: item.item_id,
-              name: item.item_name,
-              quantity: item.quantity,
-              unit_value: item.unit_price,
-              total_value: item.total_price
-            })),
-
-            last_billing_date: response.last_billing_date ? format(new Date(response.last_billing_date), 'yyyy-MM-dd') : null,
-            next_billing_date: response.next_billing_date ? format(new Date(response.next_billing_date), 'yyyy-MM-dd') : null,
-            last_decimo_billing_year: response.last_decimo_billing_year,
-            last_adjustment: response.last_adjustment,
-            
-            contract_adjustments: response.contract_adjustments?.map(adjustment => ({
-              id: adjustment.adjustment_history_id,
-              previous_value: adjustment.previous_value,
-              new_value: adjustment.new_value,
-              change_date: format(new Date(adjustment.change_date), 'yyyy-MM-dd'),
-              change_type: adjustment.change_type,
-              description: adjustment.description
-            })),
-            
-            billings: response.billings?.map(billing => ({
-              id: billing.movement_id,
-              total_amount: billing.total_amount,
-              movement_date: format(new Date(billing.movement_date), 'yyyy-MM-dd'),
-              description: billing.description
-            }))
+            services: mappedServices
           });
         }
       } catch (error) {
         console.error('Erro ao carregar contrato:', error);
-        enqueueSnackbar('Erro ao carregar dados do contrato', { variant: 'error' });
+        enqueueSnackbar('Erro ao carregar contrato', { variant: 'error' });
       } finally {
         setLoading(false);
       }
     };
 
     loadContract();
-  }, [id, enqueueSnackbar, navigate]);
+  }, [id, enqueueSnackbar]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof ContractFormData, string>> = {};
@@ -496,15 +466,22 @@ const ContractFormPage: React.FC = () => {
                 />
               </Grid>
 
+              {/* Serviços do Contrato */}
               <Grid item xs={12}>
-                <Box mt={4}>
-                  <ContractServices
-                    services={formData.services}
-                    onAddService={handleAddService}
-                    onRemoveService={handleRemoveService}
-                    onUpdateService={handleUpdateService}
-                  />
-                </Box>
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Serviços do Contrato
+                </Typography>
+                
+                <ContractServices
+                  contract={{
+                    contract_id: Number(id),
+                    ...formData
+                  }}
+                  services={formData.services}
+                  onAddService={handleAddService}
+                  onRemoveService={handleRemoveService}
+                  onUpdateService={handleUpdateService}
+                />
               </Grid>
 
               {/* Botões */}

@@ -1,9 +1,11 @@
 export interface ContractService {
   id?: number;
+  movement_item_id?: number;
   name: string;
   quantity: number;
   unit_value: number;
   total_value: number;
+  contract_id?: number;
 }
 
 export interface ContractAdjustment {
@@ -70,9 +72,11 @@ export interface Contract {
 }
 
 export interface ContractServiceFormData {
+  id?: number;
+  movement_item_id?: number;
   name: string;
-  description: string;
-  value: string;
   quantity: string;
-  unit: string;
+  unit_value: string;
+  total_value: string;
+  contract_id?: number;
 }

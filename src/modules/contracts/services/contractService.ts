@@ -300,5 +300,46 @@ export const contractService = {
       console.error('Erro ao cancelar fatura:', error);
       throw error;
     }
+  },
+
+  async updateContractItem(
+    contractId: number, 
+    movementItemId: number, 
+    data: { 
+      quantity: number;
+      unit_price: number;
+      total_price: number;
+      item_id: number;
+    }
+  ): Promise<any> {
+    try {
+      console.log('ContractService - Atualizando item:', {
+        url: `/contracts-recurring/${contractId}/items/${movementItemId}`,
+        data
+      });
+
+      const response = await api.put(
+        `/contracts-recurring/${contractId}/items/${movementItemId}`,
+        data
+      );
+
+      console.log('ContractService - Resposta da atualização:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('ContractService - Erro ao atualizar item do contrato:', error);
+      throw error;
+    }
+  },
+
+  async searchMovementItems(params: { query: string; type: string }): Promise<any> {
+    try {
+      const response = await api.get('/movement-items/search', {
+        params
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar itens de movimento:', error);
+      throw error;
+    }
   }
 };
