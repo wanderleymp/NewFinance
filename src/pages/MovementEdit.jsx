@@ -37,19 +37,31 @@ const MovementEdit = () => {
     person: null,
     payments: [],
   });
+  const [loadCount, setLoadCount] = useState(0);
 
   useEffect(() => {
+    console.log('🚨 MovementEdit: useEffect chamado');
+    console.log('🚨 MovementEdit: ID atual:', id);
+    console.log('🚨 MovementEdit: Contagem de carregamentos:', loadCount);
+
+    // Previne múltiplas chamadas desnecessárias
+    if (loadCount > 3) {
+      console.error('🚨 POSSÍVEL LOOP DETECTADO: Muitas tentativas de carregamento');
+      return;
+    }
+
     const fetchMovement = async () => {
       try {
+        setLoadCount(prev => prev + 1);
         setLoading(true);
+        console.log('🚨 MovementEdit: Iniciando carregamento do movimento');
+        
         const response = await movementsService.get(id);
-        console.log('Movimento carregado (estrutura completa):', JSON.stringify(response, null, 2));
-        console.log('Items do movimento:', response.items);
-        console.log('Movement Items:', response.movement_items);
+        console.log('🚨 Movimento carregado (estrutura completa):', JSON.stringify(response, null, 2));
         
         // Verifica onde estão os itens
         const items = response.items || response.movement_items || [];
-        console.log('Items encontrados:', items);
+        console.log('🚨 Items encontrados:', items);
         
         setMovement(response);
         setItems(items);
@@ -59,17 +71,23 @@ const MovementEdit = () => {
           person: response.person,
           payments: response.payments || [],
         });
+        
+        console.log('🚨 MovementEdit: Dados carregados com sucesso');
       } catch (error) {
-        console.error('Erro ao carregar movimento:', error);
+        console.error('🚨 Erro ao carregar movimento:', error);
         enqueueSnackbar('Erro ao carregar movimento', { variant: 'error' });
         navigate('/movements');
       } finally {
         setLoading(false);
+        console.log('🚨 MovementEdit: Carregamento finalizado');
       }
     };
 
-    fetchMovement();
-  }, [id]);
+    // Adiciona uma verificação para prevenir chamadas desnecessárias
+    if (id) {
+      fetchMovement();
+    }
+  }, [id, navigate, enqueueSnackbar, loadCount]);
 
   // Funções para buscar itens
   const handleSearchItems = async (query) => {

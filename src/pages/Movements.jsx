@@ -633,31 +633,14 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
       const result = await movementsService.cancel(movementId, MOVEMENT_STATUS.CANCELED);
       console.log('✅ Movimento cancelado com sucesso:', result);
       
-      // Atualiza o estado local primeiro
-      const updatedMovement = {
-        ...movement,
-        movement_status_id: MOVEMENT_STATUS.CANCELED,
-        status_name: 'Cancelado'
-      };
+      // Busca os dados atualizados do movimento
+      const refreshedData = await movementsService.get(movementId);
       
-      // Notifica o componente pai da atualização
-      if (typeof onMovementUpdate === 'function') {
-        onMovementUpdate(updatedMovement);
-      }
-      
-      // Força uma nova busca dos dados
-      try {
-        const refreshedData = await movementsService.get(movementId);
-        if (refreshedData) {
-          // Atualiza o movimento na lista local
-          setMovements(prevMovements => 
-            prevMovements.map(mov => 
-              mov.movement_id === movementId ? refreshedData : mov
-            )
-          );
+      if (refreshedData) {
+        // Notifica o componente pai da atualização
+        if (typeof onMovementUpdate === 'function') {
+          onMovementUpdate(refreshedData);
         }
-      } catch (refreshError) {
-        console.error('Erro ao atualizar dados após cancelamento:', refreshError);
       }
 
       // Mostra mensagem de sucesso
@@ -665,9 +648,6 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
         variant: 'success',
         autoHideDuration: 3000
       });
-
-      // Força atualização da lista completa
-      fetchMovements();
       
     } catch (error) {
       console.error('❌ Erro ao cancelar movimentação:', {
@@ -801,7 +781,7 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleCancelMovement();
+                  handleCancelMovement(e);
                 }}
               >
                 <CancelIcon />
@@ -1275,6 +1255,9 @@ const Movements = () => {
   const [orderBy, setOrderBy] = useState('movement_date');
   const [orderDirection, setOrderDirection] = useState('DESC');
   
+  // Novo estado para rastrear carregamentos
+  const [loadCount, setLoadCount] = useState(0);
+  
   // Inicializando com status Confirmado
   const [selectedStatuses, setSelectedStatuses] = useState([MOVEMENT_STATUS.CONFIRMED]);
   const [startDate, setStartDate] = useState(sub(new Date(), { days: 7 }));
@@ -1306,17 +1289,47 @@ const Movements = () => {
 
   // Função para atualizar um movimento na lista
   const handleMovementUpdate = (updatedMovement) => {
-    setMovements(prevMovements => 
-      prevMovements.map(movement => 
+    console.log('🔄 Atualizando movimento:', updatedMovement);
+    
+    // Verifica se o movimento foi cancelado
+    const isCanceled = 
+      updatedMovement.movement_status_id === MOVEMENT_STATUS.CANCELED ||
+      updatedMovement.status_name === 'Cancelado';
+
+    setMovements(prevMovements => {
+      // Se o movimento foi cancelado, remove da lista
+      if (isCanceled) {
+        console.log('❌ Movimento cancelado, removendo da lista:', updatedMovement.movement_id);
+        return prevMovements.filter(movement => 
+          movement.movement_id !== updatedMovement.movement_id
+        );
+      }
+      
+      // Caso contrário, atualiza o movimento na lista
+      return prevMovements.map(movement => 
         movement.movement_id === updatedMovement.movement_id 
           ? updatedMovement 
           : movement
-      )
-    );
+      );
+    });
   };
 
   // Função para carregar os movimentos
   const loadMovements = useCallback(async () => {
+    // Incrementa o contador de carregamentos
+    setLoadCount(prevCount => prevCount + 1);
+
+    // Limita o número de tentativas de carregamento
+    if (loadCount >= 3) {
+      console.warn('⚠️ Limite de carregamentos atingido. Interrompendo chamadas.');
+      return;
+    }
+
+    if (loading) {
+      console.log(`🔄 Carregamento em andamento. Contagem: ${loadCount}`);
+      return; // Evita múltiplas chamadas simultâneas
+    }
+    
     setLoading(true);
     try {
       const params = {
@@ -1330,15 +1343,31 @@ const Movements = () => {
         ...(selectedStatuses.length > 0 && { movement_status_id: selectedStatuses[0] })
       };
 
+      console.log(`🔄 Carregando movimentos (Tentativa ${loadCount}):`, params);
       const response = await movementsService.list(params);
-      console.log('Resposta da API:', response);
+      console.log('✅ Resposta da API:', response);
       
-      // A resposta está vindo em response.items
-      setMovements(response.items || []);
+      if (!response || !response.items) {
+        console.error('❌ Resposta inválida da API:', response);
+        throw new Error('Resposta inválida da API');
+      }
+
+      setMovements(response.items);
       setTotalCount(response.total || 0);
+      // Reseta o contador de carregamentos em caso de sucesso
+      setLoadCount(0);
     } catch (error) {
-      console.error('Erro ao carregar movimentos:', error);
-      enqueueSnackbar('Erro ao carregar movimentos!', { variant: 'error' });
+      console.error('❌ Erro ao carregar movimentos:', error);
+      if (error.response) {
+        console.error('Detalhes do erro:', error.response);
+      }
+      enqueueSnackbar('Erro ao carregar movimentos. Por favor, tente novamente.', { 
+        variant: 'error',
+        autoHideDuration: 3000
+      });
+      // Limpa os dados em caso de erro
+      setMovements([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -1346,7 +1375,11 @@ const Movements = () => {
 
   // Efeito para carregar os movimentos quando os parâmetros mudarem
   useEffect(() => {
-    loadMovements();
+    const timer = setTimeout(() => {
+      loadMovements();
+    }, 300); // Adiciona um pequeno delay para evitar múltiplas chamadas
+
+    return () => clearTimeout(timer);
   }, [loadMovements]);
 
   // Handlers para ordenação e paginação
