@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Edit2, Trash2, Eye, Plus, ArrowUpDown, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BillingConfirmationModal } from '../components/BillingConfirmationModal';
+import { contractService } from '../services/contractService'; // Import the contract service
 
 interface ContractTableProps {
   contracts: Contract[];
@@ -35,15 +36,15 @@ export function ContractTable({
   
   const columnHelper = createColumnHelper<Contract>();
 
-  const handleBillContract = async () => {
+  const handleBillContract = async (contract: Contract) => {
     try {
-      // Simulating API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await contractService.generateBilling(contract.id);
       toast.success('Faturamento realizado com sucesso!');
       setIsConfirmationOpen(false);
       setSelectedContract(null);
     } catch (error) {
       toast.error('Erro ao realizar faturamento. Tente novamente.');
+      console.error('Erro no faturamento:', error);
     }
   };
 
@@ -128,60 +129,53 @@ export function ContractTable({
     columnHelper.display({
       id: 'actions',
       header: 'Ações',
-      cell: info => {
-        const contract = info.row.original;
+      cell: ({ row }) => {
+        const contract = row.original;
         const canBill = contract.status === 'ativo';
 
         return (
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => onManageServices(info.row.original)}
+              onClick={() => onManageServices(row.original)}
               className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
               title="Gerenciar Serviços"
             >
               <Plus className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onView(info.row.original)}
+              onClick={() => onView(row.original)}
               className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
               title="Gerenciar Ajustes"
             >
               <ArrowUpDown className="w-4 h-4" />
             </button>
-            <button
+            <Receipt 
+              className="cursor-pointer text-blue-500 hover:text-blue-700" 
               onClick={() => {
                 if (canBill) {
                   setSelectedContract(contract);
                   setIsConfirmationOpen(true);
                 }
               }}
-              disabled={!canBill}
-              className={`p-1.5 rounded transition-colors ${
-                canBill
-                  ? 'hover:bg-indigo-50 text-indigo-600'
-                  : 'text-gray-400 cursor-not-allowed'
-              }`}
-              title={canBill ? 'Faturar Contrato' : 'Contrato não pode ser faturado'}
-            >
-              <Receipt className="w-4 h-4" />
-            </button>
+              title="Gerar Fatura"
+            />
             <div className="h-4 w-px bg-gray-200 mx-1" />
             <button
-              onClick={() => onView(info.row.original)}
+              onClick={() => onView(row.original)}
               className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
               title="Visualizar"
             >
               <Eye className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onEdit(info.row.original)}
+              onClick={() => onEdit(row.original)}
               className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
               title="Editar"
             >
               <Edit2 className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onDelete(info.row.original)}
+              onClick={() => onDelete(row.original)}
               className="p-1.5 hover:bg-red-50 rounded text-red-600 transition-colors"
               title="Excluir"
             >
@@ -262,7 +256,7 @@ export function ContractTable({
             setIsConfirmationOpen(false);
             setSelectedContract(null);
           }}
-          onConfirm={handleBillContract}
+          onConfirm={() => handleBillContract(selectedContract)}
           contract={selectedContract}
         />
       )}

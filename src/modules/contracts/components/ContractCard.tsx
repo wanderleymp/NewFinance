@@ -24,9 +24,13 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { AttachMoney } from '@mui/icons-material';
+import { Receipt } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { Contract } from '../types/contract';
 import { ContractFullDetailsModal } from './ContractFullDetailsModal';
+import { BillingConfirmationModal } from './BillingConfirmationModal';
+import { contractService } from '../services/contractService';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface ContractCardProps {
@@ -48,6 +52,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -135,6 +140,51 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     }
   };
 
+  const handleBillContract = async () => {
+    if (!contract) return;
+
+    try {
+      // Identifica o ID da fatura ou do contrato
+      const billingId = contract.billings?.[0]?.id || String(contract.id);
+      
+      if (!billingId) {
+        toast.error('Não foi possível identificar a fatura para processamento.');
+        return;
+      }
+
+      // Log detalhado
+      console.log('Processando faturamento', {
+        billingId,
+        contractId: contract.id,
+        contractName: contract.name,
+        contractStatus: contract.status
+      });
+
+      // Usa o método de processamento de fatura
+      await contractService.processBilling(String(billingId));
+      
+      // Notificação de sucesso
+      toast.success('Fatura processada com sucesso', { 
+        duration: 3000,
+        position: 'bottom-right'
+      });
+
+      // Fecha o modal de confirmação
+      setIsConfirmationOpen(false);
+      
+      // Atualiza a lista se o callback de refresh estiver disponível
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      // Log e tratamento de erro
+      console.error('Erro no processamento de fatura:', error);
+      
+      toast.error('Erro ao processar fatura. Tente novamente.', {
+        duration: 4000,
+        position: 'bottom-right'
+      });
+    }
+  };
+
   if (!contract) return null;
 
   const displayName = contract.fullName || contract.name || 'Sem nome';
@@ -154,12 +204,8 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         sx={{ 
           height: '100%', 
           display: 'flex', 
-          flexDirection: 'column',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          '&:hover': {
-            transform: 'scale(1.02)',
-            boxShadow: 2
-          }
+          flexDirection: 'column', 
+          justifyContent: 'space-between' 
         }}
       >
         <CardHeader
@@ -274,40 +320,44 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             )}
           </Box>
         </CardContent>
-        <CardActions disableSpacing sx={{ justifyContent: 'space-between', pt: 0 }}>
-          <Box>
-            <Tooltip title="Editar">
-              <IconButton onClick={() => onEdit(contract)} aria-label="editar" size="small">
+        <CardActions sx={{ justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Tooltip title="Visualizar Detalhes">
+              <IconButton onClick={() => setIsDetailsModalOpen(true)} size="small">
+                <ViewIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Editar Contrato">
+              <IconButton onClick={() => onEdit(contract)} size="small">
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Gerenciar Serviços">
-              <IconButton onClick={() => onManageServices(contractId)} aria-label="gerenciar serviços" size="small">
+              <IconButton onClick={() => onManageServices(contract.id)} size="small">
                 <ManageServicesIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Processar Fatura">
+            <Tooltip title="Faturar Contrato">
               <IconButton 
-                color="primary" 
-                onClick={handleBillingDetails}
-                disabled={contract?.status !== 'active'}
+                onClick={() => setIsConfirmationOpen(true)} 
+                size="small"
+                disabled={contract.status !== 'active'}
               >
-                <AttachMoney />
+                <Receipt 
+                  className={`w-4 h-4 ${
+                    contract.status === 'active' 
+                      ? 'text-blue-500 hover:text-blue-700' 
+                      : 'text-gray-400'
+                  }`} 
+                />
               </IconButton>
             </Tooltip>
           </Box>
-          <Box>
-            <Tooltip title="Detalhes">
-              <IconButton onClick={handleOpenDetailsModal} aria-label="detalhes" size="small">
-                <InfoIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Excluir">
-              <IconButton onClick={onDelete} color="error" aria-label="excluir" size="small">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Tooltip title="Excluir Contrato">
+            <IconButton onClick={onDelete} size="small" color="error">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </CardActions>
         <Menu
           anchorEl={anchorEl}
@@ -368,6 +418,15 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         onClose={handleCloseDetailsModal} 
         contract={contract} 
       />
+
+      {contract && (
+        <BillingConfirmationModal
+          isOpen={isConfirmationOpen}
+          onClose={() => setIsConfirmationOpen(false)}
+          onConfirm={handleBillContract}
+          contract={contract}
+        />
+      )}
     </>
   );
 };
