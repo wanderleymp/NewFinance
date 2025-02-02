@@ -36,7 +36,8 @@ import {
   CircularProgress,
   Checkbox,
   FormControlLabel,
-  Alert
+  Alert,
+  Stack
 } from '@mui/material';
 import { 
   Search as SearchIcon, 
@@ -68,7 +69,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { ptBR } from 'date-fns/locale';
-import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks } from 'date-fns';
+import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks, isAfter } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import api from '../services/api'; // Import the api instance
@@ -247,71 +248,124 @@ export default function Installments() {
   // Otimizar fetchInstallments para incluir paginação corretamente
   const fetchInstallments = useCallback(async (params = {}) => {
     try {
+      setIsLoading(true);
       console.log('🚨 DEBUG Filtros antes da chamada:', {
         filters,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
         page,
         rowsPerPage
       });
 
-      // Garantir que startDate e endDate sempre tenham valores
-      const safeStartDate = filters.startDate || subDays(new Date(), 6);
-      const safeEndDate = filters.endDate || new Date();
+      // Garantir que startDate e endDate sempre tenham valores válidos
+      const currentDate = new Date();
+      let safeStartDate, safeEndDate;
 
-      const paginationParams = {
-        page: (params.page || page + 1), // Prioriza parâmetros passados
-        limit: params.limit || rowsPerPage,
-        sort: 'due_date',
-        order: 'desc'
-      };
+      if (filters.startDate && !isNaN(new Date(filters.startDate))) {
+        safeStartDate = new Date(filters.startDate);
+      } else {
+        // Se não houver data inicial válida, usar o início do mês atual
+        safeStartDate = startOfMonth(currentDate);
+      }
 
-      const filterParams = {
-        ...(safeStartDate ? { start_date: format(safeStartDate, 'yyyy-MM-dd') } : {}),
-        ...(safeEndDate ? { end_date: format(safeEndDate, 'yyyy-MM-dd') } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.full_name ? { full_name: filters.full_name } : {})
-      };
+      if (filters.endDate && !isNaN(new Date(filters.endDate))) {
+        safeEndDate = new Date(filters.endDate);
+      } else {
+        // Se não houver data final válida, usar o fim do mês atual
+        safeEndDate = endOfMonth(currentDate);
+      }
 
-      console.log('🚨 Parâmetros da API com datas seguras:', {
-        pagination: paginationParams,
-        filters: filterParams,
-        customParams: params
+      // Validar se as datas são válidas
+      if (isAfter(safeStartDate, safeEndDate)) {
+        throw new Error('A data inicial não pode ser posterior à data final');
+      }
+
+      // Formatar datas para o formato esperado pela API (sem timezone)
+      const formattedStartDate = format(startOfDay(safeStartDate), 'yyyy-MM-dd');
+      const formattedEndDate = format(endOfDay(safeEndDate), 'yyyy-MM-dd');
+
+      console.log('🚨 Datas formatadas:', {
+        formattedStartDate,
+        formattedEndDate,
+        safeStartDate: format(safeStartDate, 'yyyy-MM-dd HH:mm:ss'),
+        safeEndDate: format(safeEndDate, 'yyyy-MM-dd HH:mm:ss')
       });
 
-      const response = await installmentsService.list({
+      // Remover parâmetros nulos ou vazios
+      const apiParams = {
         page: page + 1,
         limit: rowsPerPage,
         sort: 'due_date',
         order: 'desc',
-        start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-        end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
-        status: filters.status || null,
-        search: filters.full_name || null
+        start_date: formattedStartDate,
+        end_date: formattedEndDate,
+        ...(filters.status && { status: filters.status }),
+        ...(filters.full_name && { search: filters.full_name }),
+        ...params // Permite sobrescrever parâmetros se necessário
+      };
+
+      // Remover parâmetros duplicados ou desnecessários
+      delete apiParams.startDate;
+      delete apiParams.endDate;
+      delete apiParams.filters;
+
+      console.log('🚨 Parâmetros finais da API:', apiParams);
+
+      const response = await installmentsService.list(apiParams);
+
+      // Garantir que temos uma resposta válida
+      if (!response) {
+        throw new Error('Resposta da API inválida');
+      }
+
+      console.log('🚨 Resposta bruta da API:', {
+        responseType: typeof response,
+        data: response
       });
 
-      console.log('🚨 Resposta completa da API:', response);
+      // Processar resposta da API
+      const items = response?.items || [];
+      const meta = response?.meta || {};
+      const total = meta.total || 0;
+      const lastPage = meta.last_page || 1;
 
-      // Tratamento robusto para total e totalPages
-      const totalItems = response.meta?.total || response.total || 0;
-      const totalPages = response.meta?.totalPages || Math.ceil(totalItems / rowsPerPage) || 1;
-
-      console.log('🚨 DADOS DE PAGINAÇÃO PROCESSADOS:', {
-        totalItems,
-        totalPages,
-        itemsCount: response.items?.length || 0,
-        rowsPerPage
+      console.log('🚨 Resposta da API:', {
+        items: items.length,
+        total: total,
+        lastPage: lastPage,
+        meta: meta
       });
 
-      setInstallments(response.items || response.data?.items || []);
-      setTotalItems(totalItems);
-      setTotalPages(totalPages);
+      // Atualizar estado com os dados da resposta
+      setInstallments(items);
+      setTotalItems(total);
+      setTotalPages(lastPage);
+      setFetchError(null);
+
+      // Log de sucesso
+      console.log('🚨 Estado atualizado:', {
+        installments: items.length,
+        totalItems: total,
+        totalPages: lastPage
+      });
 
     } catch (error) {
-      console.error('Erro ao buscar parcelas:', error);
+      console.error('Erro ao buscar parcelas:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
       setInstallments([]);
       setTotalItems(0);
       setTotalPages(0);
+      
+      const errorMessage = error.response?.data?.message || 
+        error.response?.data?.error || 
+        'Erro ao carregar parcelas. Por favor, tente novamente.';
+      
+      setFetchError(errorMessage);
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setIsLoading(false);
     }
   }, [page, rowsPerPage, filters]);
 
@@ -333,30 +387,31 @@ export default function Installments() {
   }, [page, rowsPerPage, filters.startDate, filters.endDate, filters.status, filters.full_name]);
 
   useEffect(() => {
-    // Definir filtro padrão para últimos 7 dias ao carregar a página
+    // Definir filtro padrão para o mês atual
     const today = new Date();
-    const sevenDaysAgo = subDays(today, 6);
+    const firstDayOfMonth = startOfMonth(today);
+    const lastDayOfMonth = endOfMonth(today);
     
-    console.log('🚨 CONFIGURANDO FILTRO PADRÃO DE 7 DIAS', {
-      startDate: sevenDaysAgo,
-      endDate: today
+    console.log('🚨 CONFIGURANDO FILTRO PADRÃO PARA O MÊS ATUAL', {
+      startDate: format(firstDayOfMonth, 'yyyy-MM-dd'),
+      endDate: format(lastDayOfMonth, 'yyyy-MM-dd')
     });
 
     // Atualizar estados de data
-    setStartDate(sevenDaysAgo);
-    setEndDate(today);
+    setStartDate(firstDayOfMonth);
+    setEndDate(lastDayOfMonth);
 
     // Atualizar filtros
     setFilters(prev => ({
       ...prev,
-      startDate: sevenDaysAgo,
-      endDate: today
+      startDate: firstDayOfMonth,
+      endDate: lastDayOfMonth
     }));
 
     // Buscar parcelas com o filtro padrão
     fetchInstallments({
-      startDate: sevenDaysAgo,
-      endDate: today
+      startDate: firstDayOfMonth,
+      endDate: lastDayOfMonth
     });
   }, []);
 
@@ -436,25 +491,49 @@ export default function Installments() {
       );
     }
 
-    if (!installments || !installments.length === 0) {
+    // Verificar se não há parcelas
+    // Renderizar mensagem quando não houver parcelas
+    if (!installments || installments.length === 0) {
       return (
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '100%', 
-          textAlign: 'center', 
-          p: 4 
-        }}>
-          <SentimentDissatisfiedIcon color="disabled" sx={{ fontSize: 80, mb: 2 }} />
-          <Typography variant="h6" color="textSecondary" gutterBottom>
-            Nenhuma parcela encontrada
-          </Typography>
-          <Typography variant="body2" color="textSecondary" align="center">
-            Não há parcelas que correspondam aos filtros selecionados.
-          </Typography>
-        </Box>
+        <TableRow>
+          <TableCell 
+            colSpan={8} 
+            sx={{ 
+              border: 'none',
+              height: '400px',
+              p: 4
+            }}
+          >
+            <Stack 
+              direction="column" 
+              alignItems="center" 
+              justifyContent="center" 
+              spacing={2}
+              sx={{ 
+                height: '100%',
+                textAlign: 'center'
+              }}
+            >
+              <SentimentDissatisfiedIcon 
+                color="disabled" 
+                sx={{ fontSize: 80 }} 
+              />
+              <Typography 
+                variant="h6" 
+                color="textSecondary" 
+              >
+                Nenhuma parcela encontrada
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="textSecondary" 
+                align="center"
+              >
+                Não há parcelas que correspondam aos filtros selecionados.
+              </Typography>
+            </Stack>
+          </TableCell>
+        </TableRow>
       );
     }
 
@@ -485,19 +564,20 @@ export default function Installments() {
             {renderInstallmentStatus(installment.status)}
           </TableCell>
           <TableCell>
-            {(installment.boletos || []).map((boleto) => (
-              <Box key={boleto.boleto_id} sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
-                {boleto.status === 'A_RECEBER' && (
+            <Stack direction="row" spacing={1}>
+              {(installment.boletos || []).map((boleto) => 
+                boleto.status === 'A_RECEBER' && (
                   <IconButton 
+                    key={boleto.boleto_id}
                     size="small" 
                     onClick={() => window.open(boleto.boleto_url, '_blank')}
                     title="Visualizar Boleto"
                   >
                     <ReceiptIcon fontSize="small" />
                   </IconButton>
-                )}
-              </Box>
-            ))}
+                )
+              )}
+            </Stack>
           </TableCell>
           <TableCell align="right">
             <Box sx={{ 
@@ -506,6 +586,28 @@ export default function Installments() {
               alignItems: 'center',
               justifyContent: 'flex-end' 
             }}>
+              {/* Botão de Gerar Boleto */}
+              {installment.status === 'Pendente' && 
+               (!installment.boletos || 
+                !installment.boletos.some(boleto => boleto?.status === 'A_RECEBER')) && (
+                <IconButton 
+                  size="small"
+                  color="primary"
+                  onClick={() => handleGenerateBoleto(installment)} 
+                  title="Gerar Boleto"
+                  sx={{ 
+                    border: '1px solid', 
+                    borderColor: 'primary.light',
+                    '&:hover': { 
+                      bgcolor: 'primary.light', 
+                      color: 'primary.contrastText' 
+                    }
+                  }}
+                >
+                  <Add fontSize="small" />
+                </IconButton>
+              )}
+
               {/* Botão de Notificação */}
               {console.log('🚨 CONDIÇÕES DE NOTIFICAÇÃO:', {
                 installmentId: installment.installment_id,
@@ -772,42 +874,71 @@ export default function Installments() {
   };
 
   const handleGenerateBoleto = useCallback(async (installment) => {
-    // console.log('Geração de boleto:', installment);
+    if (!installment || !installment.installment_id) {
+      console.error('🚨 Tentativa de gerar boleto sem parcela válida:', installment);
+      enqueueSnackbar('Erro: Dados da parcela inválidos para geração de boleto', { 
+        variant: 'error',
+        autoHideDuration: 5000
+      });
+      return;
+    }
+
     try {
-      // Chamar serviço de geração de boleto
+      console.log('🚨 Iniciando geração de boleto:', {
+        installmentId: installment.installment_id,
+        status: installment.status,
+        dueDate: installment.due_date,
+        amount: installment.amount
+      });
+
+      setIsLoading(true);
       const response = await installmentsService.generateBoleto(installment.installment_id);
       
-      // Log detalhado da resposta
-      // console.log('Resposta da geração de boleto:', {
-      //   status: response.status,
-      //   data: response.data,
-      //   headers: response.headers
-      // });
-      
-      enqueueSnackbar('Boleto gerado com sucesso!', { variant: 'success' });
-      
-      // Recarregar a lista de installments para atualizar os boletos
-      fetchInstallments();
-    } catch (error) {
-      // Log detalhado do erro
-      // console.error('Erro completo ao gerar boleto:', {
-      //   message: error.message,
-      //   response: error.response?.data,
-      //   status: error.response?.status,
-      //   headers: error.response?.headers,
-      //   config: error.config
-      // });
+      if (!response || !response.data) {
+        throw new Error('Resposta inválida da API de geração de boleto');
+      }
 
-      // Tentar extrair mensagem de erro mais detalhada
-      const errorMessage = 
-        error.response?.data?.message || 
+      console.log('🚨 Resposta da geração de boleto:', {
+        status: response.status,
+        data: response.data,
+        headers: response.headers
+      });
+      
+      // Atualiza a lista de parcelas para refletir o novo boleto
+      await fetchInstallments();
+      
+      enqueueSnackbar('Boleto gerado com sucesso!', { 
+        variant: 'success',
+        autoHideDuration: 3000
+      });
+    } catch (error) {
+      console.error('🚨 Erro detalhado ao gerar boleto:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      
+      let errorMessage = 'Erro ao gerar boleto';
+
+      if (error.response?.status === 404) {
+        errorMessage = 'Parcela não encontrada';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Dados inválidos para geração do boleto';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Erro interno do servidor ao gerar boleto';
+      }
+
+      errorMessage = error.response?.data?.message || 
         error.response?.data?.error || 
-        'Erro ao gerar boleto';
+        errorMessage;
 
       enqueueSnackbar(errorMessage, { 
         variant: 'error',
-        persist: true  // Manter notificação visível
+        autoHideDuration: 5000
       });
+    } finally {
+      setIsLoading(false);
     }
   }, [enqueueSnackbar, fetchInstallments]);
 
@@ -1012,76 +1143,77 @@ export default function Installments() {
   };
 
   const handleQuickDateFilter = useCallback((type) => {
-    console.log('🚨 INICIANDO FILTRO RÁPIDO:', type);
+    try {
+      console.log('🚨 INICIANDO FILTRO RÁPIDO:', type);
 
-    let newStartDate = null;
-    let newEndDate = null;
+      let newStartDate = null;
+      let newEndDate = null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    switch (type) {
-      case 'Hoje':
-        newStartDate = startOfDay(today);
-        newEndDate = endOfDay(today);
-        break;
-      case 'Amanhã':
-        const tomorrow = addDays(today, 1);
-        newStartDate = startOfDay(tomorrow);
-        newEndDate = endOfDay(tomorrow);
-        break;
-      case 'Esta Semana':
-        newStartDate = startOfWeek(today, { weekStartsOn: 1 }); // Segunda-feira
-        newEndDate = endOfWeek(today, { weekStartsOn: 1 });
-        break;
-      case 'Próxima Semana':
-        const nextWeekStart = addWeeks(today, 1);
-        newStartDate = startOfWeek(nextWeekStart, { weekStartsOn: 1 });
-        newEndDate = endOfWeek(nextWeekStart, { weekStartsOn: 1 });
-        break;
-      case 'Este Mês':
-        newStartDate = startOfMonth(today);
-        newEndDate = endOfMonth(today);
-        break;
-      case 'Próximo Mês':
-        const nextMonth = addMonths(today, 1);
-        newStartDate = startOfMonth(nextMonth);
-        newEndDate = endOfMonth(nextMonth);
-        break;
-      default:
-        newStartDate = null;
-        newEndDate = null;
-    }
+      switch (type) {
+        case 'Hoje':
+          newStartDate = startOfDay(today);
+          newEndDate = endOfDay(today);
+          break;
+        case 'Esta Semana':
+          newStartDate = startOfWeek(today, { weekStartsOn: 1 }); // Segunda-feira
+          newEndDate = endOfWeek(today, { weekStartsOn: 1 });
+          break;
+        case 'Este Mês':
+          newStartDate = startOfMonth(today);
+          newEndDate = endOfMonth(today);
+          break;
+        case 'Últimos 7 Dias':
+          newStartDate = startOfDay(subDays(today, 6));
+          newEndDate = endOfDay(today);
+          break;
+        case 'Últimos 30 Dias':
+          newStartDate = startOfDay(subDays(today, 29));
+          newEndDate = endOfDay(today);
+          break;
+        default:
+          console.warn('🚨 Tipo de filtro rápido não reconhecido:', type);
+          return;
+      }
 
-    console.log('🚨 DATAS CALCULADAS:', { 
-      type, 
-      startDate: newStartDate, 
-      endDate: newEndDate 
-    });
+      // Validar datas
+      if (!newStartDate || !newEndDate || isNaN(newStartDate.getTime()) || isNaN(newEndDate.getTime())) {
+        throw new Error('Datas calculadas inválidas para o filtro: ' + type);
+      }
 
-    // Atualiza os estados de data
-    setStartDate(newStartDate);
-    setEndDate(newEndDate);
+      console.log('🚨 DATAS CALCULADAS:', { 
+        type, 
+        startDate: format(newStartDate, 'yyyy-MM-dd HH:mm:ss'),
+        endDate: format(newEndDate, 'yyyy-MM-dd HH:mm:ss')
+      });
 
-    // Atualiza os filtros para a busca na API
-    setFilters(prev => {
-      const updatedFilters = {
+      // Atualiza os estados de data e filtros
+      setStartDate(newStartDate);
+      setEndDate(newEndDate);
+      setFilters(prev => ({
         ...prev,
         startDate: newStartDate,
         endDate: newEndDate
-      };
-      
-      console.log('🚨 FILTROS ATUALIZADOS:', updatedFilters);
-      
-      return updatedFilters;
-    });
+      }));
 
-    // Dispara a busca de parcelas
-    fetchInstallments({
-      startDate: newStartDate,
-      endDate: newEndDate
-    });
-  }, [fetchInstallments]);
+      // Dispara busca com novos filtros
+      fetchInstallments();
+    } catch (error) {
+      console.error('🚨 Erro ao aplicar filtro rápido:', error);
+      enqueueSnackbar('Erro ao aplicar filtro de data: ' + error.message, { 
+        variant: 'error',
+        autoHideDuration: 5000
+      });
+    }
+  }, [enqueueSnackbar, fetchInstallments]);
+
+
+
+
+
+
 
   const handleClearDateFilter = useCallback(() => {
     setFilters(prev => ({
@@ -1496,24 +1628,40 @@ export default function Installments() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
+              <TableCell padding="checkbox" align="center">
                 <Checkbox 
                   onChange={handleSelectAllInstallments} 
                   checked={false}
                 />
               </TableCell>
-              <TableCell>ID Parcela</TableCell>
-              <TableCell>ID Movimento</TableCell>
-              <TableCell>Nome</TableCell>
-              <TableCell>Data Vencimento</TableCell>
-              <TableCell>Valor</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Boletos</TableCell>
-              <TableCell>Ações</TableCell>
+              <TableCell align="center">ID Parcela</TableCell>
+              <TableCell align="center">ID Movimento</TableCell>
+              <TableCell align="left">Nome</TableCell>
+              <TableCell align="center">Data Vencimento</TableCell>
+              <TableCell align="right">Valor</TableCell>
+              <TableCell align="center">Status</TableCell>
+              <TableCell align="center">Boletos</TableCell>
+              <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {renderInstallmentsTable}
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <CircularProgress />
+                </TableCell>
+              </TableRow>
+            ) : installments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body1" color="textSecondary">
+                    Nenhuma parcela encontrada
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              renderInstallmentsTable
+            )}
           </TableBody>
         </Table>
       </TableContainer>

@@ -488,58 +488,114 @@ export const installmentsService = {
         order: 'desc'
       };
 
-      // Combina parâmetros padrão com os fornecidos, garantindo 'desc'
+      // Combina parâmetros padrão com os fornecidos
       const finalParams = { 
         ...defaultParams, 
         ...params,
         order: 'desc'  // Força ordem descendente
       };
 
-      console.log('[DEBUG] Parâmetros finais da requisição:', {
+      console.log('🚨 Parâmetros da requisição:', {
         url: '/installments/details',
         params: finalParams
       });
       
+      // Configuração da requisição com timeout aumentado
       const response = await api.get('/installments/details', { 
-        params: finalParams
+        params: finalParams,
+        timeout: 30000, // 30 segundos
+        transformResponse: [(data) => {
+          if (typeof data !== 'string') return data;
+          
+          try {
+            const parsedData = JSON.parse(data);
+            console.log('🚨 Dados parseados:', {
+              items: parsedData.items?.length,
+              meta: parsedData.meta
+            });
+            return parsedData;
+          } catch (error) {
+            console.error('🚨 Erro no parse:', error);
+            throw new Error('Falha ao processar resposta da API');
+          }
+        }]
       });
       
-      // Log detalhado da resposta completa
-      console.log('[DEBUG] Resposta completa do servidor:', {
+      // Validação da resposta
+      if (!response?.data) {
+        throw new Error('Resposta da API inválida ou vazia');
+      }
+
+      // Extração segura dos dados
+      const { items = [], meta = {} } = response.data;
+      
+      // Validação dos dados
+      if (!Array.isArray(items)) {
+        throw new Error('Formato inválido: items não é um array');
+      }
+
+      console.log('🚨 Resposta processada:', {
         status: response.status,
-        headers: response.headers,
-        data: JSON.stringify(response.data, null, 2)
+        items: items.length,
+        meta
       });
 
-      // Log específico para meta e items
-      console.log('[DEBUG] Detalhes de Paginação:', {
-        total: response.data?.meta?.total,
-        page: response.data?.meta?.page,
-        limit: response.data?.meta?.limit,
-        totalPages: response.data?.meta?.totalPages,
-        itemsCount: response.data?.items?.length
-      });
-
+      // Retorno estruturado com valores padrão seguros
       return {
-        items: response.data?.items || [],
-        total: response.data?.meta?.total || 0,
-        page: response.data?.meta?.page || finalParams.page,
-        limit: response.data?.meta?.limit || finalParams.limit,
-        totalPages: response.data?.meta?.totalPages || 1,
-        meta: response.data?.meta || {}  // Adiciona meta completo para debug
+        items,
+        meta,
+        total: meta.total || 0,
+        page: meta.current_page || finalParams.page,
+        limit: meta.per_page || finalParams.limit,
+        totalPages: meta.last_page || 1
       };
     } catch (error) {
-      console.error('Erro detalhado ao buscar detalhes das parcelas:', {
+      console.error('🚨 Erro ao buscar parcelas:', {
+        name: error.name,
         message: error.message,
+        code: error.code,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        config: error.config
       });
+
+      // Personalização do erro
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Tempo de conexão excedido. Verifique sua conexão.');
+      }
+      
+      if (error.response?.status === 404) {
+        throw new Error('Nenhuma parcela encontrada.');
+      }
+      
+      if (error.response?.status === 401) {
+        throw new Error('Sessão expirada. Por favor, faça login novamente.');
+      }
+      
       throw error;
     }
   },
   
   async search(query = '') {
     return this.list({ search: query });
+  },
+
+  async generateBoleto(installmentId) {
+    try {
+      console.log('🚨 Chamando API para gerar boleto:', { installmentId });
+      const response = await api.post(`/installments/${installmentId}/boleto`);
+      console.log('🚨 Resposta da API:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('🚨 Erro ao gerar boleto:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        config: error.config
+      });
+      throw error;
+    }
   },
 };
 
