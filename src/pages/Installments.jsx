@@ -874,16 +874,37 @@ export default function Installments() {
   };
 
   const handleGenerateBoleto = useCallback(async (installment) => {
-    if (!installment || !installment.installment_id) {
+    // Validações iniciais
+    if (!installment?.installment_id) {
       console.error('🚨 Tentativa de gerar boleto sem parcela válida:', installment);
-      enqueueSnackbar('Erro: Dados da parcela inválidos para geração de boleto', { 
+      enqueueSnackbar('Erro: Dados da parcela inválidos', { 
         variant: 'error',
         autoHideDuration: 5000
       });
       return;
     }
 
+    // Valida status da parcela
+    if (installment.status !== 'Pendente') {
+      enqueueSnackbar('Boleto só pode ser gerado para parcelas pendentes', { 
+        variant: 'warning',
+        autoHideDuration: 5000
+      });
+      return;
+    }
+
+    // Verifica se já existe boleto
+    if (installment.boletos?.length > 0) {
+      enqueueSnackbar('Esta parcela já possui um boleto gerado', { 
+        variant: 'info',
+        autoHideDuration: 5000
+      });
+      return;
+    }
+
     try {
+      setIsLoading(true);
+      
       console.log('🚨 Iniciando geração de boleto:', {
         installmentId: installment.installment_id,
         status: installment.status,
@@ -891,20 +912,21 @@ export default function Installments() {
         amount: installment.amount
       });
 
-      setIsLoading(true);
+      // Tenta gerar o boleto
       const response = await installmentsService.generateBoleto(installment.installment_id);
       
-      if (!response || !response.data) {
-        throw new Error('Resposta inválida da API de geração de boleto');
+      // Valida a resposta
+      if (!response?.boleto_id) {
+        throw new Error('Resposta inválida: boleto não foi gerado corretamente');
       }
 
-      console.log('🚨 Resposta da geração de boleto:', {
-        status: response.status,
-        data: response.data,
-        headers: response.headers
+      console.log('🚨 Boleto gerado com sucesso:', {
+        boletoId: response.boleto_id,
+        boletoNumber: response.boleto_number,
+        dueDate: response.due_date
       });
       
-      // Atualiza a lista de parcelas para refletir o novo boleto
+      // Atualiza a lista de parcelas
       await fetchInstallments();
       
       enqueueSnackbar('Boleto gerado com sucesso!', { 
@@ -913,25 +935,15 @@ export default function Installments() {
       });
     } catch (error) {
       console.error('🚨 Erro detalhado ao gerar boleto:', {
+        name: error.name,
         message: error.message,
+        code: error.code,
         response: error.response?.data,
-        status: error.response?.status,
-        config: error.config
+        status: error.response?.status
       });
       
-      let errorMessage = 'Erro ao gerar boleto';
-
-      if (error.response?.status === 404) {
-        errorMessage = 'Parcela não encontrada';
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Dados inválidos para geração do boleto';
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Erro interno do servidor ao gerar boleto';
-      }
-
-      errorMessage = error.response?.data?.message || 
-        error.response?.data?.error || 
-        errorMessage;
+      // Mensagem de erro amigável para o usuário
+      const errorMessage = error.message || 'Erro ao gerar boleto. Tente novamente.';
 
       enqueueSnackbar(errorMessage, { 
         variant: 'error',

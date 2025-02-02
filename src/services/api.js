@@ -582,19 +582,65 @@ export const installmentsService = {
 
   async generateBoleto(installmentId) {
     try {
-      console.log('🚨 Chamando API para gerar boleto:', { installmentId });
-      const response = await api.post(`/installments/${installmentId}/boleto`);
-      console.log('🚨 Resposta da API:', response.data);
+      // Validação do ID da parcela
+      if (!installmentId) {
+        throw new Error('ID da parcela é obrigatório');
+      }
+
+      console.log('🚨 Iniciando geração de boleto:', { installmentId });
+      
+      // Configuração da requisição com timeout aumentado
+      const response = await api.post(
+        `/installments/${installmentId}/boleto`,
+        {},
+        {
+          timeout: 30000, // 30 segundos
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      // Validação da resposta
+      if (!response?.data) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      console.log('🚨 Boleto gerado com sucesso:', {
+        status: response.status,
+        data: response.data
+      });
+
       return response.data;
     } catch (error) {
-      console.error('🚨 Erro ao gerar boleto:', {
+      console.error('🚨 Erro detalhado na geração do boleto:', {
+        name: error.name,
         message: error.message,
+        code: error.code,
         response: error.response?.data,
         status: error.response?.status,
-        headers: error.response?.headers,
         config: error.config
       });
-      throw error;
+
+      // Tratamento específico de erros
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Tempo limite excedido ao gerar boleto. Tente novamente.');
+      }
+
+      if (error.response?.status === 404) {
+        throw new Error('Parcela não encontrada.');
+      }
+
+      if (error.response?.status === 400) {
+        throw new Error(error.response.data?.message || 'Dados inválidos para geração do boleto.');
+      }
+
+      if (error.response?.status === 500) {
+        throw new Error('Erro interno do servidor ao gerar boleto. Tente novamente mais tarde.');
+      }
+
+      // Erro genérico
+      throw new Error(error.response?.data?.message || 'Falha ao gerar boleto. Tente novamente.');
     }
   },
 };
