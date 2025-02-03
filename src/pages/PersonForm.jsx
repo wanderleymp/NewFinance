@@ -144,11 +144,19 @@ const PersonForm = () => {
       const loadData = async () => {
         try {
           setLoading(true);
+          console.log('🔍 Carregando dados da pessoa:', { id });
+
           const [personData, contactsData, addressesData] = await Promise.all([
             personsService.get(id),
             personsService.listContacts({ person_id: id }),
             personsService.listAddresses(id)
           ]);
+
+          console.log('✅ Dados carregados:', {
+            person: personData,
+            contacts: contactsData,
+            addresses: addressesData
+          });
 
           // Formatar a data para o formato esperado pelo input
           const formattedDate = personData.birth_date ? 
@@ -163,10 +171,21 @@ const PersonForm = () => {
             active: personData.active || false
           });
 
-          setContacts(contactsData.items || []);
+          // Garantir que os dados dos contatos estão no formato correto
+          const formattedContacts = (contactsData.items || []).map(contact => ({
+            id: contact.id || contact.contact_id,
+            person_contact_id: contact.person_contact_id,
+            type: contact.type || contact.contact_type,
+            value: contact.value || contact.contact_value,
+            name: contact.name || contact.contact_name,
+            is_main: contact.is_main || false
+          }));
+
+          console.log('📝 Contatos formatados:', formattedContacts);
+          setContacts(formattedContacts);
           setAddresses(addressesData.items || []);
         } catch (error) {
-          console.error('Error loading person data:', error);
+          console.error('❌ Erro ao carregar dados:', error);
           enqueueSnackbar('Erro ao carregar dados da pessoa', { variant: 'error' });
         } finally {
           setLoading(false);

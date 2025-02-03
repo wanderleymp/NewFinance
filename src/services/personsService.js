@@ -73,7 +73,27 @@ const personsService = {
   delete: (id) => api.delete(`/persons/${id}`).then(response => response.data),
 
   // Contatos
-  listContacts: (params) => api.get(`/persons/${params.person_id}/contacts`).then(response => response.data),
+  listContacts: async (params) => {
+    console.log('🔍 Listando contatos:', {
+      params,
+      url: `/persons/${params.person_id}/contacts`
+    });
+    try {
+      const response = await api.get(`/persons/${params.person_id}/contacts`);
+      console.log('✅ Contatos carregados:', {
+        status: response.status,
+        data: response.data
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao listar contatos:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  },
   searchContacts: (params) => api.get('/contacts', { params }).then(response => response.data),
   createContact: (personId, data) => api.post(`/persons/${personId}/contacts`, data).then(response => response.data),
   updateContact: (personId, contactId, data) => api.put(`/persons/${personId}/contacts/${contactId}`, data).then(response => response.data),
