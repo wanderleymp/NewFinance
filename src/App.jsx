@@ -132,7 +132,13 @@ function App() {
                   <Route path="/movements/new/express" element={<NewMovementExpress />} />
                   <Route path="/receivables" element={<Receivables />} />
                   <Route path="/contacts" element={<Contacts />} />
+                  
+                  {/* Rotas de Pessoas */}
                   <Route path="/persons" element={<Persons />} />
+                  <Route path="/persons/new" element={<PersonForm />} />
+                  <Route path="/persons/:id/edit" element={<PersonForm />} />
+                  <Route path="/persons/import-cnpj" element={<ImportCNPJ />} />
+                  
                   <Route path="/payment-methods" element={<PaymentMethods />} />
                   <Route path="/payment-methods/new" element={<PaymentMethodForm />} />
                   <Route path="/payment-methods/:id/edit" element={<PaymentMethodForm />} />

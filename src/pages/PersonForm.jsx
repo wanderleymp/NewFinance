@@ -203,14 +203,14 @@ const PersonForm = () => {
 
   const handleAddContact = async () => {
     try {
-      if (!newContact.contact) {
+      if (!searchText) {
         enqueueSnackbar('Por favor, preencha o contato', { variant: 'warning' });
         return;
       }
 
       const contactData = {
         type: newContact.type,
-        value: newContact.contact,
+        value: searchText,
         name: newContact.description || null
       };
 

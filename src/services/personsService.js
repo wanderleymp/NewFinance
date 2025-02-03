@@ -36,8 +36,28 @@ const personsService = {
 
   // Importa CNPJ
   importCNPJ: async (cnpj) => {
-    const response = await api.post(`/persons/cnpj`, { cnpj });
-    return response.data;
+    console.log('🔍 Iniciando importação de CNPJ:', {
+      cnpj,
+      cnpjLength: cnpj.length,
+      endpoint: '/persons/cnpj'
+    });
+
+    try {
+      const response = await api.post(`/persons/cnpj`, { cnpj });
+      console.log('✅ Resposta da importação:', {
+        status: response.status,
+        data: response.data
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro na importação:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
+      throw error;
+    }
   },
 
   // Busca CNPJ
