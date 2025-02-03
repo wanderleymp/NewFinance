@@ -16,15 +16,15 @@ import {
   TableHead, 
   TableRow, 
   Paper, 
-  TablePagination,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Grid,
+  Pagination,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Grid,
   Chip,
   Tooltip,
   Menu,
@@ -167,11 +167,12 @@ export default function Installments() {
   // window.debugInstallments.log('Componente iniciado');
   
   const { enqueueSnackbar } = useSnackbar();
+  // Estados de paginação
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [installments, setInstallments] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [totalPages, setTotalPages] = useState(1); // Inicializa com 1 para evitar página inválida
 
   // Memoize complex states and calculations
   const [loading, setLoading] = useState(true);
@@ -234,186 +235,55 @@ export default function Installments() {
     return <Chip {...chipProps} />;
   }, []);
 
-  // Memoize filtered installments
+  // Memoização dos dados filtrados da API
   const filteredInstallments = useMemo(() => {
-    return installments.filter(installment => {
-      const matchStatus = !filters.status || installment.status === filters.status;
-      const matchFullName = !filters.full_name || 
-        installment.full_name.toLowerCase().includes(filters.full_name.toLowerCase());
-      
-      return matchStatus && matchFullName;
-    });
-  }, [installments, filters]);
+    return installments || [];
+  }, [installments]);
 
-  // Otimizar fetchInstallments para incluir paginação corretamente
-  const fetchInstallments = useCallback(async (params = {}) => {
+  // Função otimizada para buscar parcelas com paginação
+  const fetchInstallments = useCallback(async () => {
     try {
-      setIsLoading(true);
-      console.log('🚨 DEBUG Filtros antes da chamada:', {
-        filters,
-        page,
-        rowsPerPage
-      });
+      setLoading(true);
+      setError(null);
 
-      // Garantir que startDate e endDate sempre tenham valores válidos
-      const currentDate = new Date();
-      let safeStartDate, safeEndDate;
-
-      if (filters.startDate && !isNaN(new Date(filters.startDate))) {
-        safeStartDate = new Date(filters.startDate);
-      } else {
-        // Se não houver data inicial válida, usar o início do mês atual
-        safeStartDate = startOfMonth(currentDate);
-      }
-
-      if (filters.endDate && !isNaN(new Date(filters.endDate))) {
-        safeEndDate = new Date(filters.endDate);
-      } else {
-        // Se não houver data final válida, usar o fim do mês atual
-        safeEndDate = endOfMonth(currentDate);
-      }
-
-      // Validar se as datas são válidas
-      if (isAfter(safeStartDate, safeEndDate)) {
-        throw new Error('A data inicial não pode ser posterior à data final');
-      }
-
-      // Formatar datas para o formato esperado pela API (sem timezone)
-      const formattedStartDate = format(startOfDay(safeStartDate), 'yyyy-MM-dd');
-      const formattedEndDate = format(endOfDay(safeEndDate), 'yyyy-MM-dd');
-
-      console.log('🚨 Datas formatadas:', {
-        formattedStartDate,
-        formattedEndDate,
-        safeStartDate: format(safeStartDate, 'yyyy-MM-dd HH:mm:ss'),
-        safeEndDate: format(safeEndDate, 'yyyy-MM-dd HH:mm:ss')
-      });
-
-      // Remover parâmetros nulos ou vazios
-      const apiParams = {
-        page: page + 1,
-        limit: rowsPerPage,
-        sort: 'due_date',
-        order: 'desc',
-        start_date: formattedStartDate,
-        end_date: formattedEndDate,
-        ...(filters.status && { status: filters.status }),
-        ...(filters.full_name && { search: filters.full_name }),
-        ...params // Permite sobrescrever parâmetros se necessário
+      // Ajustando os parâmetros para o formato esperado pela API
+      const paginationParams = {
+        page: page + 1, // Convertendo página base-0 para base-1
+        limit: rowsPerPage, // Usando limit ao invés de pageSize
+        sort: filters.sort || 'due_date',
+        order: filters.order || 'desc',
+        status: filters.status || undefined, // Removendo status vazio
+        full_name: filters.full_name || undefined, // Removendo nome vazio
+        startDate: filters.startDate,
+        endDate: filters.endDate
       };
 
-      // Remover parâmetros duplicados ou desnecessários
-      delete apiParams.startDate;
-      delete apiParams.endDate;
-      delete apiParams.filters;
+      console.log('🔍 Buscando parcelas:', paginationParams);
 
-      console.log('🚨 Parâmetros finais da API:', apiParams);
+      const result = await installmentsService.list(paginationParams);
 
-      const response = await installmentsService.list(apiParams);
-
-      // Garantir que temos uma resposta válida
-      if (!response) {
-        throw new Error('Resposta da API inválida');
-      }
-
-      console.log('🚨 Resposta bruta da API:', {
-        responseType: typeof response,
-        data: response
+      console.log('📊 Resultado da busca de parcelas:', {
+        items: result.items.length,
+        total: result.total,
+        page: result.page,
+        pageSize: result.limit
       });
 
-      // Processar resposta da API
-      const items = response?.items || [];
-      const meta = response?.meta || {};
-      const total = meta.total || 0;
-      const lastPage = meta.last_page || 1;
-
-      console.log('🚨 Resposta da API:', {
-        items: items.length,
-        total: total,
-        lastPage: lastPage,
-        meta: meta
-      });
-
-      // Atualizar estado com os dados da resposta
-      setInstallments(items);
-      setTotalItems(total);
-      setTotalPages(lastPage);
-      setFetchError(null);
-
-      // Log de sucesso
-      console.log('🚨 Estado atualizado:', {
-        installments: items.length,
-        totalItems: total,
-        totalPages: lastPage
-      });
-
+      setInstallments(result.items);
+      setTotalItems(result.total);
+      setTotalPages(Math.ceil(result.total / rowsPerPage));
     } catch (error) {
-      console.error('Erro ao buscar parcelas:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      setInstallments([]);
-      setTotalItems(0);
-      setTotalPages(0);
-      
-      const errorMessage = error.response?.data?.message || 
-        error.response?.data?.error || 
-        'Erro ao carregar parcelas. Por favor, tente novamente.';
-      
-      setFetchError(errorMessage);
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      console.error('❌ Erro ao buscar parcelas:', error);
+      setError(error);
+      enqueueSnackbar('Erro ao carregar parcelas', { variant: 'error' });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [page, rowsPerPage, filters]);
-
-  // Efeito para disparar fetchInstallments quando página ou filtros mudarem
-  useEffect(() => {
-    console.log('🚨 EFEITO DE PAGINAÇÃO:', {
-      page,
-      rowsPerPage,
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      status: filters.status,
-      full_name: filters.full_name
-    });
-
-    fetchInstallments({
-      page: page + 1,
-      limit: rowsPerPage
-    });
-  }, [page, rowsPerPage, filters.startDate, filters.endDate, filters.status, filters.full_name]);
+  }, [page, rowsPerPage, filters, enqueueSnackbar]);
 
   useEffect(() => {
-    // Definir filtro padrão para o mês atual
-    const today = new Date();
-    const firstDayOfMonth = startOfMonth(today);
-    const lastDayOfMonth = endOfMonth(today);
-    
-    console.log('🚨 CONFIGURANDO FILTRO PADRÃO PARA O MÊS ATUAL', {
-      startDate: format(firstDayOfMonth, 'yyyy-MM-dd'),
-      endDate: format(lastDayOfMonth, 'yyyy-MM-dd')
-    });
-
-    // Atualizar estados de data
-    setStartDate(firstDayOfMonth);
-    setEndDate(lastDayOfMonth);
-
-    // Atualizar filtros
-    setFilters(prev => ({
-      ...prev,
-      startDate: firstDayOfMonth,
-      endDate: lastDayOfMonth
-    }));
-
-    // Buscar parcelas com o filtro padrão
-    fetchInstallments({
-      startDate: firstDayOfMonth,
-      endDate: lastDayOfMonth
-    });
-  }, []);
+    fetchInstallments();
+  }, [fetchInstallments]);
 
   // Função para lidar com mudanças de data
   // Função handleDateChange: Gerencia mudanças de data com validações e atualizações síncronas
@@ -695,6 +565,48 @@ export default function Installments() {
     });
   }, [installments, isLoading, fetchError]);
 
+  // Efeito para buscar dados quando os filtros ou paginação mudarem
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Validar página antes de fazer a requisição
+      const validPage = Math.max(0, Math.min(page, totalPages - 1));
+      if (validPage !== page) {
+        setPage(validPage);
+        return;
+      }
+
+      fetchInstallments();
+    }, 300); // Debounce de 300ms para evitar chamadas excessivas
+
+    return () => clearTimeout(timer);
+  }, [page, rowsPerPage, filters.startDate, filters.endDate, filters.status, filters.full_name, totalPages]);
+
+  useEffect(() => {
+    // Definir filtro padrão para o mês atual
+    const today = new Date();
+    const firstDayOfMonth = startOfMonth(today);
+    const lastDayOfMonth = endOfMonth(today);
+    
+    console.log('🚨 CONFIGURANDO FILTRO PADRÃO PARA O MÊS ATUAL', {
+      startDate: format(firstDayOfMonth, 'yyyy-MM-dd'),
+      endDate: format(lastDayOfMonth, 'yyyy-MM-dd')
+    });
+
+    // Atualizar estados de data
+    setStartDate(firstDayOfMonth);
+    setEndDate(lastDayOfMonth);
+
+    // Atualizar filtros
+    setFilters(prev => ({
+      ...prev,
+      startDate: firstDayOfMonth,
+      endDate: lastDayOfMonth
+    }));
+
+    // Buscar parcelas com o filtro padrão
+    fetchInstallments();
+  }, []);
+
   // Função para calcular juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
     console.log('🚨 CÁLCULO DE JUROS E MULTA:', {
@@ -761,25 +673,23 @@ export default function Installments() {
     return formatCurrency(newBalance);
   }, [calculateInterestAndPenalty]);
 
-  const handleChangePage = useCallback((event, newPage) => {
-    console.log('🚨 MUDANÇA DE PÁGINA:', {
-      currentPage: page,
-      newPage: newPage
+  const handlePageChange = (event, newPage) => {
+    console.log('🔄 Mudança de página:', { 
+      currentPage: page, 
+      newPage 
     });
     setPage(newPage);
-    fetchInstallments();
-  }, [page, fetchInstallments]);
+  };
 
-  const handleChangeRowsPerPage = useCallback((event) => {
+  const handleRowsPerPageChange = (event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
-    console.log('🚨 MUDANÇA DE LINHAS POR PÁGINA:', {
-      currentRowsPerPage: rowsPerPage,
-      newRowsPerPage: newRowsPerPage
+    console.log('🔄 Mudança de linhas por página:', { 
+      currentRowsPerPage: rowsPerPage, 
+      newRowsPerPage 
     });
     setRowsPerPage(newRowsPerPage);
-    setPage(0); // Resetar para primeira página
-    fetchInstallments();
-  }, [rowsPerPage, fetchInstallments]);
+    setPage(0);  // Resetar para primeira página
+  };
 
   const calculateInstallmentsSummary = useCallback((installmentsData) => {
     let totalReceivable = 0;
@@ -1678,21 +1588,67 @@ export default function Installments() {
         </Table>
       </TableContainer>
 
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        component="div"
-        count={totalItems}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        labelRowsPerPage="Linhas por página"
-        labelDisplayedRows={({ from, to, count }) => 
-          `${from}-${to} de ${count !== -1 ? count : `mais de ${to}`}`
-        }
-        showFirstButton
-        showLastButton
-      />
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: 2,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          borderRadius: '0 0 8px 8px'
+        }}
+      >
+        {/* Seletor de itens por página */}
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel id="items-per-page-label">Itens por página</InputLabel>
+          <Select
+            labelId="items-per-page-label"
+            value={rowsPerPage}
+            label="Itens por página"
+            onChange={handleRowsPerPageChange}
+          >
+            <MenuItem value={5}>5 itens</MenuItem>
+            <MenuItem value={10}>10 itens</MenuItem>
+            <MenuItem value={25}>25 itens</MenuItem>
+            <MenuItem value={50}>50 itens</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* Área central com informações e paginação */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          {/* Informação de itens */}
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {totalItems === 0 ? 'Nenhum item' :
+              `${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, totalItems)} de ${totalItems}`
+            }
+          </Typography>
+
+          {/* Componente de Paginação */}
+          <Pagination
+            count={totalPages}
+            page={page + 1}
+            onChange={handlePageChange}
+            color="primary"
+            size="medium"
+            showFirstButton
+            showLastButton
+            sx={{
+              '& .MuiPaginationItem-root': {
+                fontWeight: 500,
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    bgcolor: 'primary.dark'
+                  }
+                }
+              }
+            }}
+          />
+        </Box>
+      </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
         <Typography variant="h6">Resumo:</Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
