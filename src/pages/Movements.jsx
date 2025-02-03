@@ -787,6 +787,17 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
                 <CancelIcon />
               </IconButton>
             </Tooltip>
+            <Tooltip title="Enviar Notificação">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNotificationClick(e);
+                }}
+              >
+                <NotificationsIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
         </TableCell>
       </TableRow>
