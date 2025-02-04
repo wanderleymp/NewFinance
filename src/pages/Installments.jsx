@@ -1914,8 +1914,14 @@ export default function Installments() {
                 fullWidth
                 value={descontos}
                 onChange={(e) => {
-                  const cleanedValue = cleanCurrencyValue(e.target.value);
-                  setDescontos(formatCurrency(cleanedValue));
+                  // Remove caracteres não numéricos
+                  const inputValue = e.target.value.replace(/[^\d]/g, '');
+                  
+                  // Converte para número decimal
+                  const numericValue = parseFloat(inputValue) / 100;
+                  
+                  // Formata e atualiza o estado
+                  setDescontos(formatCurrency(numericValue));
                 }}
                 margin="normal"
                 InputProps={{
