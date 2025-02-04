@@ -69,7 +69,25 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { ptBR } from 'date-fns/locale';
-import { format, addDays, differenceInDays, isPast, startOfDay, endOfDay, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, isSameDay, addMonths, addWeeks, isAfter } from 'date-fns';
+import { 
+  parseISO, 
+  startOfDay, 
+  endOfDay, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  subDays, 
+  addDays, 
+  format,
+  isValid,
+  differenceInDays,
+  isPast,
+  isSameDay,
+  addMonths,
+  addWeeks,
+  isAfter
+} from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { installmentsService, updateInstallmentDueDate } from '../services/api';
 import api from '../services/api'; // Import the api instance
@@ -97,6 +115,18 @@ const cleanCurrencyValue = (value) => {
   return isNaN(result) ? 0 : result;
 };
 
+// Função utilitária para parsear datas com segurança
+const safeParseDateString = (dateString) => {
+  if (!dateString) return null;
+  try {
+    const parsedDate = parseISO(dateString);
+    return isValid(parsedDate) ? parsedDate : null;
+  } catch (error) {
+    console.error('Erro ao parsear data:', dateString, error);
+    return null;
+  }
+};
+
 // Função segura para formatar data
 const safeFormatDate = (date) => {
   try {
@@ -110,7 +140,7 @@ const safeFormatDate = (date) => {
 
     // Se for uma string, converte para Date considerando o timezone local
     const parsedDate = typeof date === 'string' 
-      ? parse(date, 'yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'', new Date())  // Usa parse com formato específico
+      ? safeParseDateString(date)  // Usa safeParseDateString com formato específico
       : date;
     
     // Verifica se é uma data válida
@@ -582,30 +612,36 @@ export default function Installments() {
   }, [page, rowsPerPage, filters.startDate, filters.endDate, filters.status, filters.full_name, totalPages]);
 
   useEffect(() => {
-    // Definir filtro padrão para o mês atual
-    const today = new Date();
-    const firstDayOfMonth = startOfMonth(today);
-    const lastDayOfMonth = endOfMonth(today);
-    
-    console.log('🚨 CONFIGURANDO FILTRO PADRÃO PARA O MÊS ATUAL', {
-      startDate: format(firstDayOfMonth, 'yyyy-MM-dd'),
-      endDate: format(lastDayOfMonth, 'yyyy-MM-dd')
-    });
+    // Definir filtro padrão para a semana financeira
+    const { startDate, endDate } = calculateFinancialWeek();
 
     // Atualizar estados de data
-    setStartDate(firstDayOfMonth);
-    setEndDate(lastDayOfMonth);
+    setStartDate(startDate);
+    setEndDate(endDate);
 
     // Atualizar filtros
     setFilters(prev => ({
       ...prev,
-      startDate: firstDayOfMonth,
-      endDate: lastDayOfMonth
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd')
     }));
-
-    // Buscar parcelas com o filtro padrão
-    fetchInstallments();
   }, []);
+
+  // Função para calcular a semana financeira (sábado anterior até sexta-feira atual)
+  const calculateFinancialWeek = () => {
+    const today = new Date();
+    
+    // Encontra o sábado anterior
+    const lastSaturday = subDays(today, (today.getDay() + 1) % 7);
+    
+    // Encontra a sexta-feira atual
+    const currentFriday = addDays(lastSaturday, 5);
+    
+    return {
+      startDate: startOfDay(lastSaturday),
+      endDate: endOfDay(currentFriday)
+    };
+  };
 
   // Função para calcular juros e multa
   const calculateInterestAndPenalty = useCallback((originalDueDate, newDueDate, originalBalance) => {
@@ -617,10 +653,10 @@ export default function Installments() {
 
     // Converte para Date se for string
     const originalDate = typeof originalDueDate === 'string' 
-      ? new Date(originalDueDate) 
+      ? safeParseDateString(originalDueDate) 
       : originalDueDate;
     const calculatedNewDate = typeof newDueDate === 'string' 
-      ? new Date(newDueDate) 
+      ? safeParseDateString(newDueDate) 
       : newDueDate;
 
     // Calcula dias de atraso
@@ -1015,23 +1051,27 @@ export default function Installments() {
   const getQuickDateRanges = () => {
     console.log('🚨 OBTENDO FAIXAS DE DATAS RÁPIDAS');
     const today = new Date();
+    
+    // Calcular semana financeira (sábado anterior até sexta-feira atual)
+    const { startDate: financialWeekStart, endDate: financialWeekEnd } = calculateFinancialWeek();
+
     return [
       {
         label: 'Hoje',
-        startDate: today,
-        endDate: today,
+        startDate: startOfDay(today),
+        endDate: endOfDay(today),
         onClick: () => {
           console.log('🚨 CLICOU EM HOJE');
           handleQuickDateFilter('Hoje');
         }
       },
       {
-        label: 'Semana Atual',
-        startDate: startOfWeek(today, { locale: ptBR }),
-        endDate: endOfWeek(today, { locale: ptBR }),
+        label: 'Semana Atual (Financeira)',
+        startDate: financialWeekStart,
+        endDate: financialWeekEnd,
         onClick: () => {
-          console.log('🚨 CLICOU EM SEMANA ATUAL');
-          handleQuickDateFilter('Esta Semana');
+          console.log('🚨 CLICOU EM SEMANA FINANCEIRA');
+          handleQuickDateFilter('Semana Financeira');
         }
       },
       {
@@ -1045,8 +1085,8 @@ export default function Installments() {
       },
       {
         label: 'Últimos 7 dias',
-        startDate: subDays(today, 6),
-        endDate: today,
+        startDate: startOfDay(subDays(today, 6)),
+        endDate: endOfDay(today),
         onClick: () => {
           console.log('🚨 CLICOU EM ÚLTIMOS 7 DIAS');
           handleQuickDateFilter('Últimos 7 dias');
@@ -1054,8 +1094,8 @@ export default function Installments() {
       },
       {
         label: 'Últimos 30 dias',
-        startDate: subDays(today, 29),
-        endDate: today,
+        startDate: startOfDay(subDays(today, 29)),
+        endDate: endOfDay(today),
         onClick: () => {
           console.log('🚨 CLICOU EM ÚLTIMOS 30 DIAS');
           handleQuickDateFilter('Últimos 30 dias');
@@ -1079,9 +1119,11 @@ export default function Installments() {
           newStartDate = startOfDay(today);
           newEndDate = endOfDay(today);
           break;
-        case 'Esta Semana':
-          newStartDate = startOfWeek(today, { weekStartsOn: 1 }); // Segunda-feira
-          newEndDate = endOfWeek(today, { weekStartsOn: 1 });
+        case 'Semana Financeira':
+          // Semana financeira: sábado anterior até sexta-feira atual
+          const { startDate: financialStart, endDate: financialEnd } = calculateFinancialWeek();
+          newStartDate = financialStart;
+          newEndDate = financialEnd;
           break;
         case 'Este Mês':
           newStartDate = startOfMonth(today);
@@ -1116,8 +1158,8 @@ export default function Installments() {
       setEndDate(newEndDate);
       setFilters(prev => ({
         ...prev,
-        startDate: newStartDate,
-        endDate: newEndDate
+        startDate: format(newStartDate, 'yyyy-MM-dd'),
+        endDate: format(newEndDate, 'yyyy-MM-dd')
       }));
 
       // Dispara busca com novos filtros
@@ -1130,12 +1172,6 @@ export default function Installments() {
       });
     }
   }, [enqueueSnackbar, fetchInstallments]);
-
-
-
-
-
-
 
   const handleClearDateFilter = useCallback(() => {
     setFilters(prev => ({
@@ -1248,7 +1284,7 @@ export default function Installments() {
     // Remove caracteres não numéricos
     const numericValue = parseFloat(
       (typeof value === 'string' 
-        ? value.replace(/[^\d,\.]/g, '').replace(',', '.')
+        ? value.replace(/[^\d]/g, '')
         : value
       )
     );
@@ -1367,7 +1403,7 @@ export default function Installments() {
               <Typography variant="h5" fontWeight="bold">
                 R$ {formatCurrency(installmentsSummary.totalReceivable)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 {installments.length} parcelas
               </Typography>
             </Box>
