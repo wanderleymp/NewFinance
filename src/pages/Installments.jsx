@@ -101,7 +101,7 @@ import axios from 'axios'; // Import axios instance
 
 // Função para limpar valor de moeda
 const cleanCurrencyValue = (value) => {
-  if (!value) return '';
+  if (!value) return 0;
   
   // Remove caracteres não numéricos, exceto vírgula e ponto
   const cleanedValue = value.toString().replace(/[^\d,\.]/g, '');
@@ -109,8 +109,8 @@ const cleanCurrencyValue = (value) => {
   // Substitui vírgula por ponto se necessário
   const normalizedValue = cleanedValue.replace(',', '.');
   
-  // Converte para número com duas casas decimais
-  const result = parseFloat(parseFloat(normalizedValue).toFixed(2));
+  // Converte para número inteiro de centavos
+  const result = parseInt(normalizedValue.replace(/\./g, ''), 10);
   
   return isNaN(result) ? 0 : result;
 };
@@ -170,6 +170,25 @@ const formatCurrency = (value) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+};
+
+// Função para converter valor monetário BRL para número decimal
+const convertBRLToNumber = (value) => {
+  if (!value) return 0;
+  
+  // Remove caracteres não numéricos
+  const cleanedValue = value.toString().replace(/[^\d,]/g, '');
+  
+  // Divide em partes inteiras e decimais
+  const parts = cleanedValue.split(',');
+  const integerPart = parts[0] || '0';
+  const decimalPart = parts.length > 1 ? parts[1].slice(0, 2).padEnd(2, '0') : '00';
+  
+  // Combina partes com ponto decimal
+  const normalizedValue = `${integerPart}.${decimalPart}`;
+  
+  // Converte para número decimal
+  return parseFloat(normalizedValue);
 };
 
 export default function Installments() {
@@ -1014,16 +1033,21 @@ export default function Installments() {
       }
 
       const paymentData = {
-        valor: cleanCurrencyValue(paymentValue),
+        valor: convertBRLToNumber(paymentValue),
         date: format(paymentDate || new Date(), 'yyyy-MM-dd'),
         bank_id: parseInt(bankId || '2', 10),
-        juros: cleanCurrencyValue(juros),
-        descontos: cleanCurrencyValue(descontos)
+        juros: convertBRLToNumber(juros),
+        descontos: convertBRLToNumber(descontos)
       };
 
       console.log('🚨 Dados de pagamento:', {
         installmentId: selectedInstallmentForPayment.installment_id,
-        paymentData
+        paymentData,
+        valorOriginal: {
+          paymentValue,
+          juros,
+          descontos
+        }
       });
 
       // Chamar serviço de pagamento
@@ -1292,12 +1316,6 @@ export default function Installments() {
     return numericValue >= 1000 ? numericValue / 100 : numericValue;
   };
 
-  const convertBRLToNumber = (value) => {
-    // Remove pontos de milhar e substitui vírgula por ponto
-    const cleanedValue = value.replace(/\./g, '').replace(',', '.');
-    return parseFloat(cleanedValue);
-  };
-
   const isOverdueDate = false; // selectedInstallmentForDueDateEdit?.due_date && newDueDate && 
     // (
     //   // Nova data posterior à data original
@@ -1438,7 +1456,7 @@ export default function Installments() {
               <Typography variant="h5" fontWeight="bold" color="warning.main">
                 R$ {formatCurrency(installmentsSummary.totalReceivable)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 {installments.filter(item => item.status === 'Pendente').length} parcelas
               </Typography>
             </Box>
@@ -1473,7 +1491,7 @@ export default function Installments() {
               <Typography variant="h5" fontWeight="bold" color="success.main">
                 R$ {formatCurrency(installmentsSummary.totalReceived)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="textSecondary">
                 {installments.filter(item => item.status === 'Pago').length} parcelas
               </Typography>
             </Box>
@@ -1880,7 +1898,7 @@ export default function Installments() {
                 value={paymentValue}
                 onChange={(e) => {
                   const inputValue = e.target.value.replace(/[^\d]/g, '');
-                  const numericValue = parseInt(inputValue, 10) / 100;
+                  const numericValue = parseFloat(inputValue);
                   setPaymentValue(formatCurrency(numericValue));
                 }}
                 margin="normal"
@@ -1901,8 +1919,9 @@ export default function Installments() {
                 fullWidth
                 value={juros}
                 onChange={(e) => {
-                  const cleanedValue = cleanCurrencyValue(e.target.value);
-                  setJuros(formatCurrency(cleanedValue));
+                  const inputValue = e.target.value.replace(/[^\d]/g, '');
+                  const numericValue = parseFloat(inputValue);
+                  setJuros(formatCurrency(numericValue));
                 }}
                 margin="normal"
                 InputProps={{
@@ -1914,14 +1933,24 @@ export default function Installments() {
                 fullWidth
                 value={descontos}
                 onChange={(e) => {
-                  // Remove caracteres não numéricos
-                  const inputValue = e.target.value.replace(/[^\d]/g, '');
+                  // Remove caracteres não numéricos, mantendo vírgula
+                  const inputValue = e.target.value.replace(/[^\d,]/g, '');
+                  
+                  // Limita a uma única vírgula
+                  const parts = inputValue.split(',');
+                  const integerPart = parts[0];
+                  const decimalPart = parts.length > 1 ? parts[1].slice(0, 2) : '';
+                  
+                  // Reconstrói o valor
+                  const formattedValue = decimalPart 
+                    ? `${integerPart},${decimalPart}` 
+                    : integerPart;
                   
                   // Converte para número decimal
-                  const numericValue = parseFloat(inputValue) / 100;
+                  const normalizedValue = formattedValue.replace(',', '.');
+                  const numericValue = parseFloat(normalizedValue || '0');
                   
-                  // Formata e atualiza o estado
-                  setDescontos(formatCurrency(numericValue));
+                  setDescontos(formattedValue);
                 }}
                 margin="normal"
                 InputProps={{
