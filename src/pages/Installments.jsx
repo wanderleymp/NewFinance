@@ -881,7 +881,7 @@ export default function Installments() {
       const response = await installmentsService.generateBoleto(installment.installment_id);
       
       // Valida a resposta
-      if (!response?.boleto_id) {
+      if (!response) {
         throw new Error('Resposta inválida: boleto não foi gerado corretamente');
       }
 
