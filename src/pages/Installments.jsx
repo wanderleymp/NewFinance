@@ -1578,8 +1578,10 @@ export default function Installments() {
                 size="small"
                 color={
                   filters.startDate && filters.endDate && 
-                  isSameDay(filters.startDate, range.startDate) && 
-                  isSameDay(filters.endDate, range.endDate) 
+                  isSameDay(typeof filters.startDate === 'string' ? parseISO(filters.startDate) : filters.startDate, 
+                    typeof range.startDate === 'string' ? parseISO(range.startDate) : range.startDate) && 
+                  isSameDay(typeof filters.endDate === 'string' ? parseISO(filters.endDate) : filters.endDate,
+                    typeof range.endDate === 'string' ? parseISO(range.endDate) : range.endDate) 
                     ? 'primary' 
                     : 'secondary'
                 }

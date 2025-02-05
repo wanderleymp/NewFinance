@@ -591,7 +591,7 @@ export const installmentsService = {
       
       // Configuração da requisição com timeout aumentado
       const response = await api.post(
-        `/installments/${installmentId}/boleto`,
+        `/installments/${installmentId}/boletos`,
         {},
         {
           timeout: 30000, // 30 segundos
