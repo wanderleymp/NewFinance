@@ -3,11 +3,18 @@ import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
 // Configuração base do Axios
+const apiUrl = import.meta.env.VITE_API_URL || 'https://api.agilefinance.com.br';
+console.log('URL base da API:', apiUrl);
+console.log('Todas as variáveis de ambiente:', import.meta.env);
+
+if (!apiUrl) {
+  console.error('VITE_API_URL não está definida no arquivo .env');
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: apiUrl,
   timeout: 15000, // 15 segundos
-  timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.',
-  withCredentials: true
+  timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.'
 });
 
 // Adicionar interceptor de requisição para incluir token

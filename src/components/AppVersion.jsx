@@ -3,7 +3,7 @@ import { Typography, Box } from '@mui/material';
 import packageJson from '../../package.json';
 
 export const AppVersion = () => {
-  const apiHost = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const apiHost = import.meta.env.VITE_API_URL;
   const environment = apiHost.includes('localhost') ? 'local' : 
                      apiHost.includes('dev.') ? 'dev' : 
                      apiHost.includes('staging.') ? 'staging' : 'prod';

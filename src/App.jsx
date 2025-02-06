@@ -162,10 +162,10 @@ function App() {
                   <Route path="/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
                   <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
                   <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId/:receiptId" element={<ContractBillingPage />} />
+                  <Route path="*" element={<AIAssistant />} />
                 </Route>
               </Route>
             </Routes>
-            <AIAssistant />
             <ToastContainer 
               position="top-right"
               autoClose={3000}

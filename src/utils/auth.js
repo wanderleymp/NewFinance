@@ -7,7 +7,7 @@ const USER_KEY = 'user_data';
 
 // Configuração do axios para requisições autenticadas
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br'
+  baseURL: import.meta.env.VITE_API_URL
 });
 
 // Configuração dos interceptors

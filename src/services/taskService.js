@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, logout } from '../utils/auth';  // Importe a função de autenticação
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 // Crie uma instância do axios com configurações padrão
 const api = axios.create({
