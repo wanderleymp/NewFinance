@@ -3,19 +3,20 @@ import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
 // Configuração base do Axios
-const apiUrl = import.meta.env.VITE_API_URL || 'https://api.agilefinance.com.br';
-console.log('URL base da API:', apiUrl);
-console.log('Todas as variáveis de ambiente:', import.meta.env);
-
-if (!apiUrl) {
-  console.error('VITE_API_URL não está definida no arquivo .env');
-}
-
 const api = axios.create({
-  baseURL: apiUrl,
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 15000, // 15 segundos
   timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.'
 });
+
+// Verificação detalhada da URL da API
+if (!api.defaults.baseURL) {
+  console.error('\n🚨 ERRO CRÍTICO: VITE_API_URL não está definida no arquivo .env\n');
+  throw new Error('VITE_API_URL não configurada');
+}
+
+console.log('\n🌐 Configurando URL base da API:', api.defaults.baseURL);
+console.log('Variáveis de ambiente:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
 
 // Adicionar interceptor de requisição para incluir token
 api.interceptors.request.use(
