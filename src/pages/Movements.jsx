@@ -572,6 +572,14 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
                    payments.flatMap(p => p.invoices || []) || 
                    [];
 
+  // Verificar se existem invoices
+  const hasInvoices = movement.invoices && movement.invoices.length > 0;
+  const hasAuthorizedInvoices = hasInvoices && 
+    movement.invoices.some(invoice => invoice.status === 'AUTHORIZED');
+
+  const canGenerateInvoice = !hasInvoices || 
+    (hasInvoices && !hasAuthorizedInvoices);
+
   // Função para renderizar detalhes
   const renderDetails = () => {
     console.log('🔍 Detalhes do movimento:', {
@@ -798,6 +806,17 @@ const MovementRow = ({ movement, onMovementUpdate }) => {
                 <NotificationsIcon />
               </IconButton>
             </Tooltip>
+            {canGenerateInvoice && (
+              <Tooltip title="Gerar Nota Fiscal">
+                <IconButton 
+                  size="small" 
+                  color="primary" 
+                  onClick={handleGenerateInvoice}
+                >
+                  <ReceiptIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         </TableCell>
       </TableRow>
