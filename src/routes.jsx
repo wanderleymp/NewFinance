@@ -3,6 +3,10 @@ import { Navigate, Routes, Route } from 'react-router-dom';
 import Loading from './pages/Loading';
 import Unauthorized from './pages/Unauthorized';
 import { Payment as PaymentIcon } from '@mui/icons-material';
+const NfseList = lazy(() => import('./modules/nfse/nfseList'));
+
+// Definindo roles necessárias para NFSe
+const NFSE_ROLES = [ROLES.ADMIN, ROLES.FINANCEIRO];
 
 // Definição de roles
 const ROLES = {
@@ -195,6 +199,7 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="tasks" element={<Suspense fallback={<Loading />}><TaskMonitoring /></Suspense>} />
+        <Route path="nfse" element={<PrivateRoute requiredRoles={NFSE_ROLES}><Suspense fallback={<Loading />}><NfseList /></Suspense></PrivateRoute>} />
         {/* Rotas de Contratos */}
         <Route 
           path="contracts" 

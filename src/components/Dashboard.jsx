@@ -156,6 +156,12 @@ const Dashboard = ({ children }) => {
           path: '/payment-methods',
           icon: <CreditCardIcon />,
         },
+        {
+          id: 'nfse',
+          title: 'NFSe',
+          path: '/nfse',
+          icon: <ReceiptIcon />,
+        },
       ],
     },
     {

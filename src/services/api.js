@@ -953,4 +953,43 @@ export const paymentMethodService = {
   }
 };
 
+export const nfseService = {
+  async list(params = {}) {
+    try {
+      console.log('🔍 Iniciando busca de NFSes com parâmetros:', params);
+      const response = await api.get('/nfse', { 
+        params: {
+          ...params,
+          page: params.page || 1,
+          limit: params.limit || 10
+        }
+      });
+      console.log('🎉 NFSes encontradas:', response.data);
+      return {
+        items: response.data.items || [],
+        meta: {
+          totalItems: response.data.meta?.totalItems || 0,
+          currentPage: response.data.meta?.currentPage || 1,
+          totalPages: response.data.meta?.totalPages || 1,
+          itemsPerPage: response.data.meta?.itemsPerPage || 10
+        }
+      };
+    } catch (error) {
+      console.error('❌ Erro ao listar NFSes:', error);
+      throw error;
+    }
+  },
+
+  async get(id) {
+    try {
+      const response = await api.get(`/nfse/${id}`);
+      console.log('🔍 NFSe recuperada:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Erro ao recuperar NFSe ${id}:`, error);
+      throw error;
+    }
+  }
+};
+
 export default api;
