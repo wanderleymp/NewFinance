@@ -331,15 +331,41 @@ export const contractService = {
     }
   },
 
-  async searchMovementItems(params: { query: string; type: string }): Promise<any> {
+  async searchMovementItems(params: { query?: string; type?: string }): Promise<any> {
     try {
-      const response = await api.get('/movement-items/search', {
-        params
+      console.log('Buscando itens com query:', params.query);
+      const response = await api.get('/items', {
+        params: {
+          ...(params.query ? { search: params.query } : {}),
+          limit: 10,
+          page: 1,
+          type: params.type || 'service'
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
       });
-      return response.data;
+      console.log('Resposta da API de itens:', response.data);
+      const items = (response.data.data || []).map(item => ({
+        ...item,
+        id: item.item_id,
+        price: parseFloat(item.price)
+      }));
+      console.log('Items processados:', items);
+      return {
+        items,
+        pagination: response.data.pagination
+      };
     } catch (error) {
-      console.error('Erro ao buscar itens de movimento:', error);
-      throw error;
+      console.error('Erro ao buscar itens:', error.response || error);
+      // Se o erro for 500, retornar lista vazia em vez de propagar o erro
+      if (error.response?.status === 500) {
+        return { items: [], pagination: { total: 0, page: 1, limit: 10 } };
+      }
+      throw {
+        message: error.response?.data?.message || 'Erro ao buscar itens',
+        originalError: error
+      };
     }
   }
 };
