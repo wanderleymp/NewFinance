@@ -10,9 +10,10 @@ import {
 import { Contract } from '../types/contract';
 import { mockData } from '../services/mockData';
 import { format } from 'date-fns';
-import { Edit2, Trash2, Eye, Plus, ArrowUpDown, Receipt } from 'lucide-react';
+import { Edit2, Trash2, Eye, Plus, ArrowUpDown, Receipt, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BillingConfirmationModal } from '../components/BillingConfirmationModal';
+import { AddExtraServiceModal } from './AddExtraServiceModal';
 import { contractService } from '../services/contractService'; // Import the contract service
 
 interface ContractTableProps {
@@ -33,6 +34,7 @@ export function ContractTable({
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [isExtraServiceModalOpen, setIsExtraServiceModalOpen] = useState(false);
   
   const columnHelper = createColumnHelper<Contract>();
 
@@ -136,6 +138,17 @@ export function ContractTable({
         return (
           <div className="flex items-center space-x-2">
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedContract(row.original);
+                setIsExtraServiceModalOpen(true);
+              }}
+              className="p-1.5 hover:bg-green-50 rounded text-green-600 transition-colors"
+              title="Adicionar Serviço Extra"
+            >
+              <PlusCircle className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => onManageServices(row.original)}
               className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
               title="Gerenciar Serviços"
@@ -198,8 +211,25 @@ export function ContractTable({
     getSortedRowModel: getSortedRowModel(),
   });
 
+  const handleAddExtraService = (extraService: {
+    date: Date;
+    type: 'servico' | 'desconto' | 'acrescimo';
+    description: string;
+    value: number;
+  }) => {
+    console.log('Serviço extra adicionado:', extraService);
+    toast.success('Serviço extra adicionado com sucesso!');
+    setIsExtraServiceModalOpen(false);
+  };
+
   return (
     <>
+      <AddExtraServiceModal 
+        isOpen={isExtraServiceModalOpen}
+        onClose={() => setIsExtraServiceModalOpen(false)}
+        contract={selectedContract!}
+        onSubmit={handleAddExtraService}
+      />
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

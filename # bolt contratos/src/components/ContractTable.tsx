@@ -10,9 +10,10 @@ import {
 import { Contract } from '../types/contract';
 import { mockData } from '../lib/mockData';
 import { format } from 'date-fns';
-import { Edit2, Trash2, Eye, Plus, ArrowUpDown, Receipt } from 'lucide-react';
+import { Edit2, Trash2, Eye, Plus, ArrowUpDown, Receipt, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BillingConfirmationModal } from './BillingConfirmationModal';
+import { AddExtraServiceModal } from './AddExtraServiceModal';
 
 interface ContractTableProps {
   contracts: Contract[];
@@ -32,6 +33,7 @@ export function ContractTable({
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [isExtraServiceModalOpen, setIsExtraServiceModalOpen] = useState(false);
   
   const columnHelper = createColumnHelper<Contract>();
 
@@ -45,6 +47,17 @@ export function ContractTable({
     } catch (error) {
       toast.error('Erro ao realizar faturamento. Tente novamente.');
     }
+  };
+
+  const handleAddExtraService = (extraService: {
+    date: Date;
+    type: 'servico' | 'desconto' | 'acrescimo';
+    description: string;
+    value: number;
+  }) => {
+    // Lógica para adicionar serviço extra
+    console.log('Serviço extra adicionado:', extraService);
+    toast.success('Serviço extra adicionado com sucesso!');
   };
 
   const formatCurrency = (value: number) => {
@@ -71,6 +84,10 @@ export function ContractTable({
       header: 'Valor Atual',
       cell: info => formatCurrency(info.getValue()),
     }),
+    columnHelper.accessor('nextBillingDate', {
+      header: 'Próximo Faturamento',
+      cell: info => format(new Date(info.getValue()), 'dd/MM/yyyy'),
+    }),
     columnHelper.accessor('status', {
       header: 'Status',
       cell: info => (
@@ -82,10 +99,6 @@ export function ContractTable({
           {info.getValue()}
         </span>
       ),
-    }),
-    columnHelper.accessor('nextBillingDate', {
-      header: 'Próximo Faturamento',
-      cell: info => format(new Date(info.getValue()), 'dd/MM/yyyy'),
     }),
     columnHelper.accessor('group', {
       header: 'Grupo',
@@ -104,15 +117,25 @@ export function ContractTable({
 
         return (
           <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => {
+                setSelectedContract(contract);
+                setIsExtraServiceModalOpen(true);
+              }}
+              className="text-green-500 hover:text-green-600 transition-colors"
+              title="Adicionar Serviço Extra"
+            >
+              <PlusCircle className="w-5 h-5" />
+            </button>
             <button
-              onClick={() => onManageServices(info.row.original)}
+              onClick={() => onManageServices(contract)}
               className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
               title="Gerenciar Serviços"
             >
               <Plus className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onView(info.row.original)}
+              onClick={() => onView(contract)}
               className="p-1.5 hover:bg-indigo-50 rounded text-indigo-600 transition-colors"
               title="Gerenciar Ajustes"
             >
@@ -137,21 +160,21 @@ export function ContractTable({
             </button>
             <div className="h-4 w-px bg-gray-200 mx-1" />
             <button
-              onClick={() => onView(info.row.original)}
+              onClick={() => onView(contract)}
               className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
               title="Visualizar"
             >
               <Eye className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onEdit(info.row.original)}
+              onClick={() => onEdit(contract)}
               className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
               title="Editar"
             >
               <Edit2 className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onDelete(info.row.original)}
+              onClick={() => onDelete(contract)}
               className="p-1.5 hover:bg-red-50 rounded text-red-600 transition-colors"
               title="Excluir"
             >
@@ -176,6 +199,12 @@ export function ContractTable({
 
   return (
     <>
+      <AddExtraServiceModal 
+        isOpen={isExtraServiceModalOpen}
+        onClose={() => setIsExtraServiceModalOpen(false)}
+        contract={selectedContract!}
+        onSubmit={handleAddExtraService}
+      />
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

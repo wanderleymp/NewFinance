@@ -21,7 +21,8 @@ import {
   MoreVert as MoreVertIcon,
   Visibility as ViewIcon,
   Build as ManageServicesIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  AddCircle as AddExtraServiceIcon
 } from '@mui/icons-material';
 import { AttachMoney } from '@mui/icons-material';
 import { Receipt } from 'lucide-react';
@@ -29,6 +30,7 @@ import { parseISO, format } from 'date-fns';
 import { Contract } from '../types/contract';
 import { ContractFullDetailsModal } from './ContractFullDetailsModal';
 import { BillingConfirmationModal } from './BillingConfirmationModal';
+import { AddExtraServiceModal } from './AddExtraServiceModal';
 import { contractService } from '../services/contractService';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -53,6 +55,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [isExtraServiceModalOpen, setIsExtraServiceModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -183,6 +186,17 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         position: 'bottom-right'
       });
     }
+  };
+
+  const handleAddExtraService = (extraService: {
+    date: Date;
+    type: 'servico' | 'desconto' | 'acrescimo';
+    description: string;
+    value: number;
+  }) => {
+    console.log('Serviço extra adicionado:', extraService);
+    toast.success('Serviço extra adicionado com sucesso!');
+    setIsExtraServiceModalOpen(false);
   };
 
   if (!contract) return null;
@@ -322,6 +336,18 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         </CardContent>
         <CardActions sx={{ justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
           <Box display="flex" alignItems="center" gap={1}>
+            <Tooltip title="Adicionar Serviço Extra">
+              <IconButton 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExtraServiceModalOpen(true);
+                }} 
+                size="small"
+                sx={{ color: 'success.main' }}
+              >
+                <AddExtraServiceIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Visualizar Detalhes">
               <IconButton onClick={() => setIsDetailsModalOpen(true)} size="small">
                 <ViewIcon fontSize="small" />
@@ -417,6 +443,13 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         open={isDetailsModalOpen} 
         onClose={handleCloseDetailsModal} 
         contract={contract} 
+      />
+
+      <AddExtraServiceModal 
+        isOpen={isExtraServiceModalOpen}
+        onClose={() => setIsExtraServiceModalOpen(false)}
+        contract={contract}
+        onSubmit={handleAddExtraService}
       />
 
       {contract && (
