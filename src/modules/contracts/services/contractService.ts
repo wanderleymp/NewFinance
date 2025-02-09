@@ -322,5 +322,38 @@ export const contractService = {
         originalError: error
       };
     }
+  },
+
+  async createExtraService(payload: {
+    contractId: number;
+    serviceId: number;
+    itemDescription: string;
+    itemValue: number;
+    serviceDate: string;
+    movementId?: number | null;
+    amount?: number;
+  }): Promise<any> {
+    try {
+      const response = await api.post('/contract-extra-services/', payload);
+      return response.data;
+    } catch (error: any) {
+      // Log detalhado do erro
+      console.error('Erro detalhado ao adicionar serviço extra:', {
+        responseData: error.response?.data,
+        errorMessage: error.message,
+        status: error.response?.status
+      });
+
+      // Capturar mensagem de erro específica do servidor
+      const errorMessage = 
+        error.response?.data?.details?.[0] || 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        error.message || 
+        'Erro desconhecido ao adicionar serviço extra';
+      
+      // Lançar erro com mensagem específica
+      throw new Error(errorMessage);
+    }
   }
 };
