@@ -64,7 +64,7 @@ const ContractsPage: React.FC = () => {
   // Estados locais
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch] = useDebounce(searchTerm, 500);
+  const debouncedSearch = useDebounce(searchTerm, 500);
   const [openServiceModal, setOpenServiceModal] = useState(false);
   const [selectedContractForServices, setSelectedContractForServices] = useState<Contract | null>(null);
   const [filters, setFilters] = useState({
@@ -82,16 +82,21 @@ const ContractsPage: React.FC = () => {
 
   // Efeito para atualizar a busca
   useEffect(() => {
-    console.log('🔍 ContractsPage - Termo de busca alterado:', {
-      searchTerm: debouncedSearch,
-      previousSearch: searchTerm,
-      isEqual: debouncedSearch === searchTerm
-    });
+    console.group('🔍 ContractsPage - Busca Debug');
+    console.log('Termo de busca:', searchTerm);
+    console.log('Termo de busca debounced:', debouncedSearch);
 
-    if (debouncedSearch !== undefined) {
+    // Verificação adicional para garantir que o termo não seja vazio
+    if (debouncedSearch !== undefined && debouncedSearch.trim() !== '') {
+      console.log('Atualizando busca com:', debouncedSearch);
       setSearch(debouncedSearch);
+    } else if (debouncedSearch === '') {
+      console.log('Resetando busca');
+      setSearch('');
     }
-  }, [debouncedSearch, setSearch]);
+
+    console.groupEnd();
+  }, [debouncedSearch, setSearch, searchTerm]);
 
   // Handlers
   const handleFilterChange = (field: string, value: string) => {

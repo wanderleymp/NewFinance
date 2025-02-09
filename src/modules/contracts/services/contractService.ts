@@ -1,7 +1,8 @@
 import api from '../../../services/api';
-import mockContractsData from './mockContracts.json' assert { type: 'json' };
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
+import { contractsApi } from './api'; // Adicionando importação do contractsApi
+import mockContractsData from './mockContracts.json' assert { type: 'json' };
 
 type ContractDataSource = 'api' | 'mock';
 
@@ -51,63 +52,17 @@ export const contractService = {
     try {
       console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
       
-      // Constrói os parâmetros da query
-      const queryParams: Record<string, any> = {
-        page,
-        limit
-      };
-
-      // Adiciona parâmetro de busca apenas se não estiver vazio
-      if (search && search.trim() !== '') {
-        queryParams.search = search.trim();
-      }
-
-      console.log('🔍 ContractService - Parâmetros da requisição:', queryParams);
-
-      const response = await api.get('/contracts-recurring', { 
-        params: queryParams
-      });
-
-      console.log('🔍 ContractService - Resposta bruta:', response.data);
-
-      // Validação da resposta
-      if (!response.data) {
-        return {
-          contracts: [],
-          total: 0,
-          totalPages: 0,
-          currentPage: page
-        };
-      }
-
-      // Mapeia cada item da resposta para o formato Contract
-      const mappedContracts = (response.data.items || []).map((item: any) => ({
-        id: item.contract_id,
-        name: item.contract_name || '',
-        value: Number(item.contract_value || 0),
-        status: item.status?.toLowerCase() || 'inactive',
-        groupName: item.group_name || '',
-        fullName: item.full_name || item.contract_name || '',
-        recurrencePeriod: item.recurrence_period?.toLowerCase() === 'monthly' ? 'monthly' : 'yearly',
-        dueDay: parseInt(item.due_day || '0', 10),
-        daysBefore: parseInt(item.days_before_due || '0', 10),
-        lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
-        nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
-        billingReference: item.billing_reference || '',
-        contractGroupId: item.contract_group_id || 0,
-        modelMovementId: item.model_movement_id || 0,
-        startDate: item.start_date ? new Date(item.start_date) : null,
-        endDate: item.end_date ? new Date(item.end_date) : null
-      }));
+      const response = await contractsApi.listRecurring(page, limit, search);
+      console.log('🔍 ContractService - Resposta da API:', response);
 
       return {
-        contracts: mappedContracts,
-        total: response.data.meta?.totalItems || 0,
-        totalPages: response.data.meta?.totalPages || 0,
-        currentPage: response.data.meta?.currentPage || page
+        contracts: response.data,
+        total: response.total,
+        totalPages: response.totalPages,
+        currentPage: response.page
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar contratos:', error);
+      console.error('🚨 ContractService - Erro ao buscar contratos:', error);
       throw error;
     }
   },
