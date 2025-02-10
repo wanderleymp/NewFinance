@@ -106,6 +106,8 @@ export function AddExtraServiceModal({
         amount: quantity // Adicionando quantidade ao payload
       };
 
+      console.log('Payload a ser enviado:', JSON.stringify(payload, null, 2));
+
       const response = await contractService.createExtraService(payload);
       
       toast.success('Serviço extra adicionado com sucesso!');
@@ -136,7 +138,10 @@ export function AddExtraServiceModal({
       // Extrair mensagem de erro
       const errorMessage = error.message || 'Erro ao adicionar serviço extra';
       
-      console.error('Erro detalhado:', error);
+      console.error('Erro detalhado:', {
+        message: errorMessage,
+        fullError: error
+      });
       
       // Exibir mensagem de erro específica
       toast.error(errorMessage, {

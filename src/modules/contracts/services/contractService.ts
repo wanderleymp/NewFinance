@@ -331,22 +331,23 @@ export const contractService = {
     itemValue: number;
     serviceDate: string;
     movementId?: number | null;
-    amount?: number;
   }): Promise<any> {
     try {
+      console.log('Payload enviado:', JSON.stringify(payload, null, 2));
       const response = await api.post('/contract-extra-services/', payload);
       return response.data;
     } catch (error: any) {
       // Log detalhado do erro
       console.error('Erro detalhado ao adicionar serviço extra:', {
-        responseData: error.response?.data,
+        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
         errorMessage: error.message,
-        status: error.response?.status
+        status: error.response?.status,
+        payload: JSON.stringify(payload)
       });
 
       // Capturar mensagem de erro específica do servidor
       const errorMessage = 
-        error.response?.data?.details?.[0] || 
+        (error.response?.data?.details && error.response.data.details[0]) || 
         error.response?.data?.message || 
         error.response?.data?.error || 
         error.message || 
