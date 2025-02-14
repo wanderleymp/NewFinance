@@ -51,7 +51,8 @@ import {
   BarChart as BarChartIcon,
   Person as PersonIcon,
   Security as SecurityIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { healthService, authService } from '../services/api';
@@ -137,7 +138,7 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
     {
       id: 'dashboard',
       title: 'Dashboard',
-      path: '/finance/dashboard',
+      path: '/finance',
       icon: <DashboardIcon />,
     },
     {
@@ -148,25 +149,25 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
         {
           id: 'movements',
           title: 'Movimentações',
-          path: '/movements',
+          path: '/finance/movements',
           icon: <PaymentIcon />,
         },
         {
           id: 'installments',
           title: 'Contas a Receber',
-          path: '/installments',
+          path: '/finance/installments',
           icon: <ReceiptIcon />,
         },
         {
           id: 'payment-methods',
           title: 'Métodos de Pagamento',
-          path: '/payment-methods',
+          path: '/finance/payment-methods',
           icon: <CreditCardIcon />,
         },
         {
           id: 'nfse',
           title: 'NFSe',
-          path: '/nfse',
+          path: '/finance/nfse',
           icon: <ReceiptIcon />,
         },
       ],
@@ -179,23 +180,24 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
         {
           id: 'contract-list',
           title: 'Lista de Contratos',
-          path: '/contracts',
+          path: '/finance/contracts',
           icon: <ListAltIcon />,
         },
         {
           id: 'contract-dashboard',
           title: 'Dashboard de Contratos',
-          path: '/contracts/dashboard',
+          path: '/finance/contracts/dashboard',
           icon: <DashboardIcon />,
         },
         {
           id: 'contract-billing',
           title: 'Faturamento de Contratos',
-          path: '/contracts/billing',
+          path: '/finance/contracts/billing',
           icon: <ReceiptIcon />,
         }
       ]
     },
+
     {
       id: 'register',
       title: 'Cadastros',
@@ -514,6 +516,14 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
           
           {/* Componentes de cabeçalho */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/chat')}
+              sx={{ mr: 1 }}
+              title="Chat"
+            >
+              <ChatIcon />
+            </IconButton>
             <NotificationsMenu notifications={notifications} />
             <UserMenu 
               userData={userData} 

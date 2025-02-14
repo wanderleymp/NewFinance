@@ -58,6 +58,7 @@ import PaymentMethodForm from './pages/PaymentMethodForm';
 
 // Importação do componente TaskMonitoring
 import TaskMonitoring from './pages/TaskMonitoring';
+import ChatList from './pages/ChatList';
 
 // Rotas Protegidas
 const PrivateRoute = () => {
@@ -128,6 +129,11 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/home" element={<Home />} />
 
+              {/* Chat - Sistema Independente */}
+              <Route element={<PrivateRoute />}>
+                <Route path="/chat" element={<ChatList />} />
+              </Route>
+
               {/* Sistema Financeiro - Com Dashboard */}
               <Route element={<PrivateRoute />}>
                 <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
@@ -149,6 +155,7 @@ function App() {
                   <Route path="/finance/payment-methods/:id/edit" element={<PaymentMethodForm />} />
                   <Route path="/finance/tasks" element={<TaskMonitoring />} />
                   <Route path="/finance/installments" element={<Installments />} />
+                  <Route path="/finance/chat" element={<ChatList />} />
                   
                   {/* Rotas de Contratos */}
                   <Route path="/finance/contracts" element={<ContractsPage />} />

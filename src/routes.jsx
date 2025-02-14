@@ -20,6 +20,7 @@ const ROLES = {
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
+const ChatList = lazy(() => import('./pages/ChatList'));
 const Movements = lazy(() => import('./pages/Movements'));
 const newMovementExpress = lazy(() => import('./pages/NewMovementExpress'));
 const NewMovementDetailed = lazy(() => import('./pages/NewMovementDetailed'));
@@ -215,6 +216,16 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="payment-methods/new" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="tasks" element={<Suspense fallback={<Loading />}><TaskMonitoring /></Suspense>} />
+        <Route 
+          path="chat" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ChatList />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
         <Route path="nfse" element={<PrivateRoute requiredRoles={NFSE_ROLES}><Suspense fallback={<Loading />}><NfseList /></Suspense></PrivateRoute>} />
         <Route path="home-page" element={<Suspense fallback={<Loading />}><HomePage /></Suspense>} />
         {/* Rotas de Contratos */}

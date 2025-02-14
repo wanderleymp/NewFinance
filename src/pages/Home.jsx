@@ -106,8 +106,8 @@ const Home = () => {
       description: 'Comunicação com clientes',
       icon: ChatIcon,
       route: '/chat',
-      isDisabled: true,
-      color: '#757575'
+      isDisabled: false,
+      color: '#1976d2'
     },
     {
       title: 'CRM',
