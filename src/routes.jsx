@@ -3,6 +3,7 @@ import { Navigate, Routes, Route } from 'react-router-dom';
 import Loading from './pages/Loading';
 import Unauthorized from './pages/Unauthorized';
 import { Payment as PaymentIcon } from '@mui/icons-material';
+import CleanLayout from './layouts/CleanLayout';
 const NfseList = lazy(() => import('./modules/nfse/nfseList'));
 
 // Definindo roles necessárias para NFSe
@@ -36,6 +37,7 @@ const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
 const ContractsPage = lazy(() => import('./modules/contracts/pages/ContractsPage'));
 const ContractBillingPage = lazy(() => import('./modules/contracts/pages/ContractBillingPage'));
+const HomePage = lazy(() => import('./pages/HomePage'));
 
 const PrivateRoute = ({ children, requiredRoles = [] }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -110,6 +112,23 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
   return (
     <Routes>
       {/* Rotas públicas */}
+      <Route 
+        path="/" 
+        element={
+          <CleanLayout>
+            <Home />
+          </CleanLayout>
+        } 
+      />
+      <Route 
+        path="/home" 
+        element={
+          <CleanLayout>
+            <Home />
+          </CleanLayout>
+        } 
+      />
+      
       <Route path="/login" element={
         <PublicRoute>
           <Suspense fallback={<Loading />}>
@@ -117,13 +136,10 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           </Suspense>
         </PublicRoute>
       } />
-      <Route path="/unauthorized" element={
-        <Suspense fallback={<Loading />}>
-          <Unauthorized />
-        </Suspense>
-      } />
-      <Route
-        path="/"
+
+      {/* Rotas do Dashboard */}
+      <Route 
+        path="/finance"
         element={
           <PrivateRoute>
             <Suspense fallback={<Loading />}>
@@ -132,8 +148,8 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           </PrivateRoute>
         }
       >
-        <Route index element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
-        <Route path="dashboard" element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
+        <Route index element={<Navigate to="/finance/dashboard" replace />} />
+        <Route path="dashboard" element={<Suspense fallback={<Loading />}><Movements /></Suspense>} />
         <Route path="movements" element={<Suspense fallback={<Loading />}><Movements /></Suspense>} />
         <Route path="movements/new-express" element={
           <PrivateRoute>
@@ -200,6 +216,7 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
         <Route path="payment-methods/:id/edit" element={<Suspense fallback={<Loading />}><PaymentMethodForm /></Suspense>} />
         <Route path="tasks" element={<Suspense fallback={<Loading />}><TaskMonitoring /></Suspense>} />
         <Route path="nfse" element={<PrivateRoute requiredRoles={NFSE_ROLES}><Suspense fallback={<Loading />}><NfseList /></Suspense></PrivateRoute>} />
+        <Route path="home-page" element={<Suspense fallback={<Loading />}><HomePage /></Suspense>} />
         {/* Rotas de Contratos */}
         <Route 
           path="contracts" 
@@ -324,6 +341,8 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
           } 
         />
       </Route>
+      {/* Outras rotas */}
+      <Route path="/unauthorized" element={<Unauthorized />} />
     </Routes>
   );
 };

@@ -25,6 +25,10 @@ html, body {
   min-height: 100vh;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0);

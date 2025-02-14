@@ -59,6 +59,8 @@ import Logo from './Logo';
 import { AppVersion } from './AppVersion'; // Adicionar import
 import NotificationsMenu from './NotificationsMenu';
 import UserMenu from './UserMenu';
+import HomePage from '../pages/HomePage'; // Corrigir importação da HomePage para o caminho correto
+import Home from '../pages/Home'; // Adicionar import
 
 const drawerWidth = 240;
 
@@ -83,14 +85,13 @@ const closedMixin = (theme) => ({
   },
 });
 
-const Dashboard = ({ children }) => {
+const Dashboard = ({ children, darkMode, setDarkMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
   const currentUser = authService.getCurrentUser();
 
   const [openDrawer, setOpenDrawer] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [userData, setUserData] = useState(null);
   const [theme, setTheme] = useState(createTheme());
 
@@ -128,9 +129,15 @@ const Dashboard = ({ children }) => {
 
   const menuItems = useMemo(() => [
     {
+      id: 'systems',
+      title: 'Sistemas',
+      path: '/',
+      icon: <HomeIcon />,
+    },
+    {
       id: 'dashboard',
       title: 'Dashboard',
-      path: '/',
+      path: '/finance/dashboard',
       icon: <DashboardIcon />,
     },
     {
@@ -455,6 +462,17 @@ const Dashboard = ({ children }) => {
     setMenuAnchorEl(null);
   };
 
+  const renderContent = () => {
+    switch (location.pathname) {
+      case '/dashboard/finance':
+        return <Home />;
+      case '/dashboard/home-page':
+        return <HomePage />;
+      default:
+        return <Outlet context={context} />;
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -542,16 +560,14 @@ const Dashboard = ({ children }) => {
         sx={{ 
           flexGrow: 1, 
           p: 3, 
-          width: `calc(100% - ${openDrawer ? drawerWidth : 73}px)`,
-          transition: theme.transitions.create('width', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          minHeight: '100vh',
+          backgroundColor: (theme) => theme.palette.background.default
         }}
       >
         <Toolbar />
-        {/* Renderização do children ou Outlet */}
-        {children || <Outlet context={context} />}
+        {renderContent()}
+        {console.log('Dashboard - Renderizando rota:', location.pathname)}
       </Box>
     </Box>
   );

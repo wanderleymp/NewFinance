@@ -50,7 +50,9 @@ const Login = () => {
       
       console.log('Usuário logado:', userData);
       
-      navigate('/dashboard');
+      console.log('Redirecionando para página inicial após login');
+      
+      navigate('/');
     } catch (error) {
       console.error('Erro no login:', error);
       

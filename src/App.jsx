@@ -121,50 +121,54 @@ function App() {
         >
           <BrowserRouter>
             <Routes>
+              {/* Rota pública - Login */}
               <Route path="/login" element={<Login />} />
+
+              {/* Página inicial - Totalmente independente */}
+              <Route path="/" element={<Home />} />
+              <Route path="/home" element={<Home />} />
+
+              {/* Sistema Financeiro - Com Dashboard */}
               <Route element={<PrivateRoute />}>
                 <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
-                  <Route path="/" element={<Navigate to="/home" replace />} />
-                  <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/movements" element={<Movements />} />
-                  <Route path="/movements/new-express" element={<NewMovementExpress />} />
-                  <Route path="/movements/new/express" element={<NewMovementExpress />} />
-                  <Route path="/receivables" element={<Receivables />} />
-                  <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/finance" element={<Movements />} />
+                  <Route path="/finance/movements" element={<Movements />} />
+                  <Route path="/finance/movements/new-express" element={<NewMovementExpress />} />
+                  <Route path="/finance/movements/new/express" element={<NewMovementExpress />} />
+                  <Route path="/finance/receivables" element={<Receivables />} />
+                  <Route path="/finance/contacts" element={<Contacts />} />
                   
                   {/* Rotas de Pessoas */}
-                  <Route path="/persons" element={<Persons />} />
-                  <Route path="/persons/new" element={<PersonForm />} />
-                  <Route path="/persons/:id/edit" element={<PersonForm />} />
-                  <Route path="/persons/import-cnpj" element={<ImportCNPJ />} />
+                  <Route path="/finance/persons" element={<Persons />} />
+                  <Route path="/finance/persons/new" element={<PersonForm />} />
+                  <Route path="/finance/persons/:id/edit" element={<PersonForm />} />
+                  <Route path="/finance/persons/import-cnpj" element={<ImportCNPJ />} />
                   
-                  <Route path="/payment-methods" element={<PaymentMethods />} />
-                  <Route path="/payment-methods/new" element={<PaymentMethodForm />} />
-                  <Route path="/payment-methods/:id/edit" element={<PaymentMethodForm />} />
-                  <Route path="/tasks" element={<TaskMonitoring />} />
-                  <Route path="/installments" element={<Installments />} />
+                  <Route path="/finance/payment-methods" element={<PaymentMethods />} />
+                  <Route path="/finance/payment-methods/new" element={<PaymentMethodForm />} />
+                  <Route path="/finance/payment-methods/:id/edit" element={<PaymentMethodForm />} />
+                  <Route path="/finance/tasks" element={<TaskMonitoring />} />
+                  <Route path="/finance/installments" element={<Installments />} />
                   
                   {/* Rotas de Contratos */}
-                  <Route path="/contracts" element={<ContractsPage />} />
-                  <Route path="/contracts/dashboard" element={<Home />} />
-                  <Route path="/contracts/form/:id" element={<ContractFormPage />} />
-                  <Route path="/contracts/form" element={<ContractFormPage />} />
-                  <Route path="/contracts/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts/:contractId/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts" element={<ContractsPage />} />
+                  <Route path="/finance/contracts/form/:id" element={<ContractFormPage />} />
+                  <Route path="/finance/contracts/form" element={<ContractFormPage />} />
+                  <Route path="/finance/contracts/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
                   
                   {/* Rotas de Contratos Recorrentes */}
-                  <Route path="/contracts-recurring" element={<ContractsPage />} />
-                  <Route path="/contracts-recurring/dashboard" element={<Home />} />
-                  <Route path="/contracts-recurring/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId/:receiptId" element={<ContractBillingPage />} />
-                  <Route path="*" element={<AIAssistant />} />
+                  <Route path="/finance/contracts-recurring" element={<ContractsPage />} />
+                  <Route path="/finance/contracts-recurring/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
                 </Route>
               </Route>
+
+              {/* Rota padrão - Redireciona para a página inicial */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <ToastContainer 
               position="top-right"

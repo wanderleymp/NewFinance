@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { contractService } from '../services/ContractService';
 import ContractServices from '../components/ContractServices';
 import { ContractService } from '../types/contractService';
+import { SearchPersonAutocomplete } from '@/components/SearchPersonAutocomplete';
 
 interface ContractFormData {
   contract_name: string;
@@ -234,6 +235,14 @@ const ContractFormPage: React.FC = () => {
     });
   };
 
+  const handlePersonSelect = (person: any | null) => {
+    setFormData(prev => ({
+      ...prev,
+      representative_person_id: person?.id || null,
+      full_name: person?.name || ''
+    }));
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -261,7 +270,7 @@ const ContractFormPage: React.FC = () => {
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Nome do Contrato"
@@ -273,15 +282,13 @@ const ContractFormPage: React.FC = () => {
                 />
               </Grid>
               
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Nome Completo"
-                  value={formData.full_name}
-                  onChange={handleInputChange('full_name')}
-                  error={!!errors.full_name}
-                  helperText={errors.full_name}
-                  required
+              <Grid item xs={12}>
+                <SearchPersonAutocomplete 
+                  onPersonSelect={handlePersonSelect}
+                  label="Representante do Contrato"
+                  placeholder="Busque o representante do contrato"
+                  name="representativeName"
+                  sx={{ width: '100%' }}
                 />
               </Grid>
 
@@ -430,16 +437,6 @@ const ContractFormPage: React.FC = () => {
                   type="number"
                   value={formData.model_movement_id}
                   onChange={handleInputChange('model_movement_id')}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="ID do Representante"
-                  type="number"
-                  value={formData.representative_person_id || ''}
-                  onChange={handleInputChange('representative_person_id')}
                 />
               </Grid>
 
