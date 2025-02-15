@@ -15,7 +15,7 @@ import {
 import { styled, useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import { getUserData } from '../utils/auth'; // Importar método correto
-import { authService } from '../services/api'; // Importar serviço de autenticação
+import { authService } from '../services/authService'; // Importar serviço de autenticação
 
 // Função para obter dados do usuário diretamente do localStorage
 const getUserDataFromStorage = () => {

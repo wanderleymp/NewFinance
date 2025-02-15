@@ -18,7 +18,7 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 
 import { lightTheme, darkTheme } from './theme/theme';
-import { authService } from './services/api';
+import { authService } from './services/authService';
 import api from './services/api';
 import { QueryProvider } from './providers/QueryProvider';
 

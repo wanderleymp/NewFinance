@@ -22,7 +22,7 @@ import {
   Chat as ChatIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/api';
+import { authService } from '../services/authService';
 
 const drawerWidth = 70; // Menu lateral mais compacto
 

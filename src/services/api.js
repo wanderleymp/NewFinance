@@ -62,102 +62,6 @@ export const networkService = {
   }
 };
 
-export const authService = {
-  async login(username, password) {
-    try {
-      const response = await api.post('/auth/login', { username, password });
-      
-      const { accessToken, refreshToken, user } = response.data;
-      
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      return response.data;
-    } catch (error) {
-      console.error('Erro no login:', error);
-      throw error;
-    }
-  },
-  
-  isAuthenticated() {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return false;
-
-      const decoded = jwtDecode(token);
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      return decoded.exp > currentTime;
-    } catch (error) {
-      console.error('Erro ao verificar autenticação:', error);
-      return false;
-    }
-  },
-
-  getCurrentUser() {
-    try {
-      const userString = localStorage.getItem('user');
-      const token = localStorage.getItem('accessToken');
-
-      console.log('🕵️ DEBUG getCurrentUser:', {
-        userString,
-        tokenExists: !!token
-      });
-
-      if (!userString) {
-        console.error('❌ Usuário não encontrado no localStorage');
-        return null;
-      }
-
-      const user = JSON.parse(userString);
-      
-      // Tentar extrair user_id do token se não estiver no usuário
-      if (!user.id && token) {
-        try {
-          const decodedToken = jwtDecode(token);
-          user.id = decodedToken.user_id || decodedToken.sub;
-        } catch (tokenError) {
-          console.error('Erro ao decodificar token:', tokenError);
-        }
-      }
-
-      // Mapear usuário para estrutura padrão
-      const mappedUser = {
-        id: user.user_id || user.id || user.sub,
-        username: user.username,
-        profile_id: user.profile_id || null,
-        enable_2fa: user.enable_2fa || false
-      };
-
-      console.log('🔍 Usuário mapeado:', mappedUser);
-
-      return mappedUser;
-    } catch (error) {
-      console.error('Erro ao recuperar usuário atual:', error);
-      return null;
-    }
-  },
-
-  logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  },
-
-  // Método para verificar autenticação
-  getTokenInfo() {
-    try {
-      const token = localStorage.getItem('accessToken');
-      return token ? jwtDecode(token) : null;
-    } catch (error) {
-      console.error('Erro ao decodificar token:', error);
-      return null;
-    }
-  }
-};
-
 export const movementsService = {
   async list(params = {}) {
     try {
@@ -318,7 +222,7 @@ export const movementsService = {
 
   create(data) {
     // Obter o usuário atual de forma mais robusta
-    const currentUser = authService.getCurrentUser();
+    const currentUser = null; // Removido authService.getCurrentUser();
     const userId = currentUser?.id;
 
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));

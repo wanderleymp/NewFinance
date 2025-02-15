@@ -13,7 +13,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 
-import { authService } from '../services/api';
+import { authService } from '../services/authService';
 
 const UserMenu = ({ 
   userData = {}, 

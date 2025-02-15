@@ -55,7 +55,8 @@ import {
   Chat as ChatIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { healthService, authService } from '../services/api';
+import { healthService } from '../services/api';
+import { authService } from '../services/authService';
 import Logo from './Logo';
 import { AppVersion } from './AppVersion'; // Adicionar import
 import NotificationsMenu from './NotificationsMenu';

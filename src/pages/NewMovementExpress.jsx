@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { personsService, itemsService, movementsService, paymentMethodService } from '../services/api';
 import { useSnackbar } from 'notistack';
+import { authService } from '../services/authService';
 
 const newMovementExpress = () => {
   console.log('🚨 COMPONENTE newMovementExpress CARREGADO');

@@ -16,7 +16,7 @@ import {
   Container,
 } from '@mui/material';
 import { Visibility, VisibilityOff, AccountCircle, Lock, TrendingUp } from '@mui/icons-material';
-import { authService } from '../services/api';
+import { authService } from '../services/authService';
 import Logo from '../components/Logo';
 import AnimatedBackground from '../components/AnimatedBackground';
 import FinanceIcons from '../components/FinanceIcons';

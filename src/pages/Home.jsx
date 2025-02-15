@@ -6,7 +6,8 @@ import {
   CardContent,
   IconButton,
   Container,
-  Alert
+  Alert,
+  Grid
 } from '@mui/material';
 import { 
   AccountBalance as FinanceIcon,
@@ -17,8 +18,8 @@ import {
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { authService } from '../services/authService'; 
+import { motion } from 'framer-motion';
 
 const SystemCard = ({ title, description, icon: Icon, route, isDisabled, color }) => {
   const navigate = useNavigate();
@@ -96,7 +97,7 @@ const SystemCard = ({ title, description, icon: Icon, route, isDisabled, color }
 
 const Home = () => {
   const navigate = useNavigate();
-  const currentUser = authService.getTokenInfo();
+  const currentUser = authService.getCurrentUser();
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -180,23 +181,20 @@ const Home = () => {
           </Typography>
         </Box>
 
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: 3
-        }}>
+        <Grid container spacing={3}>
           {systems.map((system, index) => (
-            <SystemCard
-              key={index}
-              title={system.title}
-              description={system.description}
-              icon={system.icon}
-              route={system.route}
-              isDisabled={system.isDisabled}
-              color={system.color}
-            />
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <SystemCard
+                title={system.title}
+                description={system.description}
+                icon={system.icon}
+                route={system.route}
+                isDisabled={system.isDisabled}
+                color={system.color}
+              />
+            </Grid>
           ))}
-        </Box>
+        </Grid>
       </Box>
     </Container>
   );

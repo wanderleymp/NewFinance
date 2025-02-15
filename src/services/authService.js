@@ -23,6 +23,9 @@ export class AuthService extends BaseService {
 
   logout() {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
   }
 
   isAuthenticated() {
@@ -44,8 +47,37 @@ export class AuthService extends BaseService {
     if (!token) return null;
 
     try {
-      return jwtDecode(token);
+      const userString = localStorage.getItem('user');
+      let user = null;
+
+      if (userString) {
+        try {
+          user = JSON.parse(userString);
+        } catch (parseError) {
+          console.error('Erro ao parsear usuário:', parseError);
+        }
+      }
+
+      const decodedToken = jwtDecode(token);
+      const tokenUser = {
+        user_id: decodedToken.sub,
+        username: decodedToken.username,
+        profile_id: decodedToken.profile_id || null,
+        enable_2fa: decodedToken.enable_2fa || false
+      };
+
+      // Prioriza usuário do localStorage, senão usa do token
+      const mappedUser = {
+        id: user?.user_id || tokenUser.user_id,
+        username: user?.username || tokenUser.username,
+        profile_id: user?.profile_id || tokenUser.profile_id,
+        enable_2fa: user?.enable_2fa || tokenUser.enable_2fa
+      };
+
+      console.log(' Usuário recuperado:', mappedUser);
+      return mappedUser;
     } catch (error) {
+      console.error('Erro ao recuperar usuário atual:', error);
       return null;
     }
   }
