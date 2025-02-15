@@ -192,6 +192,7 @@ function App() {
               pauseOnHover
             />
             <AppVersion />
+            {authService.isAuthenticated() && <AIAssistant />}
           </BrowserRouter>
         </SnackbarProvider>
       </ThemeProvider>
