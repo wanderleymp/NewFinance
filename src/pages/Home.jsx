@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Box, 
   Typography,
   Card,
   CardContent,
   IconButton,
-  Container
+  Container,
+  Alert
 } from '@mui/material';
 import { 
   AccountBalance as FinanceIcon,
@@ -17,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { authService } from '../services/authService'; 
 
 const SystemCard = ({ title, description, icon: Icon, route, isDisabled, color }) => {
   const navigate = useNavigate();
@@ -93,6 +95,19 @@ const SystemCard = ({ title, description, icon: Icon, route, isDisabled, color }
 };
 
 const Home = () => {
+  const navigate = useNavigate();
+  const currentUser = authService.getTokenInfo();
+
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  if (!authService.isAuthenticated()) {
+    return null; // Previne renderização antes do redirecionamento
+  }
+
   const systems = [
     {
       title: 'Finanças',
@@ -136,60 +151,54 @@ const Home = () => {
   ];
 
   return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        py: 4
-      }}
-    >
-      <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="h6">
+            Seja bem-vindo(a), {currentUser?.username || 'Usuário'}!
+          </Typography>
+        </Alert>
+      </Box>
+
+      <Box 
+        sx={{ 
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          py: 4
+        }}
+      >
         <Box sx={{ mb: 6, textAlign: 'center' }}>
           <Typography 
             variant="h3" 
-            component={motion.h1}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
             sx={{ 
-              color: '#1976d2',
-              fontWeight: 'bold',
-              mb: 2
+              color: 'primary.main', 
+              fontWeight: 'bold', 
+              mb: 4 
             }}
           >
-            Sistema de Gestão Integrada
-          </Typography>
-          <Typography 
-            variant="subtitle1" 
-            color="text.secondary"
-            component={motion.p}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            Selecione um módulo para começar
+            Sistemas
           </Typography>
         </Box>
 
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)'
-            },
-            gap: 3,
-            mb: 4
-          }}
-          component={motion.div}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 3
+        }}>
           {systems.map((system, index) => (
-            <SystemCard key={index} {...system} />
+            <SystemCard
+              key={index}
+              title={system.title}
+              description={system.description}
+              icon={system.icon}
+              route={system.route}
+              isDisabled={system.isDisabled}
+              color={system.color}
+            />
           ))}
         </Box>
-      </Container>
-    </Box>
+      </Box>
+    </Container>
   );
 };
 

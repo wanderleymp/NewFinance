@@ -1,14 +1,14 @@
 export const environment = {
   development: {
-    apiUrl: process.env.VITE_API_URL
+    apiUrl: import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br'
   },
   production: {
-    apiUrl: process.env.VITE_API_URL
+    apiUrl: import.meta.env.VITE_API_URL || 'https://api.agilefinance.com.br'
   }
 };
 
 export const getCurrentEnvironment = () => {
-  return process.env.NODE_ENV === 'production' 
+  return import.meta.env.MODE === 'production' 
     ? environment.production 
     : environment.development;
 };

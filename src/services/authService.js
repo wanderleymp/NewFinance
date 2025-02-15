@@ -1,7 +1,7 @@
 import BaseService from './baseService';
 import { jwtDecode } from "jwt-decode";
 
-class AuthService extends BaseService {
+export class AuthService extends BaseService {
   constructor() {
     super('/auth');
   }
@@ -69,4 +69,4 @@ class AuthService extends BaseService {
   }
 }
 
-export default new AuthService();
+export const authService = new AuthService();
