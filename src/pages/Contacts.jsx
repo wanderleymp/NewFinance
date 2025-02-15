@@ -28,7 +28,7 @@ import {
   ViewModule as ViewModuleIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { contactsService } from '../services/api';
+import { contactsService } from '../services/contactsService';
 import DataTable from '../components/DataTable';
 import CardView from '../components/CardView';
 

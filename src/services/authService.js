@@ -8,7 +8,7 @@ export class AuthService extends BaseService {
 
   async login(username, password) {
     try {
-      const response = await this.api.post('/login', { username, password });
+      const response = await this.api.post('/auth/login', { username, password });
       const { accessToken } = response.data;
       
       if (accessToken) {

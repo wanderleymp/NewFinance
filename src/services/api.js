@@ -667,35 +667,6 @@ export const itemsService = {
   }
 };
 
-// Serviço de Contatos
-export const contactsService = {
-  list: (params) => api.get('/contacts', { params }).then(response => response.data),
-  create: (data) => api.post('/contacts', data).then(response => response.data),
-  get: (id) => api.get(`/contacts/${id}`).then(response => response.data),
-  update: (id, data) => api.put(`/contacts/${id}`, data).then(response => response.data),
-  delete: (id) => api.delete(`/contacts/${id}`).then(response => response.data),
-  listByPerson: (personId, params) => api.get(`/persons/${personId}/contacts`, { params }).then(response => response.data),
-  addToPerson: (personId, data) => api.post(`/persons/${personId}/contacts`, data).then(response => response.data),
-  search: (params) => api.get('/contacts/search', { params }).then(response => response.data),
-};
-
-// Contacts Service
-export const searchContacts = async (query) => {
-  try {
-    const response = await api.get('/contacts', {
-      params: {
-        search: query,
-        limit: 10
-      }
-    });
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error searching contacts:', error);
-    return [];
-  }
-};
-
-// Serviço de Usuários
 export const usersService = {
   list: (params) => api.get('/users', { params }).then(response => response.data),
   create: (data) => api.post('/users', data).then(response => response.data),
@@ -704,7 +675,6 @@ export const usersService = {
   delete: (id) => api.delete(`/users/${id}`).then(response => response.data),
 };
 
-// Saúde do sistema
 export const healthService = {
   clearCache() {
     // Implementação existente
