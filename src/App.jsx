@@ -60,6 +60,9 @@ import PaymentMethodForm from './pages/PaymentMethodForm';
 import TaskMonitoring from './pages/TaskMonitoring';
 import ChatList from './pages/ChatList';
 
+// Importação do componente FinanceDashboard
+import FinanceDashboard from './pages/FinanceDashboard';
+
 // Rotas Protegidas
 const PrivateRoute = () => {
   const isAuthenticated = authService.isAuthenticated();
@@ -137,7 +140,8 @@ function App() {
               {/* Sistema Financeiro - Com Dashboard */}
               <Route element={<PrivateRoute />}>
                 <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
-                  <Route path="/finance" element={<Movements />} />
+                  <Route path="/finance" element={<Navigate to="/finance/dashboard" replace />} />
+                  <Route path="/finance/dashboard" element={<FinanceDashboard />} />
                   <Route path="/finance/movements" element={<Movements />} />
                   <Route path="/finance/movements/new-express" element={<NewMovementExpress />} />
                   <Route path="/finance/movements/new/express" element={<NewMovementExpress />} />
@@ -165,7 +169,6 @@ function App() {
                   <Route path="/finance/contracts/:contractId/billing" element={<ContractBillingPage />} />
                   <Route path="/finance/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
                   
-                  {/* Rotas de Contratos Recorrentes */}
                   <Route path="/finance/contracts-recurring" element={<ContractsPage />} />
                   <Route path="/finance/contracts-recurring/billing" element={<ContractBillingPage />} />
                   <Route path="/finance/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
