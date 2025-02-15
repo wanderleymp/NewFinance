@@ -1,11 +1,12 @@
 import axios from 'axios';
+import api from './api';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const personService = {
   async search(query: string, page = 1, limit = 10) {
     try {
-      console.log('🔍 Buscando pessoas com query:', query);
+      console.log(' Buscando pessoas com query:', query);
       
       const token = localStorage.getItem('accessToken') || '';
       
@@ -20,14 +21,14 @@ export const personService = {
         }
       });
 
-      console.log('👥 Pessoas encontradas:', response.data.data);
+      console.log(' Pessoas encontradas:', response.data.data);
 
       return {
         items: response.data.data,
         pagination: response.data.pagination || {}
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar pessoas:', error);
+      console.error(' Erro ao buscar pessoas:', error);
       throw error;
     }
   },
@@ -44,7 +45,7 @@ export const personService = {
       
       return response.data;
     } catch (error) {
-      console.error(`❌ Erro ao buscar pessoa com ID ${id}:`, error);
+      console.error(` Erro ao buscar pessoa com ID ${id}:`, error);
       throw error;
     }
   }

@@ -3,9 +3,17 @@ import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
 // Configuração base do Axios
+console.log('🔍 DEBUG - import.meta.env:', import.meta.env);
+console.log('🔍 DEBUG - VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('🔍 DEBUG - Todas variáveis Vite:', 
+  Object.keys(import.meta.env)
+    .filter(key => key.startsWith('VITE_'))
+    .map(key => `${key}: ${import.meta.env[key]}`)
+);
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  timeout: 15000, // 15 segundos
+  timeout: 15000,
   timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.'
 });
 
