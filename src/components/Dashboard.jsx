@@ -207,13 +207,13 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
         {
           id: 'persons',
           title: 'Pessoas',
-          path: '/persons',
+          path: '/finance/persons',
           icon: <PeopleIcon />,
         },
         {
           id: 'contacts',
           title: 'Contatos',
-          path: '/contacts',
+          path: '/finance/contacts',
           icon: <ContactsIcon />,
         },
         {

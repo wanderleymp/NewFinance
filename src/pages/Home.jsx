@@ -10,12 +10,13 @@ import {
   Grid
 } from '@mui/material';
 import { 
-  AccountBalance as FinanceIcon,
+  AttachMoney as FinanceIcon,
   Chat as ChatIcon,
   Person as CRMIcon,
   Assignment as ServiceOrderIcon,
   ListAlt as TaskIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  People as PeopleIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService'; 
