@@ -18,6 +18,7 @@ import { styled, useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import { getUserData } from '../utils/auth'; // Importar método correto
 import { authService } from '../services/authService'; // Importar serviço de autenticação
+import chatMessagesService from '../services/chatMessagesService';
 
 // Função para obter dados do usuário diretamente do localStorage
 const getUserDataFromStorage = () => {
@@ -131,6 +132,7 @@ const AIChat = ({ onClose }) => {
   // Usar função personalizada para buscar dados do usuário
   const userData = getUserDataFromStorage();
 
+  // Rolar para a última mensagem
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -138,6 +140,58 @@ const AIChat = ({ onClose }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Buscar histórico de mensagens quando um contato é selecionado
+  useEffect(() => {
+    const fetchChatHistory = async () => {
+      try {
+        const chatHistory = await chatMessagesService.getChatMessages();
+        setMessages(chatHistory);
+      } catch (error) {
+        console.error('Erro ao buscar histórico de chat:', error);
+      }
+    };
+
+    fetchChatHistory();
+  }, []);
+
+  // Enviar mensagem
+  const handleSendMessage = async () => {
+    if (inputMessage.trim() === '') return;
+
+    try {
+      setIsLoading(true);
+
+      // Preparar dados da mensagem
+      const messageData = {
+        content: inputMessage,
+        sender_id: userData.id,
+        receiver_id: 'ai'
+      };
+
+      // Enviar mensagem
+      const sentMessage = await chatMessagesService.sendMessage(messageData);
+
+      // Atualizar estado das mensagens
+      setMessages(prevMessages => [...prevMessages, sentMessage]);
+      
+      // Limpar input
+      setInputMessage('');
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      // Opcional: mostrar mensagem de erro para o usuário
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Permitir envio com Enter
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   // Função para limpar o histórico de mensagens
   const handleClearChat = () => {
@@ -148,90 +202,6 @@ const AIChat = ({ onClose }) => {
         variant: 'ai' 
       }
     ]);
-  };
-
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() === '') return;
-
-    console.log('Dados do usuário:', userData);
-    console.log('Mensagem a ser enviada:', inputMessage);
-
-    const requestId = generateUniqueId(); // ID único para rastrear a conversa
-
-    const userMessage = { 
-      id: `user_${messages.length}`, // Prefixo único para mensagens do usuário
-      text: inputMessage, 
-      variant: 'user' 
-    };
-
-    const aiLoadingMessage = { 
-      id: `loading_${messages.length}`, // Prefixo único para mensagem de carregamento
-      text: 'Processando...',
-      variant: 'ai',
-      isLoading: true
-    };
-
-    setMessages(prev => [...prev, userMessage, aiLoadingMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-
-    try {
-      console.log('Iniciando requisição para o n8n');
-      
-      const response = await axios.post('https://n8n.webhook.agilefinance.com.br/webhook/ia/chat', 
-        {
-          mensage: inputMessage,
-          user_id: userData.id,
-          username: userData.username,
-          requestId: requestId
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'ffcaa89a3e19bd98e911475c7974309b'
-          },
-          // Adicionar timeout para evitar espera infinita
-          timeout: 10000
-        }
-      );
-
-      console.log('Resposta completa do n8n:', response);
-      console.log('Dados da resposta:', response.data);
-
-      // Remover a mensagem de carregamento
-      setMessages(prev => prev.filter(msg => !msg.isLoading));
-
-      // Adicionar resposta da IA
-      const aiResponse = { 
-        id: `ai_${messages.length + 1}`, // Prefixo único para mensagens da IA
-        text: response.data?.output || response.data?.response || 'Desculpe, não consegui processar sua solicitação.',
-        variant: 'ai' 
-      };
-
-      setMessages(prev => [...prev, aiResponse]);
-      setIsLoading(false);
-
-    } catch (error) {
-      console.error('Erro COMPLETO na comunicação com o assistente de IA:', error);
-      console.error('Detalhes do erro:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
-      });
-      
-      // Remover a mensagem de carregamento
-      setMessages(prev => prev.filter(msg => !msg.isLoading));
-
-      const errorMessage = { 
-        id: `error_${messages.length + 1}`, // Prefixo único para mensagens de erro
-        text: error.response?.data?.message || 'Ops! Houve um problema ao processar sua solicitação.',
-        variant: 'ai' 
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
-      setIsLoading(false);
-    }
   };
 
   const handleLogout = () => {
@@ -291,7 +261,7 @@ const AIChat = ({ onClose }) => {
           placeholder="Digite sua pergunta..."
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+          onKeyPress={handleKeyPress}
           disabled={isLoading}
           sx={{ mr: 1 }}
         />
@@ -300,7 +270,7 @@ const AIChat = ({ onClose }) => {
           onClick={handleSendMessage}
           disabled={isLoading}
         >
-          <SendIcon />
+          {isLoading ? <CircularProgress size={24} /> : <SendIcon />}
         </IconButton>
       </ChatInputContainer>
     </ChatContainer>

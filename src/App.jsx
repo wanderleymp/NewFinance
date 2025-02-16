@@ -48,7 +48,7 @@ import ContractFormPage from './modules/contracts/pages/ContractFormPage';
 
 // Componentes
 import AIChat from './components/AIChat';
-import { AIAssistant } from './components/AIAssistant';
+import AIAssistant from './components/AIAssistant';
 import { AppVersion } from './components/AppVersion';
 import ConnectionErrorPage from './components/ConnectionErrorPage';
 
@@ -73,6 +73,11 @@ const PrivateRoute = () => {
     ? <Outlet /> 
     : <Navigate to="/login" replace />;
 };
+
+const ROUTES_WITHOUT_AI_ASSISTANT = [
+  '/chat',
+  '/chats'
+];
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -192,7 +197,7 @@ function App() {
               pauseOnHover
             />
             <AppVersion />
-            {authService.isAuthenticated() && <AIAssistant />}
+            {authService.isAuthenticated() && !ROUTES_WITHOUT_AI_ASSISTANT.some(route => window.location.pathname.includes(route)) && <AIAssistant />}
           </BrowserRouter>
         </SnackbarProvider>
       </ThemeProvider>

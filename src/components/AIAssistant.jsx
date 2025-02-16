@@ -1,61 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Fab 
+  Fab, 
+  Tooltip,
+  Box
 } from '@mui/material';
 import { 
-  RocketLaunch as AIIcon 
+  Chat as ChatIcon 
 } from '@mui/icons-material';
 import AIChat from './AIChat';
 
-export const AIAssistant = () => {
+const AIAssistant = ({ 
+  disableFloatingChat = false,  // Nova prop para desabilitar
+  currentRoute 
+}) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+    if (!disableFloatingChat) {
+      setIsChatOpen(!isChatOpen);
+    }
   };
 
+  // Efeito para fechar chat em rotas específicas
+  useEffect(() => {
+    if (disableFloatingChat) {
+      setIsChatOpen(false);
+    }
+  }, [disableFloatingChat]);
+
+  // Renderização condicional baseada na prop
+  if (disableFloatingChat) {
+    return null;
+  }
+
   return (
-    <>
-      <Fab 
-        color="primary" 
-        onClick={toggleChat}
-        sx={{ 
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: 1300,
-          background: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)',
-          boxShadow: '0 10px 25px rgba(37, 117, 252, 0.3)',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'scale(1.1)',
-            boxShadow: '0 15px 35px rgba(37, 117, 252, 0.4)',
-          },
-          '@keyframes pulse': {
-            '0%': {
-              transform: 'scale(0.95)',
-              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0.7)',
-            },
-            '70%': {
-              transform: 'scale(1)',
-              boxShadow: '0 0 0 20px rgba(37, 117, 252, 0)',
-            },
-            '100%': {
-              transform: 'scale(0.95)',
-              boxShadow: '0 0 0 0 rgba(37, 117, 252, 0)',
-            },
-          },
-          '&:not(:hover)': {
-            animation: 'pulse 2s infinite',
-          },
-        }}
-      >
-        <AIIcon />
-      </Fab>
+    <Box 
+      sx={{ 
+        position: 'fixed', 
+        bottom: 20, 
+        right: 20, 
+        zIndex: 1000 
+      }}
+    >
+      <Tooltip title="Assistente de IA">
+        <Fab 
+          color="primary" 
+          onClick={toggleChat}
+          sx={{ 
+            boxShadow: 3,
+            '&:hover': {
+              backgroundColor: 'primary.dark'
+            }
+          }}
+        >
+          <ChatIcon />
+        </Fab>
+      </Tooltip>
 
       {isChatOpen && (
-        <AIChat onClose={() => setIsChatOpen(false)} />
+        <AIChat 
+          isOpen={isChatOpen} 
+          onClose={() => setIsChatOpen(false)} 
+        />
       )}
-    </>
+    </Box>
   );
 };
+
+export default AIAssistant;

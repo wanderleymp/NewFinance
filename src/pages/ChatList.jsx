@@ -30,6 +30,8 @@ import ChatMessage from '../components/chat/ChatMessage';
 import ChatInput from '../components/chat/ChatInput';
 import { contactsService } from '../services/contactsService';
 import { chatHistoryService } from '../services/chatHistoryService';
+import chatMessagesService from '../services/chatMessagesService';
+import AIAssistant from '../components/AIAssistant';
 
 // Componente estilizado para os itens do chat
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -139,6 +141,29 @@ const ChatList = () => {
     } catch (error) {
       console.error('Erro ao buscar histórico de chat:', error);
       // Opcional: mostrar mensagem de erro ao usuário
+    }
+  };
+
+  // Adicionar método para enviar mensagem
+  const handleSendMessage = async (message) => {
+    if (!selectedChat) return;
+
+    try {
+      const messageData = {
+        channelId: selectedChat.channelId || 1, // Canal padrão se não definido
+        chatId: selectedChat.id || null,
+        contactId: selectedChat.id,
+        content: message,
+        contentType: 'TEXT'
+      };
+
+      const sentMessage = await chatMessagesService.sendMessage(messageData);
+      
+      // Atualizar lista de mensagens
+      setMessages(prevMessages => [...prevMessages, sentMessage]);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      // Opcional: mostrar mensagem de erro para o usuário
     }
   };
 
@@ -352,170 +377,32 @@ const ChatList = () => {
         {/* Área de mensagens */}
         <Box
           sx={{
-            flexGrow: 1,
+            flex: 1,
             display: 'flex',
             flexDirection: 'column',
+            position: 'relative',
             bgcolor: 'background.paper',
             borderRadius: 2,
             overflow: 'hidden',
-            boxShadow: 1,
           }}
         >
-          {selectedChat ? (
-            <>
-              {/* Header do chat */}
-              <Box
-                sx={{
-                  p: 2,
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ position: 'relative' }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>{selectedChat.avatar}</Avatar>
-                    {selectedChat.online && (
-                      <CircleIcon
-                        sx={{
-                          position: 'absolute',
-                          right: -2,
-                          bottom: -2,
-                          color: 'success.main',
-                          fontSize: 12,
-                        }}
-                      />
-                    )}
-                  </Box>
-                  <Box sx={{ ml: 2 }}>
-                    <Typography variant="subtitle1">{selectedChat.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {selectedChat.online ? 'Online' : 'Última vez hoje às 18:30'}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <IconButton>
-                    <SearchIcon />
-                  </IconButton>
-                  <IconButton>
-                    <MoreVertIcon />
-                  </IconButton>
-                </Box>
-              </Box>
+          {/* Conteúdo existente da área de mensagens */}
 
-              {/* Área de mensagens */}
-              <Box
-                ref={chatContainerRef}
-                sx={{
-                  flexGrow: 1,
-                  p: 2,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  bgcolor: 'action.hover',
-                }}
-              >
-                {messages.map((message, index) => (
-                  <ChatMessage
-                    key={index}
-                    message={message}
-                    isOwn={message.senderId === 'currentUser'}
-                    onReply={() => {}}
-                    onForward={() => {}}
-                    onDelete={() => setMessages(prev => prev.filter((_, i) => i !== index))}
-                    onStar={() => {}}
-                  />
-                ))}
-                {isTyping && (
-                  <Box sx={{ p: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Digitando...
-                    </Typography>
-                  </Box>
-                )}
-                <div ref={messagesEndRef} />
-              </Box>
-
-              {/* Input de mensagem */}
-              <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
-                <ChatInput
-                  onSendMessage={(text) => {
-                    const newMessage = {
-                      type: 'text',
-                      content: text,
-                      timestamp: new Date().toISOString(),
-                      senderId: 'currentUser',
-                    };
-                    setMessages(prev => [...prev, newMessage]);
-                  }}
-                  onSendFile={async (file) => {
-                    // Simular upload do arquivo
-                    const fileUrl = URL.createObjectURL(file);
-                    const newMessage = {
-                      type: 'file',
-                      content: fileUrl,
-                      fileName: file.name,
-                      fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-                      fileType: file.type.split('/')[0],
-                      timestamp: new Date().toISOString(),
-                      senderId: 'currentUser',
-                    };
-                    setMessages(prev => [...prev, newMessage]);
-                  }}
-                  onSendImage={async (file) => {
-                    // Simular upload da imagem
-                    const imageUrl = URL.createObjectURL(file);
-                    const newMessage = {
-                      type: 'image',
-                      content: imageUrl,
-                      fileName: file.name,
-                      timestamp: new Date().toISOString(),
-                      senderId: 'currentUser',
-                    };
-                    setMessages(prev => [...prev, newMessage]);
-                  }}
-                  onSendAudio={async (blob) => {
-                    // Simular upload do áudio
-                    const audioUrl = URL.createObjectURL(blob);
-                    const newMessage = {
-                      type: 'audio',
-                      content: audioUrl,
-                      duration: '0:30',
-                      timestamp: new Date().toISOString(),
-                      senderId: 'currentUser',
-                    };
-                    setMessages(prev => [...prev, newMessage]);
-                  }}
-                />
-              </Box>
-            </>
-          ) : (
-            <Box
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                bgcolor: 'background.paper',
-                gap: 2,
+          {/* Área de input de mensagem */}
+          {selectedChat && (
+            <Box 
+              sx={{ 
+                position: 'absolute', 
+                bottom: 0, 
+                width: '100%', 
+                p: 2 
               }}
             >
-              <img
-                src="/chat-placeholder.svg"
-                alt="Selecione um chat"
-                style={{ width: '200px', opacity: 0.5 }}
+              <ChatInput 
+                selectedContact={selectedChat}
+                channelId={selectedChat.channelId || 1}
+                onSendMessage={handleSendMessage}
               />
-              <Typography variant="h6" color="text.secondary">
-                Selecione uma conversa para começar
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Envie e receba mensagens, arquivos, fotos e muito mais
-              </Typography>
             </Box>
           )}
         </Box>
@@ -555,6 +442,9 @@ const ChatList = () => {
           </DialogActions>
         </Dialog>
       )}
+      
+      {/* Desabilitar AIAssistant nesta tela */}
+      <AIAssistant disableFloatingChat={true} />
     </ChatLayout>
   );
 };

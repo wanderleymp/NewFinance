@@ -28,7 +28,16 @@ import {
   ContactPhone as ContactIcon,
 } from '@mui/icons-material';
 
-const ChatInput = ({ onSendMessage, onSendFile, onSendImage, onSendAudio }) => {
+import chatMessagesService from '../../services/chatMessagesService';
+
+const ChatInput = ({ 
+  selectedContact, 
+  channelId, 
+  onSendMessage, 
+  onSendFile, 
+  onSendImage, 
+  onSendAudio 
+}) => {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -46,16 +55,41 @@ const ChatInput = ({ onSendMessage, onSendFile, onSendImage, onSendAudio }) => {
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      onSendMessage(message);
+  const handleSendMessage = async () => {
+    if (!message.trim() || !selectedContact || !channelId) return;
+
+    try {
+      setLoading(true);
+
+      const messageData = {
+        channelId: channelId,
+        chatId: selectedContact.chatId || null, // Pode ser null se não existir chat
+        contactId: selectedContact.id,
+        content: message,
+        contentType: 'TEXT'
+      };
+
+      const sentMessage = await chatMessagesService.sendMessage(messageData);
+
+      // Limpar input e atualizar estado
       setMessage('');
+      
+      // Callback opcional para atualizar lista de mensagens
+      if (onSendMessage) {
+        onSendMessage(sentMessage);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      // Opcional: mostrar mensagem de erro para o usuário
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyPress = (event) => {
+    // Enviar com Enter, mas permitir nova linha com Shift+Enter
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault(); // Previne nova linha
       handleSendMessage();
     }
   };
@@ -227,7 +261,7 @@ const ChatInput = ({ onSendMessage, onSendFile, onSendImage, onSendAudio }) => {
             placeholder={isRecording ? `Gravando... ${formatTime(recordingTime)}` : "Digite sua mensagem..."}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             disabled={isRecording}
             sx={{ pl: 1, pr: 1 }}
           />
