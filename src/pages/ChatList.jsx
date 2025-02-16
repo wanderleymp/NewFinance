@@ -18,6 +18,7 @@ import {
 import ChatLayout from '../layouts/ChatLayout';
 import ChatMessage from '../components/chat/ChatMessage';
 import ChatInput from '../components/chat/ChatInput';
+import { contactsService } from '../services/contactsService';
 
 // Componente estilizado para os itens do chat
 const StyledPaper = styled(Paper)(({ theme }) => ({
@@ -42,35 +43,48 @@ const ChatItem = ({ children, ...props }) => (
 const ChatList = () => {
   const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
+  const [contacts, setContacts] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const chatContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // Buscar contatos
+  const searchContacts = async (query) => {
+    try {
+      const results = await contactsService.searchContacts(query);
+      setContacts(results);
+    } catch (error) {
+      console.error('Erro ao buscar contatos:', error);
+      setContacts([]);
+    }
+  };
 
-  // Dados mockados para exemplo
-  const chats = [
-    {
-      id: 1,
-      name: 'João Silva',
-      avatar: 'JS',
-      lastMessage: 'Olá, tudo bem?',
-      timestamp: '10:30',
-      unread: 2,
-      online: true,
-    },
-    {
-      id: 2,
-      name: 'Maria Oliveira',
-      avatar: 'MO',
-      lastMessage: 'Vou enviar os arquivos hoje',
-      timestamp: '09:15',
-      unread: 0,
-      online: false,
-    },
-    // Adicione mais chats conforme necessário
-  ];
+  // Atualizar busca quando o termo mudar
+  useEffect(() => {
+    if (searchTerm.length > 2) {
+      searchContacts(searchTerm);
+    } else {
+      setContacts([]);
+    }
+  }, [searchTerm]);
+
+  // Log para verificar contatos
+  useEffect(() => {
+    console.log(' Contatos recebidos:', contacts);
+  }, [contacts]);
+
+  // Dados mockados para exemplo (substituir por contatos buscados)
+  const chats = contacts.map(contact => ({
+    id: contact.id || null,
+    name: contact.name || 'Contato Desconhecido',
+    avatar: contact.name ? contact.name.charAt(0).toUpperCase() : '?',
+    lastMessage: contact.email || contact.phone || 'Sem informações',
+    timestamp: '',
+    unread: 0,
+    online: false,
+  })).filter(chat => chat.id !== null);
 
   // Rolar para a última mensagem quando uma nova for adicionada
   useEffect(() => {
@@ -120,107 +134,70 @@ const ChatList = () => {
             </IconButton>
           </Box>
 
-          {/* Barra de pesquisa */}
-          <Box sx={{ p: 2 }}>
-            <Paper
-              sx={{
-                p: '2px 4px',
-                display: 'flex',
-                alignItems: 'center',
-                bgcolor: 'action.hover',
-              }}
-            >
-              <IconButton sx={{ p: '10px' }}>
-                <SearchIcon />
-              </IconButton>
-              <InputBase
-                sx={{ ml: 1, flex: 1 }}
-                placeholder="Pesquisar conversas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </Paper>
-          </Box>
+          {/* Barra de busca de contatos */}
+          <Paper
+            component="form"
+            sx={{
+              p: '2px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              width: '100%',
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="search">
+              <SearchIcon />
+            </IconButton>
+            <InputBase
+              sx={{ ml: 1, flex: 1 }}
+              placeholder="Buscar contatos"
+              inputProps={{ 'aria-label': 'buscar contatos' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Paper>
 
-          {/* Lista de chats */}
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-            {chats
-              .filter(chat => 
-                chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
-              )
-              .map((chat) => (
-                <ChatItem
-                  key={chat.id}
-                  elevation={selectedChat?.id === chat.id ? 3 : 1}
-                  onClick={() => setSelectedChat(chat)}
-                  sx={{
-                    bgcolor: selectedChat?.id === chat.id ? 'primary.light' : 'background.paper',
-                    color: selectedChat?.id === chat.id ? 'primary.contrastText' : 'text.primary',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      transform: 'translateX(8px)',
-                      bgcolor: selectedChat?.id === chat.id ? 'primary.light' : 'action.hover',
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box sx={{ position: 'relative' }}>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>{chat.avatar}</Avatar>
-                      {chat.online && (
-                        <CircleIcon
-                          sx={{
-                            position: 'absolute',
-                            right: -2,
-                            bottom: -2,
-                            color: 'success.main',
-                            fontSize: 12,
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <Box sx={{ ml: 2, flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="subtitle2">{chat.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {chat.timestamp}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            maxWidth: '180px',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {chat.lastMessage}
-                        </Typography>
-                        {chat.unread > 0 && (
-                          <Box
-                            sx={{
-                              bgcolor: 'primary.main',
-                              color: 'primary.contrastText',
-                              borderRadius: '50%',
-                              width: 20,
-                              height: 20,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.75rem',
-                            }}
-                          >
-                            {chat.unread}
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
+          {/* Lista de chats/contatos */}
+          <Box sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', p: 2 }}>
+            {chats.map((chat) => (
+              <ChatItem 
+                key={chat.id} 
+                elevation={selectedChat?.id === chat.id ? 3 : 1}
+                onClick={() => setSelectedChat(chat)}
+                sx={{
+                  bgcolor: selectedChat?.id === chat.id ? 'primary.light' : 'background.paper',
+                  color: selectedChat?.id === chat.id ? 'primary.contrastText' : 'text.primary',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: 'translateX(8px)',
+                    bgcolor: selectedChat?.id === chat.id ? 'primary.light' : 'action.hover',
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>{chat.avatar}</Avatar>
+                    {chat.online && (
+                      <CircleIcon
+                        sx={{
+                          position: 'absolute',
+                          right: -2,
+                          bottom: -2,
+                          color: 'success.main',
+                          fontSize: 12,
+                        }}
+                      />
+                    )}
                   </Box>
-                </ChatItem>
-              ))}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="subtitle2">{chat.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {chat.lastMessage}
+                    </Typography>
+                  </Box>
+                </Box>
+              </ChatItem>
+            ))}
           </Box>
         </Box>
 
