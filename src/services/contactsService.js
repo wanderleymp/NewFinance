@@ -27,9 +27,21 @@ export class ContactsService extends BaseService {
         data: response.data
       });
       
-      // Verificações robustas para diferentes estruturas de resposta
-      const data = response.data || {};
-      const contactItems = data.data || data.items || [];
+      // Tratamento robusto para diferentes estruturas de retorno
+      const contactData = response.data || {};
+      const contactItems = contactData.data || contactData.items || contactData || [];
+      
+      // Log detalhado da estrutura de cada contato
+      contactItems.forEach((contact, index) => {
+        console.log(`🔬 Estrutura do Contato [${index}]:`, {
+          id: contact.id,
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          whatsapp: contact.whatsapp,
+          keys: Object.keys(contact)
+        });
+      });
       
       return contactItems;
     } catch (error) {

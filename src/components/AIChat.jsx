@@ -10,7 +10,9 @@ import {
 } from '@mui/material';
 import { 
   Send as SendIcon, 
-  RocketLaunch as AIIcon 
+  RocketLaunch as AIIcon,
+  Close as CloseIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { styled, useTheme } from '@mui/material/styles';
 import axios from 'axios';
@@ -58,8 +60,8 @@ const generateUniqueId = () => {
 
 const ChatContainer = styled(Paper)(({ theme }) => ({
   position: 'fixed',
-  bottom: 90,
-  right: 24,
+  bottom: 100,  // Posicionar logo acima do botão de IA (24 + altura do chat)
+  right: 24,    // Alinhado com o botão
   width: '380px',
   height: '500px',
   display: 'flex',
@@ -67,13 +69,15 @@ const ChatContainer = styled(Paper)(({ theme }) => ({
   borderRadius: '16px',
   boxShadow: '0 16px 40px rgba(0,0,0,0.12)',
   overflow: 'hidden',
+  zIndex: 1300,  // Garantir que fique acima de outros elementos
   backgroundColor: theme.palette.background.paper,
 }));
 
 const ChatHeader = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  padding: theme.spacing(2),
+  justifyContent: 'space-between',
+  padding: theme.spacing(1, 2),
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
 }));
@@ -134,6 +138,17 @@ const AIChat = ({ onClose }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Função para limpar o histórico de mensagens
+  const handleClearChat = () => {
+    setMessages([
+      { 
+        id: 0, 
+        text: 'Olá! Sou seu assistente financeiro de IA. Como posso ajudar você hoje?', 
+        variant: 'ai' 
+      }
+    ]);
+  };
 
   const handleSendMessage = async () => {
     if (inputMessage.trim() === '') return;
@@ -227,29 +242,32 @@ const AIChat = ({ onClose }) => {
   return (
     <ChatContainer elevation={6}>
       <ChatHeader>
-        <Avatar sx={{ mr: 2, bgcolor: 'white', color: 'primary.main' }}>
-          <AIIcon />
-        </Avatar>
-        <Box>
+        <Box display="flex" alignItems="center">
+          <Avatar sx={{ mr: 2, bgcolor: 'white', color: 'primary.main' }}>
+            <AIIcon />
+          </Avatar>
           <Typography variant="h6">Assistente Financeiro</Typography>
           <Typography variant="caption">
             {userData.username || 'Usuário'}
           </Typography>
         </Box>
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+        <Box>
           <IconButton 
-            color="error" 
-            onClick={handleLogout}
-            title="Sair"
+            onClick={handleClearChat} 
+            color="inherit" 
+            size="small" 
             sx={{ mr: 1 }}
+            title="Limpar chat"
           >
-            ⏻
+            <ClearIcon fontSize="small" />
           </IconButton>
           <IconButton 
             onClick={onClose} 
-            sx={{ color: 'white' }}
+            color="inherit" 
+            size="small"
+            title="Fechar chat"
           >
-            ✕
+            <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
       </ChatHeader>
