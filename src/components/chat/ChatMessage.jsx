@@ -75,12 +75,15 @@ const AudioProgressBar = styled(Box)(({ theme, progress = 0 }) => ({
   borderRadius: 2,
 }));
 
-const ChatMessage = ({ message, isOwn, onReply, onForward, onDelete, onStar }) => {
+const ChatMessage = ({ message, isOwn, isown, onReply, onForward, onDelete, onStar }) => {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [isStarred, setIsStarred] = useState(false);
   const audioRef = React.useRef(null);
+
+  // Prioriza isown se ambos forem passados
+  const messageIsOwn = isown !== undefined ? isown : isOwn;
 
   const handleMenuOpen = (event) => {
     setMenuAnchor(event.currentTarget);
@@ -195,7 +198,7 @@ const ChatMessage = ({ message, isOwn, onReply, onForward, onDelete, onStar }) =
   };
 
   return (
-    <MessagePaper isOwn={isOwn} elevation={1}>
+    <MessagePaper isOwn={messageIsOwn} elevation={1}>
       <MessageActions className="message-actions">
         <IconButton size="small" onClick={handleReply}>
           <ReplyIcon fontSize="small" />

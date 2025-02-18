@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
 import {
@@ -31,9 +32,9 @@ import ChatInput from '../components/chat/ChatInput';
 import { contactsService } from '../services/contactsService';
 import { chatHistoryService } from '../services/chatHistoryService';
 import chatMessagesService from '../services/chatMessagesService';
+import { authService } from '../services/authService';
 import AIAssistant from '../components/AIAssistant';
 
-// Componente estilizado para os itens do chat
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
   marginBottom: theme.spacing(2),
@@ -69,13 +70,60 @@ const ChatList = () => {
   const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [contacts, setContacts] = useState([]);
+  const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const chatContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // Buscar chats do usuário
+  const fetchChats = async () => {
+    try {
+      setIsLoading(true);
+      const chatResponse = await chatMessagesService.getChatList();
+      console.log('Resposta da busca de chats:', {
+        response: chatResponse,
+        data: chatResponse.data,
+        type: typeof chatResponse,
+        keys: Object.keys(chatResponse || {})
+      });
+      setChats(chatResponse.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar chats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Buscar mensagens de um chat específico
+  const fetchChatMessages = async (chatId) => {
+    try {
+      setIsLoading(true);
+      const messagesResponse = await chatMessagesService.getChatMessages(chatId);
+      setMessages(messagesResponse.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar mensagens do chat:', error);
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Efeito para buscar chats iniciais
+  useEffect(() => {
+    fetchChats();
+  }, []);
+
+  // Efeito para buscar mensagens quando um chat é selecionado
+  useEffect(() => {
+    if (selectedChat?.id) {
+      fetchChatMessages(selectedChat.id);
+    }
+  }, [selectedChat]);
 
   // Buscar contatos
   const searchContacts = async (query) => {
@@ -97,63 +145,16 @@ const ChatList = () => {
     }
   }, [searchTerm]);
 
-  // Log para verificar contatos
-  useEffect(() => {
-    console.log(' Contatos recebidos:', contacts);
-  }, [contacts]);
-
-  // Função para selecionar ícone baseado no tipo de contato
-  const getContactIcon = (type) => {
-    switch(type) {
-      case 'phone': return <PhoneIcon fontSize="small" />;
-      case 'email': return <EmailIcon fontSize="small" />;
-      case 'whatsapp': return <WhatsAppIcon fontSize="small" />;
-      default: return <LinkIcon fontSize="small" />;
-    }
-  };
-
-  // Dados mockados para exemplo (substituir por contatos buscados)
-  const chats = contacts.map(contact => ({
-    id: contact.id || null,
-    name: contact.name || 'Contato Desconhecido',
-    avatar: contact.name ? contact.name.charAt(0).toUpperCase() : '?',
-    lastMessage: contact.whatsapp || contact.email || contact.phone || 'Sem contato',
-    timestamp: '',
-    unread: 0,
-    online: false,
-    contactValue: contact.value || 'Sem valor',
-    contactType: contact.type || 'Não identificado'
-  })).filter(chat => chat.id !== null);
-
-  // Rolar para a última mensagem quando uma nova for adicionada
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
-  // Função para buscar histórico de chat
-  const handleShowChatHistory = async (contact) => {
-    try {
-      const history = await chatHistoryService.getChatHistory(contact.id);
-      setChatHistory(history);
-      setSelectedContact(contact);
-    } catch (error) {
-      console.error('Erro ao buscar histórico de chat:', error);
-      // Opcional: mostrar mensagem de erro ao usuário
-    }
-  };
-
-  // Adicionar método para enviar mensagem
-  const handleSendMessage = async (message) => {
+  // Método para enviar mensagem
+  const handleSendMessage = async (messageContent) => {
     if (!selectedChat) return;
 
     try {
       const messageData = {
-        channelId: selectedChat.channelId || 1, // Canal padrão se não definido
-        chatId: selectedChat.id || null,
-        contactId: selectedChat.id,
-        content: message,
+        channelId: selectedChat.channelId || 1,
+        chatId: selectedChat.id,
+        contactId: selectedChat.contactId,
+        content: messageContent,
         contentType: 'TEXT'
       };
 
@@ -163,8 +164,110 @@ const ChatList = () => {
       setMessages(prevMessages => [...prevMessages, sentMessage]);
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
-      // Opcional: mostrar mensagem de erro para o usuário
     }
+  };
+
+  // Renderização condicional de chats
+  const renderChats = () => {
+    if (isLoading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return chats.map((chat) => {
+      // Tratamento para nomes de chat
+      const chatName = chat.name || `Chat #${chat.id}`;
+      const lastMessageText = chat.lastMessage || 'Nenhuma mensagem enviada';
+
+      return (
+        <ChatItem 
+          key={chat.id} 
+          elevation={selectedChat?.id === chat.id ? 3 : 1}
+          selected={selectedChat?.id === chat.id}
+          onClick={() => setSelectedChat(chat)}
+        >
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            width: '100%',
+            gap: 2
+          }}>
+            <Avatar sx={{ 
+              bgcolor: selectedChat?.id === chat.id 
+                ? 'primary.main' 
+                : 'grey.500' 
+            }}>
+              {chatName.charAt(0).toUpperCase()}
+            </Avatar>
+            
+            <Box sx={{ flex: 1 }}>
+              <Typography 
+                variant="subtitle1" 
+                color={selectedChat?.id === chat.id ? 'primary.main' : 'text.primary'}
+              >
+                {chatName}
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color={selectedChat?.id === chat.id ? 'primary.main' : 'text.secondary'}
+                sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis' 
+                }}
+              >
+                {lastMessageText}
+              </Typography>
+            </Box>
+            
+            {chat.unreadCount > 0 && (
+              <Box 
+                sx={{ 
+                  bgcolor: 'error.main', 
+                  color: 'white', 
+                  borderRadius: '50%', 
+                  width: 24, 
+                  height: 24, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}
+              >
+                <Typography variant="caption">
+                  {chat.unreadCount}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </ChatItem>
+      );
+    });
+  };
+
+  // Renderização de mensagens
+  const renderMessages = () => {
+    if (isLoading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return messages.map((message, index) => {
+      const currentUserId = authService.getCurrentUser()?.id;
+      return (
+        <ChatMessage
+          key={message.id || index}
+          message={message}
+          isown={message.senderId === currentUserId}
+          onReply={() => handleReplyToMessage(message)}
+        />
+      );
+    });
   };
 
   return (
@@ -179,7 +282,7 @@ const ChatList = () => {
           gap: 2,
         }}
       >
-        {/* Sidebar com lista de chats */}
+        {/* Sidebar de chats */}
         <Box
           sx={{
             width: 320,
@@ -191,24 +294,7 @@ const ChatList = () => {
             boxShadow: 1,
           }}
         >
-          {/* Header */}
-          <Box
-            sx={{
-              p: 2,
-              borderBottom: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="h6">Conversas</Typography>
-            <IconButton>
-              <MoreVertIcon />
-            </IconButton>
-          </Box>
-
-          {/* Barra de busca de contatos */}
+          {/* Barra de busca */}
           <Paper
             component="form"
             sx={{
@@ -231,7 +317,7 @@ const ChatList = () => {
             />
           </Paper>
 
-          {/* Lista de contatos */}
+          {/* Lista de chats */}
           <Box sx={{ 
             overflowY: 'auto', 
             maxHeight: 'calc(100vh - 200px)', 
@@ -240,137 +326,7 @@ const ChatList = () => {
             flexDirection: 'column',
             gap: 1 
           }}>
-            {chats.map((chat) => (
-              <ChatItem 
-                key={chat.id} 
-                elevation={selectedChat?.id === chat.id ? 3 : 1}
-                selected={selectedChat?.id === chat.id}
-                onClick={() => setSelectedChat(chat)}
-              >
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  width: '100%',
-                  gap: 2
-                }}>
-                  <Avatar 
-                    sx={{ 
-                      bgcolor: chat.online ? 'success.main' : 'grey.500' 
-                    }}
-                  >
-                    {chat.avatar}
-                  </Avatar>
-                  
-                  <Box sx={{ 
-                    flex: 1, 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    overflow: 'hidden'
-                  }}>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      mb: 0.5
-                    }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        sx={{ 
-                          fontWeight: 'bold',
-                          color: 'text.primary',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {chat.name}
-                      </Typography>
-                      
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: 'text.secondary',
-                          ml: 1
-                        }}
-                      >
-                        {chat.contactType}
-                      </Typography>
-                    </Box>
-                    
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: 'text.primary',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontWeight: 'medium'
-                      }}
-                    >
-                      {chat.contactValue}
-                    </Typography>
-                    
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        mt: 0.5,
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis'
-                      }}
-                    >
-                      {chat.lastMessage}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    <Typography 
-                      variant="caption" 
-                      color="text.secondary"
-                    >
-                      {chat.timestamp}
-                    </Typography>
-                    
-                    {chat.unread > 0 && (
-                      <Avatar 
-                        sx={{ 
-                          width: 20, 
-                          height: 20, 
-                          bgcolor: 'primary.main', 
-                          color: 'white', 
-                          fontSize: '0.75rem' 
-                        }}
-                      >
-                        {chat.unread}
-                      </Avatar>
-                    )}
-                    
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShowChatHistory(chat);
-                      }}
-                      title="Mostrar histórico de chat"
-                      sx={{ 
-                        color: 'text.secondary',
-                        '&:hover': {
-                          color: 'primary.main',
-                          backgroundColor: 'transparent'
-                        }
-                      }}
-                    >
-                      <HistoryIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </Box>
-              </ChatItem>
-            ))}
+            {renderChats()}
           </Box>
         </Box>
 
@@ -386,63 +342,73 @@ const ChatList = () => {
             overflow: 'hidden',
           }}
         >
-          {/* Conteúdo existente da área de mensagens */}
+          {selectedChat ? (
+            <>
+              {/* Header do chat */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Avatar>{selectedChat.name ? selectedChat.name.charAt(0) : '?'}</Avatar>
+                  <Box sx={{ ml: 2 }}>
+                    <Typography variant="subtitle1">{selectedChat.name || 'Chat sem nome'}</Typography>
+                  </Box>
+                </Box>
+              </Box>
 
-          {/* Área de input de mensagem */}
-          {selectedChat && (
-            <Box 
-              sx={{ 
-                position: 'absolute', 
-                bottom: 0, 
-                width: '100%', 
-                p: 2 
+              {/* Área de mensagens */}
+              <Box
+                ref={chatContainerRef}
+                sx={{
+                  flexGrow: 1,
+                  p: 2,
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  bgcolor: 'action.hover',
+                }}
+              >
+                {renderMessages()}
+                <div ref={messagesEndRef} />
+              </Box>
+
+              {/* Input de mensagem */}
+              <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
+                <ChatInput 
+                  selectedContact={selectedChat}
+                  channelId={selectedChat.channelId || 1}
+                  onSendMessage={handleSendMessage}
+                />
+              </Box>
+            </>
+          ) : (
+            <Box
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                bgcolor: 'background.paper',
+                gap: 2,
               }}
             >
-              <ChatInput 
-                selectedContact={selectedChat}
-                channelId={selectedChat.channelId || 1}
-                onSendMessage={handleSendMessage}
-              />
+              <Typography variant="h6" color="text.secondary">
+                Selecione uma conversa para começar
+              </Typography>
             </Box>
           )}
         </Box>
       </Box>
 
-      {/* Modal ou drawer para mostrar histórico de chat */}
-      {selectedContact && (
-        <Dialog 
-          open={!!selectedContact} 
-          onClose={() => setSelectedContact(null)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            Histórico de Chat com {selectedContact.name}
-          </DialogTitle>
-          <DialogContent>
-            {chatHistory.length > 0 ? (
-              chatHistory.map((message) => (
-                <Typography key={message.id}>
-                  {message.text}
-                </Typography>
-              ))
-            ) : (
-              <Typography>
-                Nenhum histórico de chat encontrado.
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button 
-              onClick={() => setSelectedContact(null)}
-              color="primary"
-            >
-              Fechar
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
-      
       {/* Desabilitar AIAssistant nesta tela */}
       <AIAssistant disableFloatingChat={true} />
     </ChatLayout>
