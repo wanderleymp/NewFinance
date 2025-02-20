@@ -21,42 +21,53 @@ class ChatMessagesService extends BaseService {
 
     try {
       const response = await this.api.get(`/chats/${chatId}/messages`, { params: queryParams });
-      const transformedMessages = response.data.items.map(message => ({
-        id: message.id,
-        content: message.content,
-        contentType: message.contentType,
-        senderId: message.contactId,
-        senderName: message.contactName,
-        createdAt: message.createdAt,
-        status: message.status
-      }));
+      
+      // Verificar se a resposta tem o formato esperado
+      if (!response.data || !response.data.items) {
+        throw new Error('Formato de resposta inválido');
+      }
+
+      // Transformar a resposta para o formato esperado pelo frontend
+      const transformedMessages = response.data.items.map(messageItem => {
+        // Extrair informações de diferentes níveis
+        const message = messageItem.message || messageItem;
+        const contact = messageItem.contact || {};
+
+        return {
+          id: message.id || messageItem.id,
+          content: message.content || messageItem.content,
+          contentType: message.contentType || messageItem.contentType,
+          senderId: contact.id || message.contactId,
+          senderName: contact.name || contact.contact_name || 'Contato Desconhecido',
+          createdAt: message.createdAt || messageItem.createdAt,
+          status: message.status || messageItem.status,
+          direction: message.direction || messageItem.direction,
+          formattedTime: message.formattedTime || null
+        };
+      });
 
       return {
         data: transformedMessages,
-        meta: response.data.meta
+        meta: response.data.meta || {
+          totalItems: transformedMessages.length,
+          itemCount: transformedMessages.length,
+          itemsPerPage: queryParams.limit,
+          totalPages: 1,
+          currentPage: queryParams.page
+        }
       };
     } catch (error) {
       console.error('Erro ao buscar mensagens do chat:', error);
       
-      // Fallback para dados mockados se a requisição falhar
+      // Fallback para dados mockados com tratamento de erro
       return {
-        data: [
-          {
-            id: 1,
-            content: 'Mensagem de exemplo',
-            contentType: 'text',
-            senderId: 6,
-            senderName: 'Wanderley Pinheiro',
-            createdAt: new Date().toISOString(),
-            status: 'SENT'
-          }
-        ],
+        data: [],
         meta: {
-          totalItems: 1,
-          itemCount: 1,
-          itemsPerPage: 50,
-          totalPages: 1,
-          currentPage: 1
+          totalItems: 0,
+          itemCount: 0,
+          itemsPerPage: queryParams.limit,
+          totalPages: 0,
+          currentPage: queryParams.page
         }
       };
     }
@@ -79,31 +90,33 @@ class ChatMessagesService extends BaseService {
       const response = await this.api.get('/chats', { params: queryParams });
       
       // Transformar a resposta para o formato esperado pelo frontend
-      const transformedChats = response.data.items.map(chat => {
-        // Tratamento avançado para participants
-        const participant = chat.participants && chat.participants.length > 0 
-          ? chat.participants[0] 
-          : { 
-              contact_id: chat.id, 
-              contact_name: `Chat #${chat.id}`, 
-              role: 'UNKNOWN',
-              status: 'INACTIVE'
-            };
+      const transformedChats = response.data.items.map(chatItem => {
+        // Extrair informações de diferentes níveis
+        const chat = chatItem.chat;
+        const channel = chatItem.channel;
+        const lastMessage = chatItem.lastMessage;
+        const participants = chatItem.participants || [];
+
+        // Encontrar o primeiro participante com nome
+        const participant = participants.length > 0 
+          ? participants.find(p => p.contact_name) || participants[0]
+          : null;
 
         return {
           id: chat.id,
-          name: participant.contact_name || `Chat #${chat.id}`,
-          lastMessage: chat.lastMessageContent || 'Sem mensagens',
-          channelId: chat.channelId,
-          contactId: participant.contact_id,
+          name: participant?.contact_name || channel.name || `Chat #${chat.id}`,
+          channelId: channel.id,
+          channelName: channel.name,
+          lastMessage: lastMessage?.content || 'Sem mensagens',
+          lastMessageTime: lastMessage?.formattedTime || null,
+          contactId: participant?.contact_id || null,
           unreadCount: parseInt(chat.unreadCount || '0'),
           status: chat.status,
           createdAt: chat.createdAt,
           updatedAt: chat.updatedAt || chat.createdAt,
           allowReply: chat.allowReply,
-          totalCount: parseInt(chat.totalCount || '0'),
-          participantRole: participant.role,
-          participantStatus: participant.status
+          messageDirection: lastMessage?.direction || null,
+          messageStatus: chatItem.messageStatus
         };
       });
 

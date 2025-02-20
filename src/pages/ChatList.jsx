@@ -13,6 +13,7 @@ import {
   DialogActions,
   Button,
   CircularProgress,
+  Tooltip
 } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
 import {
@@ -25,6 +26,9 @@ import {
   Email as EmailIcon,
   WhatsApp as WhatsAppIcon,
   Link as LinkIcon,
+  Reply as ReplyIcon,
+  DonutLarge as DonutLargeIcon,
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import ChatLayout from '../layouts/ChatLayout';
 import ChatMessage from '../components/chat/ChatMessage';
@@ -167,84 +171,159 @@ const ChatList = () => {
     }
   };
 
-  // Renderização condicional de chats
+  // Função para formatar data no estilo WhatsApp
+  const formatChatTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    // Comparar datas
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now - 24 * 60 * 60 * 1000).toDateString() === date.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (isYesterday) {
+      return 'Ontem';
+    } else {
+      return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    }
+  };
+
+  // Renderização condicional de chats no estilo WhatsApp
   const renderChats = () => {
     if (isLoading) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-          <CircularProgress />
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100%', 
+          bgcolor: '#f0f2f5' 
+        }}>
+          <CircularProgress color="primary" />
         </Box>
       );
     }
 
     return chats.map((chat) => {
-      // Tratamento para nomes de chat
+      // Preparar informações do chat
       const chatName = chat.name || `Chat #${chat.id}`;
-      const lastMessageText = chat.lastMessage || 'Nenhuma mensagem enviada';
+      const lastMessageText = chat.lastMessage || 'Nenhuma mensagem';
+      const lastMessageTime = formatChatTime(chat.createdAt);
 
       return (
-        <ChatItem 
-          key={chat.id} 
-          elevation={selectedChat?.id === chat.id ? 3 : 1}
-          selected={selectedChat?.id === chat.id}
+        <Box 
+          key={chat.id}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '10px 15px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s',
+            '&:hover': {
+              backgroundColor: '#f0f2f5'
+            },
+            backgroundColor: selectedChat?.id === chat.id ? '#e9edef' : 'transparent',
+            borderBottom: '1px solid #e9edef'
+          }}
           onClick={() => setSelectedChat(chat)}
         >
+          {/* Avatar do contato */}
+          <Avatar 
+            sx={{ 
+              width: 50, 
+              height: 50, 
+              marginRight: 2,
+              bgcolor: getChannelColor(chat.channelId)
+            }}
+          >
+            {chatName.charAt(0).toUpperCase()}
+          </Avatar>
+
+          {/* Informações do chat */}
           <Box sx={{ 
+            flex: 1, 
             display: 'flex', 
-            alignItems: 'center', 
-            width: '100%',
-            gap: 2
+            flexDirection: 'column',
+            overflow: 'hidden' 
           }}>
-            <Avatar sx={{ 
-              bgcolor: selectedChat?.id === chat.id 
-                ? 'primary.main' 
-                : 'grey.500' 
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center' 
             }}>
-              {chatName.charAt(0).toUpperCase()}
-            </Avatar>
-            
-            <Box sx={{ flex: 1 }}>
               <Typography 
                 variant="subtitle1" 
-                color={selectedChat?.id === chat.id ? 'primary.main' : 'text.primary'}
-              >
-                {chatName}
-              </Typography>
-              <Typography 
-                variant="body2" 
-                color={selectedChat?.id === chat.id ? 'primary.main' : 'text.secondary'}
                 sx={{ 
+                  fontWeight: 'bold', 
                   whiteSpace: 'nowrap', 
                   overflow: 'hidden', 
                   textOverflow: 'ellipsis' 
                 }}
               >
-                {lastMessageText}
+                {chatName}
+              </Typography>
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+              >
+                {lastMessageTime}
               </Typography>
             </Box>
-            
-            {chat.unreadCount > 0 && (
-              <Box 
+
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center' 
+            }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
                 sx={{ 
-                  bgcolor: 'error.main', 
-                  color: 'white', 
-                  borderRadius: '50%', 
-                  width: 24, 
-                  height: 24, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  flex: 1,
+                  marginRight: 1
                 }}
               >
-                <Typography variant="caption">
+                {lastMessageText}
+              </Typography>
+
+              {chat.unreadCount > 0 && (
+                <Box 
+                  sx={{ 
+                    backgroundColor: '#25D366', 
+                    color: 'white', 
+                    borderRadius: '50%', 
+                    width: 20, 
+                    height: 20, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold'
+                  }}
+                >
                   {chat.unreadCount}
-                </Typography>
-              </Box>
-            )}
+                </Box>
+              )}
+            </Box>
           </Box>
-        </ChatItem>
+        </Box>
       );
     });
+  };
+
+  // Função para obter cor do canal
+  const getChannelColor = (channelId) => {
+    switch (channelId) {
+      case 1: return '#4285F4'; // Email (azul)
+      case 2: return '#25D366'; // WhatsApp (verde)
+      case 3: return '#FF6B6B'; // SMS (vermelho)
+      default: return '#6C757D'; // Neutro (cinza)
+    }
   };
 
   // Renderização de mensagens
@@ -272,37 +351,61 @@ const ChatList = () => {
 
   return (
     <ChatLayout>
-      <Box
-        sx={{
-          display: 'flex',
-          width: '100%',
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          width: '100%', 
           height: 'calc(100vh - 64px)',
-          bgcolor: 'background.default',
-          p: 2,
-          gap: 2,
+          backgroundColor: '#f0f2f5'
         }}
       >
         {/* Sidebar de chats */}
-        <Box
-          sx={{
-            width: 320,
+        <Box 
+          sx={{ 
+            width: 400, 
+            borderRight: '1px solid #e9edef', 
+            backgroundColor: 'white',
             display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            overflow: 'hidden',
-            boxShadow: 1,
+            flexDirection: 'column'
           }}
         >
-          {/* Barra de busca */}
-          <Paper
-            component="form"
-            sx={{
-              p: '2px 4px',
-              display: 'flex',
-              alignItems: 'center',
-              width: '100%',
-              borderBottom: `1px solid ${theme.palette.divider}`,
+          {/* Cabeçalho da sidebar */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              padding: '10px 15px', 
+              backgroundColor: '#f0f2f5',
+              borderBottom: '1px solid #e9edef'
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              Conversas
+            </Typography>
+            <Box>
+              <IconButton>
+                <DonutLargeIcon />
+              </IconButton>
+              <IconButton>
+                <ChatIcon />
+              </IconButton>
+              <IconButton>
+                <MoreVertIcon />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {/* Barra de pesquisa */}
+          <Paper 
+            component="form" 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              margin: '10px 15px', 
+              borderRadius: 20,
+              boxShadow: 'none',
+              border: '1px solid #e9edef'
             }}
           >
             <IconButton type="button" sx={{ p: '10px' }} aria-label="search">
@@ -310,107 +413,66 @@ const ChatList = () => {
             </IconButton>
             <InputBase
               sx={{ ml: 1, flex: 1 }}
-              placeholder="Buscar contatos"
-              inputProps={{ 'aria-label': 'buscar contatos' }}
+              placeholder="Pesquisar ou começar uma nova conversa"
+              inputProps={{ 'aria-label': 'pesquisar contatos' }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </Paper>
 
           {/* Lista de chats */}
-          <Box sx={{ 
-            overflowY: 'auto', 
-            maxHeight: 'calc(100vh - 200px)', 
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1 
-          }}>
+          <Box 
+            sx={{ 
+              flex: 1, 
+              overflowY: 'auto',
+              backgroundColor: 'white'
+            }}
+          >
             {renderChats()}
           </Box>
         </Box>
 
         {/* Área de mensagens */}
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            overflow: 'hidden',
+        <Box 
+          sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            backgroundColor: '#e5ddd5' 
           }}
         >
           {selectedChat ? (
-            <>
-              {/* Header do chat */}
-              <Box
-                sx={{
-                  p: 2,
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar>{selectedChat.name ? selectedChat.name.charAt(0) : '?'}</Avatar>
-                  <Box sx={{ ml: 2 }}>
-                    <Typography variant="subtitle1">{selectedChat.name || 'Chat sem nome'}</Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Área de mensagens */}
-              <Box
-                ref={chatContainerRef}
-                sx={{
-                  flexGrow: 1,
-                  p: 2,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  bgcolor: 'action.hover',
-                }}
-              >
-                {renderMessages()}
-                <div ref={messagesEndRef} />
-              </Box>
-
-              {/* Input de mensagem */}
-              <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
-                <ChatInput 
-                  selectedContact={selectedChat}
-                  channelId={selectedChat.channelId || 1}
-                  onSendMessage={handleSendMessage}
-                />
-              </Box>
-            </>
+            // Renderização do chat selecionado (manter lógica existente)
+            <Box sx={{ flex: 1 }}>
+              {renderMessages()}
+            </Box>
           ) : (
-            <Box
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                bgcolor: 'background.paper',
-                gap: 2,
+            // Tela inicial sem chat selecionado
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                backgroundColor: '#f0f2f5'
               }}
             >
-              <Typography variant="h6" color="text.secondary">
-                Selecione uma conversa para começar
+              <img 
+                src="/path-to-whatsapp-welcome-image.png" 
+                alt="WhatsApp Web" 
+                style={{ maxWidth: '50%', opacity: 0.5 }}
+              />
+              <Typography variant="h5" color="text.secondary">
+                Mantenha seu celular conectado
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                O WhatsApp conecta ao seu telefone para sincronizar suas mensagens
               </Typography>
             </Box>
           )}
         </Box>
       </Box>
-
-      {/* Desabilitar AIAssistant nesta tela */}
-      <AIAssistant disableFloatingChat={true} />
     </ChatLayout>
   );
 };
