@@ -3,7 +3,7 @@ import { authService } from './authService';
 
 class ChatMessagesService extends BaseService {
   constructor() {
-    super('/chat-messages');
+    super('');
   }
 
   /**
@@ -28,7 +28,9 @@ class ChatMessagesService extends BaseService {
       }
 
       // Transformar a resposta para o formato esperado pelo frontend
-      const transformedMessages = response.data.items.map(messageItem => {
+      // Se a resposta vier dentro de messages, use isso, caso contrário use a resposta direta
+      const messages = response.data.messages || response.data.items || [];
+      const transformedMessages = messages.map(messageItem => {
         // Extrair informações de diferentes níveis
         const message = messageItem.message || messageItem;
         const contact = messageItem.contact || {};

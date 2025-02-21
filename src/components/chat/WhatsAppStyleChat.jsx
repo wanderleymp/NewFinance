@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import chatMessagesService from '../../services/chatMessagesService';
 import {
   Box,
   Typography,
@@ -293,6 +294,8 @@ const WhatsAppStyleChat = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeFilter, setActiveFilter] = useState('todas');
   const [chats, setChats] = useState([
     {
@@ -344,6 +347,30 @@ const WhatsAppStyleChat = () => {
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
+  };
+
+  const handleChatSelect = async (chat) => {
+    try {
+      setLoadingMessages(true);
+      const response = await api.get(`/chats/${chat.id}`);
+      
+      // Atualiza o chat selecionado com dados completos
+      setSelectedChat({
+        ...chat,
+        ...response.data.chat,
+        contact: response.data.contact,
+        channel: response.data.channel
+      });
+      
+      // Define as mensagens do chat
+      setChatMessages(response.data.messages || []);
+    } catch (error) {
+      console.error('Erro ao buscar detalhes do chat:', error);
+      setSelectedChat(chat);
+      setChatMessages([]);
+    } finally {
+      setLoadingMessages(false);
+    }
   };
 
   const handleSendMessage = () => {
@@ -464,7 +491,7 @@ const WhatsAppStyleChat = () => {
             <React.Fragment key={chat.id}>
               <ChatListItem
                 selected={selectedChat?.id === chat.id}
-                onClick={() => setSelectedChat(chat)}
+                onClick={() => handleChatSelect(chat)}
               >
                 <ListItemAvatar>
                   <Avatar src={chat.avatar}>
@@ -534,7 +561,36 @@ const WhatsAppStyleChat = () => {
             </Header>
 
             <Box sx={{ flex: 1, overflow: 'auto', padding: 2 }}>
-              {/* Área de mensagens */}
+              {loadingMessages ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', padding: 2 }}>
+                  <Typography>Carregando mensagens...</Typography>
+                </Box>
+              ) : (
+                chatMessages.map((msg) => (
+                  <Box
+                    key={msg.id}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: msg.direction === 'OUTBOUND' ? 'flex-end' : 'flex-start',
+                      mb: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        backgroundColor: msg.direction === 'OUTBOUND' ? '#d9fdd3' : '#fff',
+                        borderRadius: 2,
+                        padding: '8px 12px',
+                        maxWidth: '70%',
+                      }}
+                    >
+                      <Typography variant="body2">{msg.content}</Typography>
+                      <Typography variant="caption" sx={{ color: '#667781', display: 'block', textAlign: 'right' }}>
+                        {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))
+              )}
             </Box>
 
             <MessageInputContainer>
