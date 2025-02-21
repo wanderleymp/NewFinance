@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../services/api';
 import {
   Box,
   Typography,
@@ -36,6 +38,8 @@ import {
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,
   Add as AddIcon,
+  ExitToApp as ExitIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 
 // Componentes estilizados
@@ -124,6 +128,29 @@ const ChatListItem = styled(ListItem)(({ theme, selected }) => ({
   ...(selected && {
     backgroundColor: '#f0f2f5',
   }),
+  '& .MuiListItemText-primary': {
+    fontWeight: 500,
+    fontSize: '1rem',
+    color: '#111b21',
+  },
+  '& .MuiListItemText-secondary': {
+    color: '#667781',
+    fontSize: '0.875rem',
+  },
+}));
+
+const UnreadBadge = styled(Box)(({ theme }) => ({
+  backgroundColor: '#25d366',
+  color: '#fff',
+  borderRadius: '50%',
+  padding: '4px 8px',
+  fontSize: '0.75rem',
+  minWidth: '20px',
+  height: '20px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: '4px',
 }));
 
 const ChatMainArea = styled(Box)(({ theme }) => ({
@@ -152,8 +179,117 @@ const NotificationBanner = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
 }));
 
+// Dados mockados enquanto a API não está pronta
+const mockChats = {
+  items: [
+    {
+      id: 211,
+      name: "Wanderley Antigo",
+      lastMessage: {
+        content: "joia",
+        type: "TEXT",
+        fileUrl: null,
+        status: "UNREAD",
+        timestamp: "2025-02-20T22:27:35.266Z"
+      },
+      unreadCount: "0",
+      avatar: "",
+      isGroup: false,
+      isMuted: false,
+      isPinned: false,
+      channelType: "zap6595"
+    },
+    {
+      id: 210,
+      name: "Grupo 210",
+      lastMessage: {
+        content: "",
+        type: "TEXT",
+        fileUrl: null,
+        status: "UNREAD",
+        timestamp: "2025-02-20T22:19:43.163Z"
+      },
+      unreadCount: "0",
+      avatar: "",
+      isGroup: false,
+      isMuted: false,
+      isPinned: false,
+      channelType: "zap6595"
+    }
+  ],
+  meta: {
+    totalItems: 2,
+    itemCount: 2,
+    itemsPerPage: 20,
+    totalPages: 1,
+    currentPage: 1
+  }
+};
+
+const fetchChats = async () => {
+  try {
+    const { data } = await api.get('/chats');
+    
+    if (!data || !data.items) {
+      console.error('Formato de resposta inválido:', data);
+      return [];
+    }
+    
+    return data.items.map(chat => ({
+      id: chat.id,
+      name: chat.name,
+      lastMessage: chat.lastMessage.content,
+      time: new Date(chat.lastMessage.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      unread: parseInt(chat.unreadCount),
+      avatar: chat.avatar,
+      isGroup: chat.isGroup,
+      isMuted: chat.isMuted,
+      isPinned: chat.isPinned,
+      channelType: chat.channelType,
+      status: chat.lastMessage.status.toLowerCase()
+    }));
+  } catch (error) {
+    console.error('Erro ao buscar chats:', error);
+    return [];
+  }
+};
+
 const WhatsAppStyleChat = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
+
+  // Buscar chats ao montar o componente
+  useEffect(() => {
+    const loadChats = async () => {
+      const chatsData = await fetchChats();
+      setChats(chatsData);
+    };
+    loadChats();
+  }, []);
+
+  const handleCloseChat = async () => {
+    try {
+      if (!selectedChat?.id) return;
+
+      // TODO: Quando tivermos a API, substituir por chamada real
+      // await chatService.updateStatus(selectedChat.id, 'closed');
+      
+      // Atualiza o estado local do chat
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.id === selectedChat.id 
+            ? { ...chat, status: 'closed' }
+            : chat
+        )
+      );
+
+      // Fecha o chat atual
+      setSelectedChat(null);
+    } catch (error) {
+      console.error('Erro ao fechar o chat:', error);
+      // TODO: Adicionar notificação de erro quando tivermos o componente
+    }
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
@@ -166,6 +302,7 @@ const WhatsAppStyleChat = () => {
       time: '18:27',
       unread: 0,
       avatar: null,
+      status: 'open',
     },
     {
       id: 2,
@@ -233,6 +370,11 @@ const WhatsAppStyleChat = () => {
         <SidebarIcon>
           <SettingsIcon />
         </SidebarIcon>
+        <Box sx={{ marginTop: 'auto' }}>
+          <SidebarIcon onClick={() => navigate(-1)}>
+            <ExitIcon />
+          </SidebarIcon>
+        </Box>
       </LeftSidebar>
 
       <SidebarContainer>
@@ -280,25 +422,37 @@ const WhatsAppStyleChat = () => {
 
         <FilterContainer>
           <FilterButton
-            active={activeFilter === 'todas'}
+            sx={{
+              backgroundColor: activeFilter === 'todas' ? 'primary.main' : 'transparent',
+              color: activeFilter === 'todas' ? 'white' : 'inherit'
+            }}
             onClick={() => handleFilterChange('todas')}
           >
             Tudo
           </FilterButton>
           <FilterButton
-            active={activeFilter === 'nao-lidas'}
+            sx={{
+              backgroundColor: activeFilter === 'nao-lidas' ? 'primary.main' : 'transparent',
+              color: activeFilter === 'nao-lidas' ? 'white' : 'inherit'
+            }}
             onClick={() => handleFilterChange('nao-lidas')}
           >
             Não lidas
           </FilterButton>
           <FilterButton
-            active={activeFilter === 'favoritas'}
+            sx={{
+              backgroundColor: activeFilter === 'favoritas' ? 'primary.main' : 'transparent',
+              color: activeFilter === 'favoritas' ? 'white' : 'inherit'
+            }}
             onClick={() => handleFilterChange('favoritas')}
           >
             Favoritas
           </FilterButton>
           <FilterButton
-            active={activeFilter === 'grupos'}
+            sx={{
+              backgroundColor: activeFilter === 'grupos' ? 'primary.main' : 'transparent',
+              color: activeFilter === 'grupos' ? 'white' : 'inherit'
+            }}
             onClick={() => handleFilterChange('grupos')}
           >
             Grupos
@@ -325,16 +479,20 @@ const WhatsAppStyleChat = () => {
                     style: { maxWidth: '70%' }
                   }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <Typography variant="caption" color="textSecondary">
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '65px' }}>
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: chat.unread > 0 ? '#25d366' : '#667781',
+                      fontSize: '0.75rem'
+                    }}
+                  >
                     {chat.time}
                   </Typography>
                   {chat.unread > 0 && (
-                    <Badge
-                      badgeContent={chat.unread}
-                      color="primary"
-                      sx={{ marginTop: 0.5 }}
-                    />
+                    <UnreadBadge>
+                      {chat.unread}
+                    </UnreadBadge>
                   )}
                 </Box>
               </ChatListItem>
@@ -354,12 +512,23 @@ const WhatsAppStyleChat = () => {
                 </Avatar>
                 <Typography variant="subtitle1">{selectedChat.name}</Typography>
               </Box>
-              <Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <IconButton>
                   <SearchIcon />
                 </IconButton>
                 <IconButton>
                   <MoreVertIcon />
+                </IconButton>
+                <IconButton 
+                  onClick={handleCloseChat} 
+                  title="Fechar chat"
+                  sx={{ 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 0, 0, 0.04)' 
+                    } 
+                  }}
+                >
+                  <CloseIcon color="error" />
                 </IconButton>
               </Box>
             </Header>
