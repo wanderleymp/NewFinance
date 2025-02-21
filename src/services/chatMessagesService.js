@@ -20,7 +20,20 @@ class ChatMessagesService extends BaseService {
     };
 
     try {
-      const response = await this.api.get(`/chats/${chatId}/messages`, { params: queryParams });
+      // Log dos headers antes da requisição
+      const token = localStorage.getItem('accessToken');
+      console.log('Headers da requisição:', {
+        Authorization: token ? `Bearer ${token}` : 'Não presente',
+        'Content-Type': 'application/json'
+      });
+
+      const response = await this.api.get(`/chat/${chatId}/messages`, { 
+        params: queryParams,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       // Verificar se a resposta tem o formato esperado
       if (!response.data || !response.data.items) {

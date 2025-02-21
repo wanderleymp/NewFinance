@@ -358,20 +358,58 @@ const WhatsAppStyleChat = () => {
   const handleChatSelect = async (chat) => {
     try {
       setLoadingMessages(true);
-      const response = await api.get(`/chats/${chat.id}`);
+      console.log('Iniciando busca de mensagens para o chat:', chat);
+      
+      // Verificar token de autenticação
+      const token = localStorage.getItem('accessToken');
+      console.log('Token de autenticação presente:', !!token);
+      
+      if (!token) {
+        console.warn('Token de autenticação não encontrado. Redirecionando para login...');
+        navigate('/login');
+        return;
+      }
+      
+      const response = await chatMessagesService.getChatMessages(chat.id, {
+        page: 1,
+        limit: 50
+      });
+      
+      console.log('Resposta do serviço:', {
+        status: response?.status,
+        data: response?.data,
+        meta: response?.meta
+      });
+      
+      if (!response || (!response.data && !response.items)) {
+        console.warn('Resposta vazia do serviço de mensagens');
+        setSelectedChat(chat);
+        setChatMessages([]);
+        return;
+      }
+      
+      const messages = response.data || response.items || [];
+      console.log(`Encontradas ${messages.length} mensagens`);
       
       // Atualiza o chat selecionado com dados completos
       setSelectedChat({
         ...chat,
-        ...response.data.chat,
-        contact: response.data.contact,
-        channel: response.data.channel
+        messages: messages
       });
       
       // Define as mensagens do chat
-      setChatMessages(response.data.messages || []);
+      setChatMessages(messages);
     } catch (error) {
-      console.error('Erro ao buscar detalhes do chat:', error);
+      console.error('Erro detalhado ao buscar mensagens:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
       setSelectedChat(chat);
       setChatMessages([]);
     } finally {
