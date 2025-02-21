@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { 
+  PictureAsPdf as PdfIcon,
+  Image as ImageIcon,
+  Description as DocIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material';
 import chatMessagesService from '../../services/chatMessagesService';
 import {
   Box,
@@ -566,30 +572,106 @@ const WhatsAppStyleChat = () => {
                   <Typography>Carregando mensagens...</Typography>
                 </Box>
               ) : (
-                chatMessages.map((msg) => (
-                  <Box
-                    key={msg.id}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: msg.direction === 'OUTBOUND' ? 'flex-end' : 'flex-start',
-                      mb: 1,
-                    }}
-                  >
+                chatMessages.map((msg) => {
+                  const isOutbound = msg.direction === 'OUTBOUND';
+                  const isFile = msg.contentType === 'FILE';
+                  const isImage = isFile && msg.fileUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                  const isPdf = isFile && msg.fileUrl?.endsWith('.pdf');
+                  
+                  return (
                     <Box
+                      key={msg.id}
                       sx={{
-                        backgroundColor: msg.direction === 'OUTBOUND' ? '#d9fdd3' : '#fff',
-                        borderRadius: 2,
-                        padding: '8px 12px',
-                        maxWidth: '70%',
+                        display: 'flex',
+                        justifyContent: isOutbound ? 'flex-end' : 'flex-start',
+                        mb: 1,
                       }}
                     >
-                      <Typography variant="body2">{msg.content}</Typography>
-                      <Typography variant="caption" sx={{ color: '#667781', display: 'block', textAlign: 'right' }}>
-                        {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
+                      <Box
+                        sx={{
+                          backgroundColor: isOutbound ? '#d9fdd3' : '#fff',
+                          borderRadius: 2,
+                          padding: '8px 12px',
+                          maxWidth: isImage ? '300px' : '70%',
+                          minWidth: isFile ? '250px' : 'auto',
+                        }}
+                      >
+                        {isFile ? (
+                          <>
+                            {isImage ? (
+                              // Imagem
+                              <Box
+                                component="img"
+                                src={msg.fileUrl}
+                                alt="Imagem anexada"
+                                sx={{
+                                  width: '100%',
+                                  height: 'auto',
+                                  borderRadius: 1,
+                                  mb: 1,
+                                }}
+                              />
+                            ) : (
+                              // Arquivo (PDF ou outros)
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  mb: 1,
+                                  backgroundColor: '#f0f2f5',
+                                  borderRadius: 1,
+                                  p: 1,
+                                }}
+                              >
+                                {isPdf ? <PdfIcon /> : <DocIcon />}
+                                <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                                  <Typography variant="body2" noWrap>
+                                    {msg.content.split('\n')[0]}
+                                  </Typography>
+                                  {isPdf && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      Documento PDF
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => window.open(msg.fileUrl, '_blank')}
+                                  title="Baixar arquivo"
+                                >
+                                  <DownloadIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            )}
+                          </>
+                        ) : (
+                          // Mensagem de texto normal
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}
+                          >
+                            {msg.content}
+                          </Typography>
+                        )}
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: '#667781', 
+                            display: 'block', 
+                            textAlign: 'right',
+                            mt: 0.5
+                          }}
+                        >
+                          {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                ))
+                  );
+                })
               )}
             </Box>
 
