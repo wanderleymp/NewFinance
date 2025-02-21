@@ -572,7 +572,7 @@ const WhatsAppStyleChat = () => {
                   <Typography>Carregando mensagens...</Typography>
                 </Box>
               ) : (
-                chatMessages.map((msg) => {
+                [...chatMessages].reverse().map((msg) => {
                   const isOutbound = msg.direction === 'OUTBOUND';
                   const isFile = msg.contentType === 'FILE';
                   const isImage = isFile && msg.fileUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
