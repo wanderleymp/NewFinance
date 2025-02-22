@@ -221,9 +221,10 @@ export const movementsService = {
   },
 
   create(data) {
-    // Obter o usuário atual de forma mais robusta
-    const currentUser = null; // Removido authService.getCurrentUser();
-    const userId = currentUser?.id;
+    // Obter o usuário atual do localStorage
+    const userString = localStorage.getItem('user');
+    const currentUser = userString ? JSON.parse(userString) : null;
+    const userId = currentUser?.user_id;
 
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
 

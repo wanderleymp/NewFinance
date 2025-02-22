@@ -292,8 +292,8 @@ const NewMovementExpress = () => {
       
       enqueueSnackbar('Movimento criado com sucesso!', { variant: 'success' });
       
-      // Navegar para a página de movimentos express
-      navigate('/movements/express');
+      // Navegar para a página de movimentos
+      navigate('/finance/movements');
       
       // Limpar formulário
       setFormData({
@@ -608,7 +608,7 @@ const NewMovementExpress = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
               <Button
                 variant="outlined"
-                onClick={() => navigate('/movements/express')}
+                onClick={() => navigate('/finance/movements')}
                 size="large"
               >
                 Cancelar
