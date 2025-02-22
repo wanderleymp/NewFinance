@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { 
-  PictureAsPdf as PdfIcon,
-  Image as ImageIcon,
-  Description as DocIcon,
-  Download as DownloadIcon,
-} from '@mui/icons-material';
+import DocumentPreview from './DocumentPreview';
 import chatMessagesService from '../../services/chatMessagesService';
 import {
   Box,
@@ -634,55 +629,22 @@ const WhatsAppStyleChat = () => {
                           minWidth: isFile ? '250px' : 'auto',
                         }}
                       >
-                        {isFile ? (
-                          <>
-                            {isImage ? (
-                              // Imagem
-                              <Box
-                                component="img"
-                                src={msg.fileUrl}
-                                alt="Imagem anexada"
-                                sx={{
-                                  width: '100%',
-                                  height: 'auto',
-                                  borderRadius: 1,
-                                  mb: 1,
-                                }}
-                              />
-                            ) : (
-                              // Arquivo (PDF ou outros)
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  mb: 1,
-                                  backgroundColor: '#f0f2f5',
-                                  borderRadius: 1,
-                                  p: 1,
-                                }}
-                              >
-                                {isPdf ? <PdfIcon /> : <DocIcon />}
-                                <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                                  <Typography variant="body2" noWrap>
-                                    {msg.content.split('\n')[0]}
-                                  </Typography>
-                                  {isPdf && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      Documento PDF
-                                    </Typography>
-                                  )}
-                                </Box>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => window.open(msg.fileUrl, '_blank')}
-                                  title="Baixar arquivo"
-                                >
-                                  <DownloadIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
-                            )}
-                          </>
+                        {msg.isDocument ? (
+                          <DocumentPreview 
+                            document={{
+                              filename: msg.document?.filename || 'Documento',
+                              url: msg.document?.url || msg.fileUrl,
+                              type: msg.document?.type || (isPdf ? 'pdf' : isImage ? 'image' : 'document')
+                            }} 
+                          />
+                        ) : isFile ? (
+                          <DocumentPreview 
+                            document={{
+                              filename: msg.content.split('\n')[0] || 'Arquivo',
+                              url: msg.fileUrl,
+                              type: isPdf ? 'pdf' : isImage ? 'image' : 'document'
+                            }} 
+                          />
                         ) : (
                           // Mensagem de texto normal
                           <Typography 

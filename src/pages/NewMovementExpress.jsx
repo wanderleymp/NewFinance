@@ -32,7 +32,7 @@ import { personsService, itemsService, movementsService, paymentMethodService } 
 import { useSnackbar } from 'notistack';
 import { authService } from '../services/authService';
 
-const newMovementExpress = () => {
+const NewMovementExpress = () => {
   console.log('🚨 COMPONENTE newMovementExpress CARREGADO');
   const navigate = useNavigate();
   const location = useLocation();
@@ -291,6 +291,9 @@ const newMovementExpress = () => {
       const response = await movementsService.create(payload);
       
       enqueueSnackbar('Movimento criado com sucesso!', { variant: 'success' });
+      
+      // Navegar para a página de movimentos express
+      navigate('/movements/express');
       
       // Limpar formulário
       setFormData({
@@ -605,7 +608,7 @@ const newMovementExpress = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
               <Button
                 variant="outlined"
-                onClick={() => navigate('/movements')}
+                onClick={() => navigate('/movements/express')}
                 size="large"
               >
                 Cancelar
@@ -651,4 +654,4 @@ const newMovementExpress = () => {
   );
 };
 
-export default newMovementExpress;
+export default NewMovementExpress;

@@ -48,6 +48,8 @@ class ChatMessagesService extends BaseService {
         const message = messageItem.message || messageItem;
         const contact = messageItem.contact || {};
 
+        const isDocument = message.type === 'document' || messageItem.type === 'document';
+        
         return {
           id: message.id || messageItem.id,
           content: message.content || messageItem.content,
@@ -57,7 +59,14 @@ class ChatMessagesService extends BaseService {
           createdAt: message.createdAt || messageItem.createdAt,
           status: message.status || messageItem.status,
           direction: message.direction || messageItem.direction,
-          formattedTime: message.formattedTime || null
+          formattedTime: message.formattedTime || null,
+          // Informações do documento
+          isDocument,
+          document: isDocument ? {
+            filename: message.documentName || messageItem.documentName || 'Documento',
+            url: message.documentUrl || messageItem.documentUrl,
+            type: message.documentType || messageItem.documentType || 'document'
+          } : null
         };
       });
 
