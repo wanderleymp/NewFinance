@@ -6,6 +6,7 @@ import PrivateRoute from '../components/PrivateRoute';
 
 // Lazy load components
 const HomePage = lazy(() => import('../pages/HomePage'));
+const NewNfseList = lazy(() => import('../modules/nfse/NewNfseList'));
 const Movements = lazy(() => import('../pages/Movements'));
 const NewMovementExpress = lazy(() => import('../pages/NewMovementExpress'));
 const NewMovementDetailed = lazy(() => import('../pages/NewMovementDetailed'));
@@ -35,6 +36,7 @@ const FinanceRoutes = () => {
             <Route path="users" element={<Users />} />
             <Route path="installments" element={<Installments />} />
             <Route path="system" element={<SystemStatus />} />
+            <Route path="nfse" element={<NewNfseList />} />
             <Route path="*" element={<Navigate to="/finance" replace />} />
           </Routes>
         </Suspense>

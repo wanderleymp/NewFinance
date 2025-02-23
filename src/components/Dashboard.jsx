@@ -133,7 +133,7 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
     {
       id: 'systems',
       title: 'Sistemas',
-      path: '/',
+      path: '/systems',
       icon: <HomeIcon />,
     },
     {
@@ -168,7 +168,7 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
         {
           id: 'nfse',
           title: 'NFSe',
-          path: '/finance/nfse',
+          path: '/finance/nfse', 
           icon: <ReceiptIcon />,
         },
       ],
@@ -369,14 +369,7 @@ const Dashboard = ({ children, darkMode, setDarkMode }) => {
 
     // Verificar status do sistema
     const checkSystemHealth = async () => {
-      try {
-        // Temporariamente comentado para evitar erros
-        // await healthService.check();
-        console.warn('Verificação de saúde do sistema temporariamente desabilitada');
-      } catch (error) {
-        console.error('Erro de saúde do sistema:', error);
-        enqueueSnackbar('Problemas com o sistema detectados', { variant: 'warning' });
-      }
+      console.warn('Verificação de saúde do sistema temporariamente desabilitada');
     };
 
     checkSystemHealth();

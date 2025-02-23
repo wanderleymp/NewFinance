@@ -63,6 +63,9 @@ import ChatList from './pages/ChatList';
 // Importação do componente FinanceDashboard
 import FinanceDashboard from './pages/FinanceDashboard';
 
+// Importação do componente NFSe
+import NewNfseList from './modules/nfse/NewNfseList';
+
 // Rotas Protegidas
 const PrivateRoute = () => {
   const isAuthenticated = authService.isAuthenticated();
@@ -145,7 +148,8 @@ function App() {
               {/* Sistema Financeiro - Com Dashboard */}
               <Route element={<PrivateRoute />}>
                 <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
-                  <Route path="/finance" element={<Navigate to="/finance/dashboard" replace />} />
+                  <Route index path="/finance" element={<Navigate to="/finance/dashboard" replace />} />
+                  <Route path="/finance/nfse" element={<NewNfseList />} />
                   <Route path="/finance/dashboard" element={<FinanceDashboard />} />
                   <Route path="/finance/movements" element={<Movements />} />
                   <Route path="/finance/movements/new-express" element={<NewMovementExpress />} />
