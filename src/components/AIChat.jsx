@@ -62,7 +62,7 @@ const generateUniqueId = () => {
 const ChatContainer = styled(Paper)(({ theme }) => ({
   position: 'fixed',
   bottom: 100,  // Posicionar logo acima do botão de IA (24 + altura do chat)
-  right: 24,    // Alinhado com o botão
+  left: 24,    // Alinhado com o botão do lado esquerdo
   width: '380px',
   height: '500px',
   display: 'flex',
@@ -70,7 +70,7 @@ const ChatContainer = styled(Paper)(({ theme }) => ({
   borderRadius: '16px',
   boxShadow: '0 16px 40px rgba(0,0,0,0.12)',
   overflow: 'hidden',
-  zIndex: 1300,  // Garantir que fique acima de outros elementos
+  zIndex: 800,  // Ficar abaixo dos elementos do WhatsApp
   backgroundColor: theme.palette.background.paper,
 }));
 

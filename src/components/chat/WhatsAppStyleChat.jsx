@@ -229,27 +229,60 @@ const mockChats = {
 };
 
 const fetchChats = async () => {
+  console.log('Chamando fetchChats para obter dados dos chats'); // Log antes da chamada
   try {
     const { data } = await api.get('/chats');
+    console.log('Resposta da API:', data); // Log para verificar a resposta da API
     
     if (!data || !data.items) {
       console.error('Formato de resposta inválido:', data);
       return [];
     }
     
-    return data.items.map(chat => ({
-      id: chat.id,
-      name: chat.name,
-      lastMessage: chat.lastMessage.content,
-      time: new Date(chat.lastMessage.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      unread: parseInt(chat.unreadCount),
-      avatar: chat.avatar,
-      isGroup: chat.isGroup,
-      isMuted: chat.isMuted,
-      isPinned: chat.isPinned,
-      channelType: chat.channelType,
-      status: chat.lastMessage.status.toLowerCase()
-    }));
+    // Log para debug da estrutura recebida
+    console.log('Estrutura completa recebida:', data.items[0]);
+
+    data.items.forEach(item => {
+      console.log('Estrutura completa do item:', item); // Log para verificar a estrutura completa de cada item
+    });
+
+    return data.items.map(item => {
+      console.log('Estrutura do item:', item); // Log para verificar a estrutura do objeto item
+      console.log('Estrutura do item com contact_id:', item.contact_id); // Log para verificar se contact_id está presente
+      // Extrair dados do item
+      const chatData = item.chat || item;
+      const channelData = item.channel || {};
+      const messageData = item.lastMessage || {};
+      
+      // IDs necessários
+      const channelId = item.channelId || channelData.id || chatData.channelId;
+      const contactId = item.contact_id || chatData.contact_id; // Usando contact_id conforme nomenclatura do backend
+      
+      // Log detalhado para debug
+      console.log('Processando chat:', {
+        item,
+        channelId,
+        contactId
+      });
+
+      return {
+        id: chatData.id,
+        name: chatData.name || `Chat #${chatData.id}`,
+        channelId,
+        contactId,
+        lastMessage: messageData.content || 'Sem mensagens',
+        time: messageData.timestamp
+          ? new Date(messageData.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : '',
+        unread: parseInt(chatData.unreadCount || '0'),
+        avatar: chatData.avatar,
+        isGroup: chatData.isGroup || false,
+        isMuted: chatData.isMuted || false,
+        isPinned: chatData.isPinned || false,
+        channelType: channelData.type || chatData.channelType,
+        status: (messageData.status || 'pending').toLowerCase()
+      };
+    });
   } catch (error) {
     console.error('Erro ao buscar chats:', error);
     return [];
@@ -298,6 +331,62 @@ const WhatsAppStyleChat = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeFilter, setActiveFilter] = useState('todas');
+  // Função para enviar mensagem
+  const handleSendMessage = async () => {
+    if (!message.trim()) {
+      console.log('Mensagem vazia');
+      return;
+    }
+    
+    if (!selectedChat) {
+      console.log('Nenhum chat selecionado');
+      return;
+    }
+
+    try {
+      const lastMessage = selectedChat.lastMessage;
+      console.log('Estrutura da última mensagem:', lastMessage); // Log para verificar a estrutura do objeto lastMessage
+      const contactId = lastMessage ? lastMessage.contact_id : null; // Extraindo contact_id da última mensagem
+
+      if (!contactId) {
+        console.error('contact_id não encontrado na última mensagem');
+        return;
+      }
+
+      const payload = {
+        content: message.trim(),
+        contentType: 'TEXT',
+        chatId: selectedChat.id,
+        contact_id: contactId // Usando contact_id da última mensagem
+      };
+
+      console.log('Enviando mensagem:', payload);
+
+      const response = await chatMessagesService.sendMessage(payload);
+      
+      // Atualiza a lista de mensagens
+      setChatMessages(prev => [...prev, response.data]);
+      
+      // Limpa o campo de mensagem
+      setMessage('');
+      
+      // Atualiza o último status do chat
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.id === selectedChat.id 
+            ? { 
+                ...chat, 
+                lastMessage: message,
+                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              }
+            : chat
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+    }
+  };
+
   const [chats, setChats] = useState([
     {
       id: 1,
@@ -351,48 +440,43 @@ const WhatsAppStyleChat = () => {
   };
 
   const handleChatSelect = async (chat) => {
+    if (!chat?.id) {
+      console.warn('Chat inválido selecionado:', chat);
+      return;
+    }
+
     try {
       setLoadingMessages(true);
-      console.log('Iniciando busca de mensagens para o chat:', chat);
       
-      // Verificar token de autenticação
+      // Verificar token
       const token = localStorage.getItem('accessToken');
-      console.log('Token de autenticação presente:', !!token);
-      
       if (!token) {
-        console.warn('Token de autenticação não encontrado. Redirecionando para login...');
+        console.warn('Token não encontrado');
         navigate('/login');
         return;
       }
       
+      // Buscar mensagens
       const response = await chatMessagesService.getChatMessages(chat.id, {
         page: 1,
         limit: 50
       });
       
-      console.log('Resposta do serviço:', {
-        status: response?.status,
-        data: response?.data,
-        meta: response?.meta
-      });
-      
-      if (!response || (!response.data && !response.items)) {
-        console.warn('Resposta vazia do serviço de mensagens');
-        setSelectedChat(chat);
-        setChatMessages([]);
+      // Validar resposta
+      if (!response?.data && !response?.items) {
+        console.warn('Resposta vazia do serviço');
         return;
       }
       
+      // Processar mensagens
       const messages = response.data || response.items || [];
-      console.log(`Encontradas ${messages.length} mensagens`);
-      
-      // Atualiza o chat selecionado com dados completos
-      setSelectedChat({
-        ...chat,
-        messages: messages
-      });
-      
-      // Define as mensagens do chat
+      console.log(`Carregadas ${messages.length} mensagens para o chat ${chat.id}`);
+
+      // Atualizar estado com o chat completo
+      setSelectedChat(chat);
+      setChatMessages(messages);
+
+      console.log('Chat selecionado:', chat);
       setChatMessages(messages);
     } catch (error) {
       console.error('Erro detalhado ao buscar mensagens:', {
@@ -409,12 +493,6 @@ const WhatsAppStyleChat = () => {
       setChatMessages([]);
     } finally {
       setLoadingMessages(false);
-    }
-  };
-
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      setMessage('');
     }
   };
 
@@ -689,6 +767,12 @@ const WhatsAppStyleChat = () => {
                 placeholder="Digite uma mensagem"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 sx={{
                   backgroundColor: '#ffffff',
                   borderRadius: 2,

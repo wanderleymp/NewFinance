@@ -38,8 +38,8 @@ const AIAssistant = ({
       sx={{ 
         position: 'fixed', 
         bottom: 20, 
-        right: 20, 
-        zIndex: 1000 
+        left: 20, 
+        zIndex: 900 
       }}
     >
       <Tooltip title="Assistente de IA">

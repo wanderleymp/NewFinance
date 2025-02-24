@@ -3,7 +3,7 @@ import { authService } from './authService';
 
 class ChatMessagesService extends BaseService {
   constructor() {
-    super('');
+    super('/chats'); // Definindo o endpoint base como /chats
   }
 
   /**
@@ -34,6 +34,8 @@ class ChatMessagesService extends BaseService {
           'Content-Type': 'application/json'
         }
       });
+      
+      console.log('Estrutura completa da resposta da API:', response.data); // Log para verificar a estrutura completa da resposta
       
       // Verificar se a resposta tem o formato esperado
       if (!response.data || !response.data.items) {
@@ -116,31 +118,40 @@ class ChatMessagesService extends BaseService {
       // Transformar a resposta para o formato esperado pelo frontend
       const transformedChats = response.data.items.map(chatItem => {
         // Extrair informações de diferentes níveis
-        const chat = chatItem.chat;
-        const channel = chatItem.channel;
-        const lastMessage = chatItem.lastMessage;
+        const chat = chatItem.chat || chatItem;
+        const channel = chatItem.channel || {};
+        const lastMessage = chatItem.lastMessage || chat.lastMessage || {};
         const participants = chatItem.participants || [];
-
+        
         // Encontrar o primeiro participante com nome
-        const participant = participants.length > 0 
+        const participant = participants.length > 0
           ? participants.find(p => p.contact_name) || participants[0]
           : null;
+        
+        // Garantir que temos os IDs corretos
+        const channelId = channel.id || chat.channelId || chat.channel_id;
+        const contactId = participant?.contact_id || chat.contactId || chat.contact_id;
+        
+        if (!channelId || !contactId) {
+          console.warn('Chat sem channelId ou contactId:', { chat, channel, participant });
+        }
 
         return {
           id: chat.id,
-          name: participant?.contact_name || channel.name || `Chat #${chat.id}`,
-          channelId: channel.id,
-          channelName: channel.name,
-          lastMessage: lastMessage?.content || 'Sem mensagens',
-          lastMessageTime: lastMessage?.formattedTime || null,
-          contactId: participant?.contact_id || null,
-          unreadCount: parseInt(chat.unreadCount || '0'),
-          status: chat.status,
-          createdAt: chat.createdAt,
-          updatedAt: chat.updatedAt || chat.createdAt,
-          allowReply: chat.allowReply,
-          messageDirection: lastMessage?.direction || null,
-          messageStatus: chatItem.messageStatus
+          name: participant?.contact_name || channel.name || chat.name || `Chat #${chat.id}`,
+          channelId,
+          contactId,
+          lastMessage: lastMessage.content || 'Sem mensagens',
+          time: lastMessage.timestamp
+            ? new Date(lastMessage.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : '',
+          unread: parseInt(chat.unreadCount || '0'),
+          avatar: chat.avatar,
+          isGroup: chat.isGroup || false,
+          isMuted: chat.isMuted || false,
+          isPinned: chat.isPinned || false,
+          channelType: channel.type || chat.channelType,
+          status: (lastMessage.status || 'pending').toLowerCase()
         };
       });
 
@@ -177,23 +188,22 @@ class ChatMessagesService extends BaseService {
    */
   async sendMessage(messageData) {
     try {
-      // Validar dados obrigatórios
-      if (!messageData.channelId || !messageData.contactId) {
-        throw new Error('channelId e contactId são obrigatórios');
-      }
-
-      // Preparar payload completo
-      const payload = {
-        channelId: messageData.channelId,
-        chatId: messageData.chatId || null, // Permite enviar com chatId null
-        contactId: messageData.contactId,
+      console.log('Enviando requisição para:', `/chats/${messageData.chatId}/messages`);
+      console.log('Payload enviado:', {
         content: messageData.content,
-        contentType: messageData.contentType || 'TEXT',
-        senderId: authService.getCurrentUser()?.id // Obtém ID do usuário logado
-      };
+        contentType: messageData.contentType,
+        channel_id: 6,
+        contact_id: messageData.contactId
+      });
 
-      // Enviar mensagem para o novo endpoint
-      const response = await this.api.post('/send', payload);
+      const chatId = messageData.chatId; // Obter chatId do chat selecionado
+      const contactId = messageData.lastMessage.contactId; // Obter contact_id da última mensagem
+      const response = await this.api.post(`/chats/${chatId}/messages`, {
+        content: messageData.content,
+        contentType: 'TEXT',
+        channel_id: 6, // Channel ID fixo
+        contact_id: contactId
+      });
       return response.data;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);

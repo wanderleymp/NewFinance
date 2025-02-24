@@ -79,7 +79,11 @@ const PrivateRoute = () => {
 
 const ROUTES_WITHOUT_AI_ASSISTANT = [
   '/chat',
-  '/chats'
+  '/chats',
+  '/chat/',
+  '/chats/',
+  '/chat/contacts',
+  '/chat/settings'
 ];
 
 function App() {
@@ -201,7 +205,15 @@ function App() {
               pauseOnHover
             />
             <AppVersion />
-            {authService.isAuthenticated() && !ROUTES_WITHOUT_AI_ASSISTANT.some(route => window.location.pathname.includes(route)) && <AIAssistant />}
+            {authService.isAuthenticated() && (
+              <AIAssistant 
+                disableFloatingChat={ROUTES_WITHOUT_AI_ASSISTANT.some(route => 
+                  window.location.pathname === route || 
+                  window.location.pathname.startsWith(route + '/')
+                )}
+                currentRoute={window.location.pathname}
+              />
+            )}
           </BrowserRouter>
         </SnackbarProvider>
       </ThemeProvider>
