@@ -42,36 +42,143 @@ class ChatMessagesService extends BaseService {
         throw new Error('Formato de resposta inválido');
       }
 
+      // Log detalhado da primeira mensagem para análise
+      if (response.data.items && response.data.items.length > 0) {
+        console.log('Exemplo de mensagem recebida:', JSON.stringify(response.data.items[0], null, 2));
+      }
+
       // Transformar a resposta para o formato esperado pelo frontend
       // Se a resposta vier dentro de messages, use isso, caso contrário use a resposta direta
       const messages = response.data.messages || response.data.items || [];
-      const transformedMessages = messages.map(messageItem => {
+      
+      console.log(`Processando ${messages.length} mensagens`);
+      
+      const transformedMessages = messages.map((messageItem, index) => {
+        // Log detalhado para cada mensagem (apenas as primeiras 3 para não sobrecarregar o console)
+        if (index < 3) {
+          console.log(`Mensagem ${index}:`, JSON.stringify(messageItem, null, 2));
+        }
+        
         // Extrair informações de diferentes níveis
         const message = messageItem.message || messageItem;
         const contact = messageItem.contact || {};
+        
+        // Verificar propriedades para debug
+        const hasContent = !!message.content || !!messageItem.content;
+        const hasFileUrl = !!message.fileUrl || !!messageItem.fileUrl || !!message.url || !!messageItem.url;
+        const hasType = !!message.type || !!messageItem.type || !!message.contentType || !!messageItem.contentType;
+        
+        // Log de propriedades importantes para debug
+        if (index < 3) {
+          console.log(`Mensagem ${index} - Propriedades:`, {
+            id: message.id || messageItem.id,
+            content: message.content || messageItem.content,
+            type: message.type || messageItem.type,
+            contentType: message.contentType || messageItem.contentType,
+            fileUrl: message.fileUrl || messageItem.fileUrl || message.url || messageItem.url,
+            hasContent,
+            hasFileUrl,
+            hasType
+          });
+        }
 
-        const isDocument = message.type === 'document' || messageItem.type === 'document';
+        // Verificar se é um documento baseado no tipo, contentType ou outras propriedades
+        const isDocument = 
+          message.type === 'document' || 
+          messageItem.type === 'document' || 
+          message.contentType === 'DOCUMENT' || 
+          messageItem.contentType === 'DOCUMENT' ||
+          message.type === 'DOCUMENT' || 
+          messageItem.type === 'DOCUMENT' ||
+          (message.content && message.content.includes('http') && (message.content.includes('.pdf') || message.content.includes('.doc')));
+        
+        // Verificar se é um arquivo baseado no tipo, contentType ou presença de URL
+        const isFile = 
+          message.type === 'file' || 
+          messageItem.type === 'file' || 
+          message.contentType === 'FILE' || 
+          messageItem.contentType === 'FILE' ||
+          message.type === 'FILE' || 
+          messageItem.type === 'FILE' ||
+          message.fileUrl || 
+          messageItem.fileUrl ||
+          message.url || 
+          messageItem.url ||
+          (message.content && (
+            message.content.includes('http') && 
+            (message.content.includes('.jpg') || 
+             message.content.includes('.png') || 
+             message.content.includes('.pdf') || 
+             message.content.includes('.doc'))
+          ));
+        
+        // Determinar URL do arquivo - verificar em várias propriedades possíveis
+        let fileUrl = message.fileUrl || messageItem.fileUrl || message.url || messageItem.url || '';
+        
+        // Se não encontrou URL nas propriedades específicas, procurar no conteúdo da mensagem
+        if (!fileUrl && message.content && message.content.includes('http')) {
+          // Extrair URL do conteúdo da mensagem usando regex
+          const urlMatch = message.content.match(/(https?:\/\/[^\s]+)/g);
+          if (urlMatch && urlMatch.length > 0) {
+            fileUrl = urlMatch[0];
+          }
+        }
+        
+        // Determinar o tipo de arquivo baseado na extensão
+        let fileType = 'document';
+        if (fileUrl) {
+          const extension = fileUrl.split('.').pop().toLowerCase();
+          if (['pdf'].includes(extension)) {
+            fileType = 'pdf';
+          } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+            fileType = 'image';
+          } else if (['doc', 'docx'].includes(extension)) {
+            fileType = 'document';
+          }
+        }
+        
+        // Log para debug de arquivos
+        if ((isDocument || isFile) && index < 5) {
+          console.log(`Mensagem ${index} - Arquivo detectado:`, {
+            isDocument,
+            isFile,
+            fileUrl,
+            fileType,
+            content: message.content || messageItem.content
+          });
+        }
+        
+        // Determinar nome do arquivo
+        let filename = message.documentName || messageItem.documentName || message.fileName || messageItem.fileName;
+        if (!filename && fileUrl) {
+          // Extrair nome do arquivo da URL
+          const urlParts = fileUrl.split('/');
+          filename = urlParts[urlParts.length - 1];
+        }
         
         return {
           id: message.id || messageItem.id,
           content: message.content || messageItem.content,
-          contentType: message.contentType || messageItem.contentType,
+          contentType: message.contentType || messageItem.contentType || (isDocument ? 'DOCUMENT' : isFile ? 'FILE' : 'TEXT'),
           senderId: contact.id || message.contactId,
           senderName: contact.name || contact.contact_name || 'Contato Desconhecido',
           createdAt: message.createdAt || messageItem.createdAt,
           status: message.status || messageItem.status,
           direction: message.direction || messageItem.direction,
           formattedTime: message.formattedTime || null,
-          // Informações do documento
+          // Informações de arquivo e documento
           isDocument,
-          document: isDocument ? {
-            filename: message.documentName || messageItem.documentName || 'Documento',
-            url: message.documentUrl || messageItem.documentUrl,
-            type: message.documentType || messageItem.documentType || 'document'
+          isFile: isFile || isDocument,
+          fileUrl,
+          fileType,
+          document: (isDocument || isFile) ? {
+            filename: filename || 'Documento',
+            url: fileUrl,
+            type: fileType
           } : null
         };
       });
-
+      
       return {
         data: transformedMessages,
         meta: response.data.meta || {
@@ -115,61 +222,105 @@ class ChatMessagesService extends BaseService {
     try {
       const response = await this.api.get('/chats', { params: queryParams });
       
-      // Transformar a resposta para o formato esperado pelo frontend
-      const transformedChats = response.data.items.map(chatItem => {
-        // Extrair informações de diferentes níveis
-        const chat = chatItem.chat || chatItem;
-        const channel = chatItem.channel || {};
-        const lastMessage = chatItem.lastMessage || chat.lastMessage || {};
-        const participants = chatItem.participants || [];
+      // Verificar se a resposta já está no formato esperado
+      if (response.data && 
+          response.data.items && 
+          Array.isArray(response.data.items) && 
+          response.data.meta) {
         
-        // Encontrar o primeiro participante com nome
-        const participant = participants.length > 0
-          ? participants.find(p => p.contact_name) || participants[0]
-          : null;
-        
-        // Garantir que temos os IDs corretos
-        const channelId = channel.id || chat.channelId || chat.channel_id;
-        const contactId = participant?.contact_id || chat.contactId || chat.contact_id;
-        
-        if (!channelId || !contactId) {
-          console.warn('Chat sem channelId ou contactId:', { chat, channel, participant });
-        }
-
+        console.log('Resposta da API já está no formato esperado:', response.data);
+        return response.data;
+      }
+      
+      // Caso contrário, transformar para o formato esperado
+      const items = (response.data.items || []).map(chat => {
         return {
           id: chat.id,
-          name: participant?.contact_name || channel.name || chat.name || `Chat #${chat.id}`,
-          channelId,
-          contactId,
-          lastMessage: lastMessage.content || 'Sem mensagens',
-          time: lastMessage.timestamp
-            ? new Date(lastMessage.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-            : '',
-          unread: parseInt(chat.unreadCount || '0'),
-          avatar: chat.avatar,
+          name: chat.name || `Chat #${chat.id}`,
+          channel_id: chat.channelId || chat.channel_id || 6,
+          channelType: chat.channelType || "zap6595",
+          contactValue: chat.contactValue || chat.value || "",
+          lastContactId: chat.contactId || chat.lastContactId || 0,
+          avatar: chat.avatar || "",
+          lastMessage: {
+            content: chat.lastMessage?.content || "",
+            type: chat.lastMessage?.contentType || "TEXT",
+            fileUrl: chat.lastMessage?.fileUrl || null,
+            status: chat.lastMessage?.status || "SENT",
+            timestamp: chat.lastMessage?.timestamp || new Date().toISOString()
+          },
+          unreadCount: chat.unread?.toString() || "0",
           isGroup: chat.isGroup || false,
           isMuted: chat.isMuted || false,
           isPinned: chat.isPinned || false,
-          channelType: channel.type || chat.channelType,
-          status: (lastMessage.status || 'pending').toLowerCase()
+          contactStatus: chat.contactStatus || "OFFLINE"
         };
       });
-
+      
       return {
-        data: transformedChats,
-        meta: response.data.meta
+        items: items,
+        meta: {
+          totalItems: items.length,
+          itemCount: items.length,
+          itemsPerPage: queryParams.limit,
+          totalPages: Math.ceil(items.length / queryParams.limit),
+          currentPage: queryParams.page
+        }
       };
     } catch (error) {
       console.error('Erro ao buscar lista de chats:', error);
       
-      // Fallback para dados mockados com tratamento de erro
+      // Retornar o formato mockado exato conforme solicitado
       return {
-        data: [],
+        items: [
+          {
+            id: 215,
+            name: "Wanderley Antigo",
+            channel_id: 6,
+            channelType: "zap6595",
+            contactValue: "5569984049494",
+            lastContactId: 178,
+            avatar: "",
+            lastMessage: {
+              content: "ola",
+              type: "TEXT",
+              fileUrl: null,
+              status: "SENT",
+              timestamp: "2025-02-23T23:32:14.612Z"
+            },
+            unreadCount: "27",
+            isGroup: false,
+            isMuted: false,
+            isPinned: false,
+            contactStatus: "OFFLINE"
+          },
+          {
+            id: 214,
+            name: "69999768281",
+            channel_id: 6,
+            channelType: "zap6595",
+            contactValue: "69999768281",
+            lastContactId: 216,
+            avatar: "",
+            lastMessage: {
+              content: "oi",
+              type: "TEXT",
+              fileUrl: null,
+              status: "DELIVERED",
+              timestamp: "2025-02-21T20:20:07.912Z"
+            },
+            unreadCount: "3",
+            isGroup: false,
+            isMuted: false,
+            isPinned: false,
+            contactStatus: "OFFLINE"
+          }
+        ],
         meta: {
-          totalItems: 0,
-          itemCount: 0,
+          totalItems: 2,
+          itemCount: 2,
           itemsPerPage: 20,
-          totalPages: 0,
+          totalPages: 1,
           currentPage: 1
         }
       };
@@ -177,33 +328,42 @@ class ChatMessagesService extends BaseService {
   }
 
   /**
-   * Envia uma nova mensagem
-   * @param {Object} messageData - Dados da mensagem
-   * @param {number} messageData.channelId - Canal de comunicação
-   * @param {number|null} messageData.chatId - ID do chat (pode ser null)
-   * @param {number} messageData.contactId - ID do contato destinatário
-   * @param {string} messageData.content - Conteúdo da mensagem
-   * @param {string} messageData.contentType - Tipo de conteúdo
+   * Envia uma nova mensagem para um chat
+   * @param {number} chatId - ID do chat
+   * @param {Object} messageData - Dados da mensagem a ser enviada
    * @returns {Promise} Mensagem enviada
    */
-  async sendMessage(messageData) {
+  async sendMessage(chatId, messageData) {
     try {
-      console.log('Enviando requisição para:', `/chats/${messageData.chatId}/messages`);
-      console.log('Payload enviado:', {
-        content: messageData.content,
-        contentType: messageData.contentType,
-        channel_id: 6,
-        contact_id: messageData.contactId
+      console.log('Enviando mensagem para o chat:', {
+        chatId,
+        messageData
       });
-
-      const chatId = messageData.chatId; // Obter chatId do chat selecionado
-      const contactId = messageData.lastMessage.contactId; // Obter contact_id da última mensagem
-      const response = await this.api.post(`/chats/${chatId}/messages`, {
+      
+      // Usar o lastContactId que já vem nos dados do chat
+      const contactId = messageData.contactId || messageData.lastContactId;
+      
+      if (!contactId) {
+        console.error('Erro: contactId não fornecido para envio de mensagem');
+        throw new Error('contactId é obrigatório para enviar mensagem');
+      }
+      
+      console.log('Dados completos para envio de mensagem:', {
+        chatId,
         content: messageData.content,
-        contentType: 'TEXT',
-        channel_id: 6, // Channel ID fixo
+        contentType: messageData.contentType || 'TEXT',
+        channel_id: messageData.channelId || 6,
         contact_id: contactId
       });
+      
+      const response = await this.api.post(`/chats/${chatId}/messages`, {
+        content: messageData.content,
+        contentType: messageData.contentType || 'TEXT',
+        channel_id: messageData.channelId || 6,
+        contact_id: contactId
+      });
+      
+      console.log('Resposta do envio de mensagem:', response.data);
       return response.data;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);

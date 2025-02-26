@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import DocumentPreview from './DocumentPreview';
 import chatMessagesService from '../../services/chatMessagesService';
+import { contactsService } from '../../services/contactsService';
+import ContactSearch from './ContactSearch';
 import {
   Box,
   Typography,
@@ -22,7 +24,6 @@ import {
   ToggleButtonGroup,
   Button,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
@@ -43,6 +44,7 @@ import {
   ExitToApp as ExitIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
 
 // Componentes estilizados
 const ChatContainer = styled(Box)(({ theme }) => ({
@@ -231,56 +233,46 @@ const mockChats = {
 const fetchChats = async () => {
   console.log('Chamando fetchChats para obter dados dos chats'); // Log antes da chamada
   try {
-    const { data } = await api.get('/chats');
-    console.log('Resposta da API:', data); // Log para verificar a resposta da API
+    // Utilizando o serviço de mensagens de chat para obter a lista de chats
+    const response = await chatMessagesService.getChatList();
+    console.log('Resposta do serviço de chat:', response); // Log para verificar a resposta
     
-    if (!data || !data.items) {
-      console.error('Formato de resposta inválido:', data);
+    if (!response || !response.items) {
+      console.error('Formato de resposta inválido:', response);
       return [];
     }
     
     // Log para debug da estrutura recebida
-    console.log('Estrutura completa recebida:', data.items[0]);
+    if (response.items.length > 0) {
+      console.log('Estrutura do primeiro item:', response.items[0]);
+    }
 
-    data.items.forEach(item => {
-      console.log('Estrutura completa do item:', item); // Log para verificar a estrutura completa de cada item
-    });
-
-    return data.items.map(item => {
-      console.log('Estrutura do item:', item); // Log para verificar a estrutura do objeto item
-      console.log('Estrutura do item com contact_id:', item.contact_id); // Log para verificar se contact_id está presente
-      // Extrair dados do item
-      const chatData = item.chat || item;
-      const channelData = item.channel || {};
-      const messageData = item.lastMessage || {};
-      
-      // IDs necessários
-      const channelId = item.channelId || channelData.id || chatData.channelId;
-      const contactId = item.contact_id || chatData.contact_id; // Usando contact_id conforme nomenclatura do backend
-      
-      // Log detalhado para debug
+    // Mapear os itens para o formato esperado pelo componente
+    return response.items.map(item => {
+      // Log para debug
       console.log('Processando chat:', {
-        item,
-        channelId,
-        contactId
+        id: item.id,
+        name: item.name,
+        lastContactId: item.lastContactId
       });
 
       return {
-        id: chatData.id,
-        name: chatData.name || `Chat #${chatData.id}`,
-        channelId,
-        contactId,
-        lastMessage: messageData.content || 'Sem mensagens',
-        time: messageData.timestamp
-          ? new Date(messageData.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        id: item.id,
+        name: item.name || `Chat #${item.id}`,
+        channelId: item.channel_id,
+        contactId: item.lastContactId,
+        lastMessage: item.lastMessage?.content || 'Sem mensagens',
+        time: item.lastMessage?.timestamp
+          ? new Date(item.lastMessage.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
           : '',
-        unread: parseInt(chatData.unreadCount || '0'),
-        avatar: chatData.avatar,
-        isGroup: chatData.isGroup || false,
-        isMuted: chatData.isMuted || false,
-        isPinned: chatData.isPinned || false,
-        channelType: channelData.type || chatData.channelType,
-        status: (messageData.status || 'pending').toLowerCase()
+        unread: parseInt(item.unreadCount || '0'),
+        avatar: item.avatar,
+        isGroup: item.isGroup || false,
+        isMuted: item.isMuted || false,
+        isPinned: item.isPinned || false,
+        channelType: item.channelType,
+        status: (item.lastMessage?.status || 'pending').toLowerCase(),
+        contactValue: item.contactValue
       };
     });
   } catch (error) {
@@ -313,7 +305,10 @@ const WhatsAppStyleChat = () => {
       setChats(prevChats => 
         prevChats.map(chat => 
           chat.id === selectedChat.id 
-            ? { ...chat, status: 'closed' }
+            ? { 
+                ...chat, 
+                status: 'closed' 
+              }
             : chat
         )
       );
@@ -325,118 +320,56 @@ const WhatsAppStyleChat = () => {
       // TODO: Adicionar notificação de erro quando tivermos o componente
     }
   };
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeFilter, setActiveFilter] = useState('todas');
-  // Função para enviar mensagem
-  const handleSendMessage = async () => {
-    if (!message.trim()) {
-      console.log('Mensagem vazia');
-      return;
-    }
-    
-    if (!selectedChat) {
-      console.log('Nenhum chat selecionado');
-      return;
-    }
-
-    try {
-      const lastMessage = selectedChat.lastMessage;
-      console.log('Estrutura da última mensagem:', lastMessage); // Log para verificar a estrutura do objeto lastMessage
-      const contactId = lastMessage ? lastMessage.contact_id : null; // Extraindo contact_id da última mensagem
-
-      if (!contactId) {
-        console.error('contact_id não encontrado na última mensagem');
-        return;
-      }
-
-      const payload = {
-        content: message.trim(),
-        contentType: 'TEXT',
-        chatId: selectedChat.id,
-        contact_id: contactId // Usando contact_id da última mensagem
-      };
-
-      console.log('Enviando mensagem:', payload);
-
-      const response = await chatMessagesService.sendMessage(payload);
-      
-      // Atualiza a lista de mensagens
-      setChatMessages(prev => [...prev, response.data]);
-      
-      // Limpa o campo de mensagem
-      setMessage('');
-      
-      // Atualiza o último status do chat
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === selectedChat.id 
-            ? { 
-                ...chat, 
-                lastMessage: message,
-                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              }
-            : chat
-        )
-      );
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-    }
-  };
-
-  const [chats, setChats] = useState([
-    {
-      id: 1,
-      name: 'AGILE Atendimento',
-      lastMessage: '✓ joia',
-      time: '18:27',
-      unread: 0,
-      avatar: null,
-      status: 'open',
-    },
-    {
-      id: 2,
-      name: '+55 51 9795-7349',
-      lastMessage: 'Bom dia, Wanderley! Tudo bem? Aqui é o Rodrigo...',
-      time: '12:41',
-      unread: 0,
-      avatar: null,
-    },
-    {
-      id: 3,
-      name: '+55 11 95497-6912',
-      lastMessage: 'SISTEMA VERI.pdf',
-      time: '09:20',
-      unread: 0,
-      avatar: null,
-    },
-    {
-      id: 4,
-      name: 'Itaú',
-      lastMessage: 'Olá! Identificamos uma compra negada no seu c...',
-      time: '01:22',
-      unread: 0,
-      avatar: null,
-    },
-    {
-      id: 5,
-      name: '+55 69 9314-8711',
-      lastMessage: 'Ligação de voz perdida',
-      time: 'Ontem',
-      unread: 0,
-      avatar: null,
-    },
-  ]);
-
-  const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
-  };
+  const [chats, setChats] = useState([]);
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
+  };
+
+  // Função para iniciar um novo chat com um contato
+  const handleContactSelect = async (contact) => {
+    try {
+      console.log('Iniciando chat com contato:', contact);
+      
+      // Verificar se já existe um chat com este contato
+      const existingChat = chats.find(chat => 
+        chat.contactId === contact.id || 
+        chat.contact_id === contact.id
+      );
+      
+      if (existingChat) {
+        console.log('Chat existente encontrado:', existingChat);
+        handleChatSelect(existingChat);
+        return;
+      }
+      
+      // Se não existir, criar um novo chat
+      const newChat = {
+        id: `new_${contact.id}`,
+        name: contact.name,
+        contactId: contact.id,
+        lastMessage: 'Novo chat',
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        unread: 0,
+        avatar: null,
+        isGroup: false,
+        isMuted: false,
+        isPinned: false,
+      };
+      
+      // Adicionar o novo chat à lista
+      setChats(prevChats => [newChat, ...prevChats]);
+      
+      // Selecionar o novo chat
+      handleChatSelect(newChat);
+    } catch (error) {
+      console.error('Erro ao iniciar chat com contato:', error);
+    }
   };
 
   const handleChatSelect = async (chat) => {
@@ -496,6 +429,80 @@ const WhatsAppStyleChat = () => {
     }
   };
 
+  // Função para enviar mensagem
+  const handleSendMessage = async () => {
+    try {
+      if (!message.trim() || !selectedChat) {
+        return;
+      }
+
+      // Obter o contactId do chat selecionado
+      const contactId = selectedChat.contactId || selectedChat.lastContactId;
+      
+      if (!contactId) {
+        console.error('Erro: Não foi possível obter o contactId para envio da mensagem');
+        return;
+      }
+      
+      console.log('Dados do chat para envio de mensagem:', {
+        chatId: selectedChat.id,
+        contactId: contactId,
+        channelId: selectedChat.channelId,
+        channelType: selectedChat.channelType
+      });
+
+      const payload = {
+        content: message.trim(),
+        contentType: 'TEXT',
+        contactId: contactId,
+        channelId: selectedChat.channelId || 6
+      };
+
+      console.log('Enviando mensagem:', payload);
+
+      // Usando o novo formato do método sendMessage
+      const response = await chatMessagesService.sendMessage(selectedChat.id, payload);
+      
+      console.log('Resposta do envio de mensagem:', response);
+      
+      // Atualiza a lista de mensagens
+      const newMessage = response.data || {
+        id: Date.now(),
+        content: message.trim(),
+        contentType: 'TEXT',
+        timestamp: new Date().toISOString(),
+        sender: 'me',
+        status: 'sent'
+      };
+      
+      setChatMessages(prev => [...prev, newMessage]);
+      
+      // Limpa o campo de mensagem
+      setMessage('');
+      
+      // Atualiza o último status do chat
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.id === selectedChat.id 
+            ? { 
+                ...chat, 
+                lastMessage: message,
+                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              }
+            : chat
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      // Exibir mensagem de erro para o usuário
+      setSnackbar({
+        open: true,
+        message: `Erro ao enviar mensagem: ${error.message || 'Erro desconhecido'}`,
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <ChatContainer>
       <LeftSidebar>
@@ -547,22 +554,7 @@ const WhatsAppStyleChat = () => {
           </IconButton>
         </NotificationBanner>
         
-        <SearchBar>
-          <SearchInput elevation={0}>
-            <IconButton size="small">
-              <SearchIcon />
-            </IconButton>
-            <InputBase
-              fullWidth
-              placeholder="Pesquisar ou começar uma nova conversa"
-              value={searchTerm}
-              onChange={handleSearch}
-            />
-            <IconButton size="small">
-              <FilterIcon />
-            </IconButton>
-          </SearchInput>
-        </SearchBar>
+        <ContactSearch onContactSelect={handleContactSelect} />
 
         <FilterContainer>
           <FilterButton
@@ -604,45 +596,54 @@ const WhatsAppStyleChat = () => {
         </FilterContainer>
 
         <List sx={{ flex: 1, overflow: 'auto' }}>
-          {chats.map((chat) => (
-            <React.Fragment key={chat.id}>
-              <ChatListItem
-                selected={selectedChat?.id === chat.id}
-                onClick={() => handleChatSelect(chat)}
-              >
-                <ListItemAvatar>
-                  <Avatar src={chat.avatar}>
-                    {!chat.avatar && chat.name.charAt(0)}
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={chat.name}
-                  secondary={chat.lastMessage}
-                  secondaryTypographyProps={{
-                    noWrap: true,
-                    style: { maxWidth: '70%' }
-                  }}
-                />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '65px' }}>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: chat.unread > 0 ? '#25d366' : '#667781',
-                      fontSize: '0.75rem'
+          {chats
+            .filter(chat => {
+              if (activeFilter === 'todas') return true;
+              if (activeFilter === 'nao-lidas') return chat.unread > 0;
+              if (activeFilter === 'favoritas') return chat.isPinned;
+              if (activeFilter === 'grupos') return chat.isGroup;
+              return true;
+            })
+            .map(chat => (
+              <React.Fragment key={chat.id}>
+                <ChatListItem
+                  selected={selectedChat?.id === chat.id}
+                  onClick={() => handleChatSelect(chat)}
+                >
+                  <ListItemAvatar>
+                    <Avatar src={chat.avatar}>
+                      {!chat.avatar && chat.name.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={chat.name}
+                    secondary={chat.lastMessage}
+                    secondaryTypographyProps={{
+                      noWrap: true,
+                      style: { maxWidth: '70%' }
                     }}
-                  >
-                    {chat.time}
-                  </Typography>
-                  {chat.unread > 0 && (
-                    <UnreadBadge>
-                      {chat.unread}
-                    </UnreadBadge>
-                  )}
-                </Box>
-              </ChatListItem>
-              <Divider />
-            </React.Fragment>
-          ))}
+                  />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '65px' }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: chat.unread > 0 ? '#25d366' : '#667781',
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      {chat.time}
+                    </Typography>
+                    {chat.unread > 0 && (
+                      <UnreadBadge>
+                        {chat.unread}
+                      </UnreadBadge>
+                    )}
+                  </Box>
+                </ChatListItem>
+                <Divider />
+              </React.Fragment>
+            ))
+          }
         </List>
       </SidebarContainer>
 
@@ -683,15 +684,85 @@ const WhatsAppStyleChat = () => {
                   <Typography>Carregando mensagens...</Typography>
                 </Box>
               ) : (
-                [...chatMessages].reverse().map((msg) => {
+                [...chatMessages].reverse().map((msg, index) => {
                   const isOutbound = msg.direction === 'OUTBOUND';
-                  const isFile = msg.contentType === 'FILE';
-                  const isImage = isFile && msg.fileUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                  const isPdf = isFile && msg.fileUrl?.endsWith('.pdf');
+                  
+                  // Log detalhado para as primeiras mensagens
+                  if (index < 3) {
+                    console.log(`Mensagem ${index} completa:`, msg);
+                  }
+                  
+                  // Verificar tipos de mensagem
+                  const isDocument = 
+                    msg.isDocument || 
+                    msg.contentType === 'DOCUMENT' || 
+                    msg.type === 'document' || 
+                    msg.type === 'DOCUMENT';
+                  
+                  const isFile = 
+                    msg.isFile || 
+                    msg.contentType === 'FILE' || 
+                    msg.type === 'file' || 
+                    msg.type === 'FILE' || 
+                    !!msg.fileUrl;
+                  
+                  // Verificar se há URL no conteúdo da mensagem
+                  let fileUrl = msg.fileUrl || msg.document?.url || '';
+                  let hasUrlInContent = false;
+                  
+                  if (!fileUrl && msg.content && typeof msg.content === 'string' && msg.content.includes('http')) {
+                    const urlMatch = msg.content.match(/(https?:\/\/[^\s]+)/g);
+                    if (urlMatch && urlMatch.length > 0) {
+                      fileUrl = urlMatch[0];
+                      hasUrlInContent = true;
+                    }
+                  }
+                  
+                  const hasFileUrl = !!fileUrl;
+                  
+                  // Determinar o tipo de arquivo baseado na extensão
+                  let fileType = msg.fileType || 'document';
+                  
+                  if (fileUrl) {
+                    const extension = fileUrl.split('.').pop().toLowerCase();
+                    if (['pdf'].includes(extension)) {
+                      fileType = 'pdf';
+                    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+                      fileType = 'image';
+                    } else if (['doc', 'docx'].includes(extension)) {
+                      fileType = 'document';
+                    }
+                  }
+                  
+                  const isImage = fileType === 'image';
+                  const isPdf = fileType === 'pdf';
+                  
+                  // Determinar se deve mostrar como documento/arquivo
+                  const showAsDocument = isDocument || isFile || hasFileUrl || hasUrlInContent;
+                  
+                  // Log para debug
+                  console.log(`Renderizando mensagem ${index}:`, {
+                    id: msg.id,
+                    contentType: msg.contentType,
+                    isDocument,
+                    isFile,
+                    hasFileUrl,
+                    hasUrlInContent,
+                    fileType,
+                    fileUrl,
+                    showAsDocument
+                  });
+                  
+                  // Determinar nome do arquivo
+                  let filename = msg.document?.filename;
+                  if (!filename && fileUrl) {
+                    const urlParts = fileUrl.split('/');
+                    filename = urlParts[urlParts.length - 1];
+                  }
                   
                   return (
                     <Box
-                      key={msg.id}
+                      key={msg.id || index} // Usar índice como fallback para evitar warning de key
                       sx={{
                         display: 'flex',
                         justifyContent: isOutbound ? 'flex-end' : 'flex-start',
@@ -704,23 +775,16 @@ const WhatsAppStyleChat = () => {
                           borderRadius: 2,
                           padding: '8px 12px',
                           maxWidth: isImage ? '300px' : '70%',
-                          minWidth: isFile ? '250px' : 'auto',
+                          minWidth: showAsDocument ? '250px' : 'auto',
                         }}
                       >
-                        {msg.isDocument ? (
+                        {/* Renderizar documento ou arquivo */}
+                        {showAsDocument ? (
                           <DocumentPreview 
                             document={{
-                              filename: msg.document?.filename || 'Documento',
-                              url: msg.document?.url || msg.fileUrl,
-                              type: msg.document?.type || (isPdf ? 'pdf' : isImage ? 'image' : 'document')
-                            }} 
-                          />
-                        ) : isFile ? (
-                          <DocumentPreview 
-                            document={{
-                              filename: msg.content.split('\n')[0] || 'Arquivo',
-                              url: msg.fileUrl,
-                              type: isPdf ? 'pdf' : isImage ? 'image' : 'document'
+                              filename: filename || msg.document?.filename || (msg.content?.split('\n')[0] || 'Documento').substring(0, 30),
+                              url: fileUrl,
+                              type: fileType
                             }} 
                           />
                         ) : (
