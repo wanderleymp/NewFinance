@@ -11,20 +11,43 @@ console.log('🔍 DEBUG - Todas variáveis Vite:',
     .map(key => `${key}: ${import.meta.env[key]}`)
 );
 
+// Verificar se estamos em ambiente de desenvolvimento
+const isDevelopment = import.meta.env.DEV;
+
+// Determinar a URL base da API
+let baseURL = import.meta.env.VITE_API_URL;
+
+// Em ambiente de desenvolvimento, usar o proxy configurado no vite.config.js
+if (isDevelopment) {
+  console.log('🔒 Ambiente de desenvolvimento detectado. Usando proxy para ignorar erros de certificado SSL.');
+  baseURL = '/api'; // Este é o caminho do proxy configurado no vite.config.js
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL,
   timeout: 15000,
   timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.'
 });
 
 // Verificação detalhada da URL da API
 if (!api.defaults.baseURL) {
-  console.error('\n🚨 ERRO CRÍTICO: VITE_API_URL não está definida no arquivo .env\n');
-  throw new Error('VITE_API_URL não configurada');
+  console.error('\n🚨 ERRO CRÍTICO: URL base da API não está definida\n');
+  throw new Error('URL base da API não configurada');
 }
 
 console.log('\n🌐 Configurando URL base da API:', api.defaults.baseURL);
 console.log('Variáveis de ambiente:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
+
+// No navegador, não podemos modificar diretamente as configurações SSL,
+// mas podemos adicionar um interceptor para ignorar erros específicos de certificado
+if (isDevelopment) {
+  api.interceptors.request.use(config => {
+    // Adicionar parâmetro para indicar que devemos ignorar erros de certificado
+    // Isso será tratado pelo servidor proxy de desenvolvimento (se configurado)
+    config.params = { ...config.params, ignoreSSL: true };
+    return config;
+  });
+}
 
 // Adicionar interceptor de requisição para incluir token
 api.interceptors.request.use(

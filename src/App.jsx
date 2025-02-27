@@ -21,6 +21,7 @@ import { lightTheme, darkTheme } from './theme/theme';
 import { authService } from './services/authService';
 import api from './services/api';
 import { QueryProvider } from './providers/QueryProvider';
+import socketIoService from './services/socketIoService';
 
 // Páginas
 import Login from './pages/Login';
@@ -51,6 +52,7 @@ import AIChat from './components/AIChat';
 import AIAssistant from './components/AIAssistant';
 import { AppVersion } from './components/AppVersion';
 import ConnectionErrorPage from './components/ConnectionErrorPage';
+import TestSSLConnection from './examples/TestSSLConnection';
 
 // Importação do componente PaymentMethods
 import PaymentMethods from './pages/PaymentMethods';
@@ -113,6 +115,23 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const isAuth = authService.isAuthenticated();
+    console.log('Renderizando App - Autenticado:', isAuth);
+    
+    // Inicializar Socket.IO se o usuário estiver autenticado
+    if (isAuth) {
+      socketIoService.connect().catch(error => {
+        console.error('Erro ao conectar Socket.IO:', error);
+      });
+    }
+    
+    // Limpar conexão Socket.IO ao desmontar
+    return () => {
+      socketIoService.disconnect();
+    };
+  }, []);
+
   const handleReconnect = () => {
     setConnectionError(false);
     window.location.reload();
@@ -143,6 +162,9 @@ function App() {
               {/* Página inicial - Totalmente independente */}
               <Route path="/" element={<Home />} />
               <Route path="/home" element={<Home />} />
+
+              {/* Rota de teste SSL - Pública */}
+              <Route path="/test-ssl" element={<TestSSLConnection />} />
 
               {/* Chat - Sistema Independente */}
               <Route element={<PrivateRoute />}>

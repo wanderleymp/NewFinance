@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import DocumentPreview from './DocumentPreview';
 import chatMessagesService from '../../services/chatMessagesService';
+import socketIoService from '../../services/socketIoService';
 import { contactsService } from '../../services/contactsService';
 import ContactSearch from './ContactSearch';
 import {
@@ -284,6 +285,7 @@ const fetchChats = async () => {
 const WhatsAppStyleChat = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const messageContainerRef = useRef(null);
 
   // Buscar chats ao montar o componente
   useEffect(() => {
@@ -320,12 +322,22 @@ const WhatsAppStyleChat = () => {
       // TODO: Adicionar notificação de erro quando tivermos o componente
     }
   };
+
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [activeFilter, setActiveFilter] = useState('todas');
   const [chats, setChats] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [remoteTyping, setRemoteTyping] = useState({});
+  const [wsConnected, setWsConnected] = useState(false);
+  const [usingMockData, setUsingMockData] = useState(false);
+  const [activeListeners, setActiveListeners] = useState({
+    message: null,
+    typing: null
+  });
+  const typingTimeoutRef = useRef(null);
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
@@ -389,6 +401,52 @@ const WhatsAppStyleChat = () => {
         return;
       }
       
+      // Entrar na sala de chat via Socket.IO
+      if (socketIoService.isConnected) {
+        socketIoService.joinChat(chat.id);
+        console.log(`Entrando na sala de chat ${chat.id} via Socket.IO`);
+        
+        // Configurar listener para novas mensagens neste chat
+        const removeMessageListener = socketIoService.onChatEvent(chat.id, 'message', (data) => {
+          console.log(`Nova mensagem recebida para o chat ${chat.id}:`, data);
+          // Adicionar a nova mensagem ao estado
+          const newMessage = data.data || data;
+          setChatMessages(prevMessages => [...prevMessages, newMessage]);
+          // Rolar para a última mensagem
+          setTimeout(() => scrollToBottom(), 100);
+        });
+        
+        // Configurar listener para eventos de digitação
+        const removeTypingListener = socketIoService.onChatEvent(chat.id, 'typing', (data) => {
+          console.log(`Evento de digitação para o chat ${chat.id}:`, data);
+          setIsTyping(data.isTyping);
+          if (data.isTyping) {
+            // Limpar timeout anterior se existir
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+            }
+            // Definir novo timeout para esconder o indicador após 3 segundos
+            typingTimeoutRef.current = setTimeout(() => {
+              setIsTyping(false);
+            }, 3000);
+          }
+        });
+        
+        // Armazenar as funções de remoção para limpar quando mudar de chat
+        setActiveListeners(prev => {
+          // Limpar listeners anteriores
+          if (prev.message) prev.message();
+          if (prev.typing) prev.typing();
+          
+          return {
+            message: removeMessageListener,
+            typing: removeTypingListener
+          };
+        });
+      } else {
+        console.warn('Socket.IO não está conectado, não é possível entrar na sala de chat');
+      }
+      
       // Buscar mensagens
       const response = await chatMessagesService.getChatMessages(chat.id, {
         page: 1,
@@ -410,7 +468,14 @@ const WhatsAppStyleChat = () => {
       setChatMessages(messages);
 
       console.log('Chat selecionado:', chat);
-      setChatMessages(messages);
+      
+      // Rolar para a última mensagem após um pequeno delay para garantir renderização
+      setTimeout(scrollToBottom, 200);
+      
+      // Verificar se estamos usando dados mockados
+      if (response.meta && response.meta.isMock) {
+        setUsingMockData(true);
+      }
     } catch (error) {
       console.error('Erro detalhado ao buscar mensagens:', {
         message: error.message,
@@ -429,77 +494,284 @@ const WhatsAppStyleChat = () => {
     }
   };
 
-  // Função para enviar mensagem
+  useEffect(() => {
+    // Inicializar o WebSocket e registrar callback para mudanças na conexão
+    const unsubscribeConnection = chatMessagesService.websocketService?.onConnectionChange((connected) => {
+      setWsConnected(connected);
+      console.log(`WebSocket ${connected ? 'conectado' : 'desconectado'}`);
+    });
+    
+    // Limpar os listeners ao desmontar
+    return () => {
+      // Limpar o listener de conexão
+      if (unsubscribeConnection) {
+        unsubscribeConnection();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Inicializar Socket.IO quando o componente for montado
+    const initializeSocketIo = async () => {
+      try {
+        console.log('Inicializando Socket.IO no componente de chat');
+        await socketIoService.connect();
+        console.log('Socket.IO conectado com sucesso');
+        
+        // Registrar callback para mudanças na conexão
+        const removeConnectionListener = socketIoService.onConnectionChange((isConnected, error) => {
+          console.log(`Estado da conexão Socket.IO alterado: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+          setWsConnected(isConnected);
+          
+          if (error) {
+            console.error('Erro na conexão Socket.IO:', error);
+          }
+        });
+        
+        return () => {
+          // Limpar listener quando o componente for desmontado
+          if (removeConnectionListener) removeConnectionListener();
+        };
+      } catch (error) {
+        console.error('Erro ao inicializar Socket.IO:', error);
+      }
+    };
+    
+    initializeSocketIo();
+    
+    // Limpar listeners e desconectar Socket.IO quando o componente for desmontado
+    return () => {
+      // Limpar listeners ativos
+      if (activeListeners.message) activeListeners.message();
+      if (activeListeners.typing) activeListeners.typing();
+      
+      // Não desconectar o Socket.IO aqui para manter a conexão em outras partes do app
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      // Registrar novo listener para mensagens
+      const unsubscribeMessage = chatMessagesService.onNewMessage(
+        selectedChat.id,
+        (newMessage) => {
+          console.log('Nova mensagem recebida para o chat atual:', newMessage);
+          
+          // Verificar se a mensagem já existe para evitar duplicação
+          setChatMessages(prevMessages => {
+            // Se a mensagem já existe, não adicionar novamente
+            if (prevMessages.some(msg => msg.id === newMessage.id)) {
+              return prevMessages;
+            }
+            
+            // Adicionar a nova mensagem
+            const updatedMessages = [...prevMessages, {
+              id: newMessage.id,
+              content: newMessage.content,
+              contentType: newMessage.contentType,
+              sender: newMessage.sender || 'them',
+              timestamp: newMessage.timestamp || new Date().toISOString(),
+              status: newMessage.status || 'received'
+            }];
+            
+            // Rolar para a última mensagem após um pequeno delay
+            setTimeout(scrollToBottom, 100);
+            
+            return updatedMessages;
+          });
+        }
+      );
+      
+      // Registrar listener para indicadores de digitação
+      const unsubscribeTyping = chatMessagesService.onTypingIndicator(
+        selectedChat.id,
+        (typingData) => {
+          console.log('Indicador de digitação recebido:', typingData);
+          
+          // Atualizar o estado de digitação remota
+          setRemoteTyping(prev => ({
+            ...prev,
+            [selectedChat.id]: {
+              isTyping: typingData.isTyping,
+              timestamp: new Date()
+            }
+          }));
+          
+          // Limpar o indicador após 3 segundos se não receber atualização
+          if (typingData.isTyping) {
+            setTimeout(() => {
+              setRemoteTyping(prev => {
+                const typing = prev[selectedChat.id];
+                if (typing && (new Date() - new Date(typing.timestamp)) > 3000) {
+                  const newState = { ...prev };
+                  delete newState[selectedChat.id];
+                  return newState;
+                }
+                return prev;
+              });
+            }, 3000);
+          }
+        }
+      );
+      
+      return () => {
+        // Limpar os listeners
+        unsubscribeMessage();
+        unsubscribeTyping();
+      };
+    }
+  }, [selectedChat]);
+
+  useEffect(() => {
+    // Limpar listeners quando o componente for desmontado
+    return () => {
+      // Limpar todos os listeners ativos
+      if (activeListeners.message) activeListeners.message();
+      if (activeListeners.typing) activeListeners.typing();
+      
+      // Limpar timeout de digitação
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Sair do chat atual se estiver selecionado
+      if (selectedChat?.id) {
+        socketIoService.leaveChat(selectedChat.id);
+        console.log(`Saindo da sala de chat ${selectedChat.id} via Socket.IO`);
+      }
+    };
+  }, [activeListeners, selectedChat]);
+
+  const handleMessageChange = (e) => {
+    setMessage(e.target.value);
+    
+    // Enviar evento de digitação
+    if (selectedChat && socketIoService.isConnected) {
+      if (!isTyping) {
+        setIsTyping(true);
+        socketIoService.sendTypingEvent(selectedChat.id, true);
+      }
+      
+      // Limpar timeout anterior se existir
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Definir novo timeout para enviar evento de "parou de digitar" após 2 segundos
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        if (socketIoService.isConnected) {
+          socketIoService.sendTypingEvent(selectedChat.id, false);
+        }
+      }, 2000);
+    }
+  };
+
+  // Função para rolar para a última mensagem
+  const scrollToBottom = () => {
+    if (messageContainerRef.current) {
+      console.log('Rolando para a última mensagem');
+      const container = messageContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  };
+
+  // Efeito para rolar para a última mensagem quando as mensagens são carregadas ou atualizadas
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      // Pequeno timeout para garantir que o DOM foi atualizado
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [chatMessages]);
+
   const handleSendMessage = async () => {
+    if (!message.trim() || !selectedChat) return;
+    
     try {
-      if (!message.trim() || !selectedChat) {
-        return;
-      }
-
-      // Obter o contactId do chat selecionado
-      const contactId = selectedChat.contactId || selectedChat.lastContactId;
-      
-      if (!contactId) {
-        console.error('Erro: Não foi possível obter o contactId para envio da mensagem');
-        return;
-      }
-      
-      console.log('Dados do chat para envio de mensagem:', {
-        chatId: selectedChat.id,
-        contactId: contactId,
-        channelId: selectedChat.channelId,
-        channelType: selectedChat.channelType
-      });
-
-      const payload = {
-        content: message.trim(),
+      // Adicionar a mensagem localmente com um ID temporário
+      const tempId = `temp-${Date.now()}`;
+      const tempMessage = {
+        id: tempId,
+        content: message,
         contentType: 'TEXT',
-        contactId: contactId,
-        channelId: selectedChat.channelId || 6
-      };
-
-      console.log('Enviando mensagem:', payload);
-
-      // Usando o novo formato do método sendMessage
-      const response = await chatMessagesService.sendMessage(selectedChat.id, payload);
-      
-      console.log('Resposta do envio de mensagem:', response);
-      
-      // Atualiza a lista de mensagens
-      const newMessage = response.data || {
-        id: Date.now(),
-        content: message.trim(),
-        contentType: 'TEXT',
-        timestamp: new Date().toISOString(),
+        direction: 'OUTBOUND',
         sender: 'me',
-        status: 'sent'
+        createdAt: new Date().toISOString(),
+        status: 'sending'
       };
       
-      setChatMessages(prev => [...prev, newMessage]);
+      // Adicionar a mensagem temporária ao estado
+      setChatMessages(prev => [...prev, tempMessage]);
       
-      // Limpa o campo de mensagem
+      // Limpar o campo de mensagem
       setMessage('');
       
-      // Atualiza o último status do chat
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === selectedChat.id 
-            ? { 
-                ...chat, 
-                lastMessage: message,
-                time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              }
-            : chat
-        )
-      );
+      // Rolar para a última mensagem
+      setTimeout(() => scrollToBottom(), 100);
+      
+      // Enviar a mensagem via Socket.IO
+      const messageData = {
+        content: message,
+        contentType: 'TEXT',
+        contactId: selectedChat.lastContactId,
+        channelId: selectedChat.channel_id || 6
+      };
+      
+      // Tentar enviar via Socket.IO primeiro
+      if (socketIoService.isConnected) {
+        try {
+          console.log('Enviando mensagem via Socket.IO:', messageData);
+          const response = await socketIoService.sendMessage(selectedChat.id, messageData);
+          console.log('Mensagem enviada com sucesso via Socket.IO:', response);
+          
+          // Atualizar a mensagem temporária com os dados da resposta
+          setChatMessages(prev => prev.map(msg => 
+            msg.id === tempId 
+              ? { 
+                  ...msg, 
+                  id: response.id || msg.id,
+                  status: 'sent',
+                  createdAt: response.timestamp || msg.createdAt
+                }
+              : msg
+          ));
+          
+          return;
+        } catch (socketError) {
+          console.warn('Falha ao enviar via Socket.IO, usando fallback HTTP:', socketError.message);
+          // Continua para o fallback HTTP
+        }
+      }
+      
+      // Fallback: enviar via HTTP
+      console.log('Enviando mensagem via HTTP:', messageData);
+      const response = await chatMessagesService.sendMessage(selectedChat.id, messageData);
+      console.log('Mensagem enviada com sucesso via HTTP:', response);
+      
+      // Atualizar a mensagem temporária com os dados da resposta
+      setChatMessages(prev => prev.map(msg => 
+        msg.id === tempId 
+          ? { 
+              ...msg, 
+              id: response.id || msg.id,
+              status: 'sent',
+              createdAt: response.timestamp || response.createdAt || msg.createdAt
+            }
+          : msg
+      ));
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
-      // Exibir mensagem de erro para o usuário
-      setSnackbar({
-        open: true,
-        message: `Erro ao enviar mensagem: ${error.message || 'Erro desconhecido'}`,
-        severity: 'error'
-      });
+      
+      // Atualizar o status da mensagem temporária para erro
+      setChatMessages(prev => prev.map(msg => 
+        msg.id.startsWith('temp-') 
+          ? { ...msg, status: 'error' }
+          : msg
+      ));
+      
+      // Mostrar mensagem de erro
+      setSnackbarMessage('Erro ao enviar mensagem. Tente novamente.');
+      setSnackbarOpen(true);
     }
   };
 
@@ -678,7 +950,23 @@ const WhatsAppStyleChat = () => {
               </Box>
             </Header>
 
-            <Box sx={{ flex: 1, overflow: 'auto', padding: 2 }}>
+            <Box 
+              ref={messageContainerRef} 
+              sx={{ 
+                flex: 1, 
+                overflow: 'auto', 
+                padding: 2,
+                scrollBehavior: 'smooth' // Adiciona animação de rolagem suave
+              }}
+            >
+              {usingMockData && (
+                <Box sx={{ mb: 2, p: 1, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeeba' }}>
+                  <Typography variant="body2" color="warning.dark">
+                    Usando dados mockados devido a um erro na API.
+                  </Typography>
+                </Box>
+              )}
+              
               {loadingMessages ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', padding: 2 }}>
                   <Typography>Carregando mensagens...</Typography>
@@ -817,6 +1105,53 @@ const WhatsAppStyleChat = () => {
               )}
             </Box>
 
+            {/* Indicador de digitação */}
+            {isTyping && (
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Digitando...
+                </Typography>
+                <Box sx={{ display: 'flex', ml: 1 }}>
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor: 'primary.main',
+                      animation: 'typing-dot 1s infinite',
+                      animationDelay: '0s',
+                      '@keyframes typing-dot': {
+                        '0%, 60%, 100%': { opacity: 0.4, transform: 'scale(0.8)' },
+                        '30%': { opacity: 1, transform: 'scale(1)' },
+                      },
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor: 'primary.main',
+                      animation: 'typing-dot 1s infinite',
+                      animationDelay: '0.2s',
+                      ml: 0.5,
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor: 'primary.main',
+                      animation: 'typing-dot 1s infinite',
+                      animationDelay: '0.4s',
+                      ml: 0.5,
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
+
             <MessageInputContainer>
               <IconButton>
                 <EmojiIcon />
@@ -830,7 +1165,7 @@ const WhatsAppStyleChat = () => {
                 maxRows={4}
                 placeholder="Digite uma mensagem"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={handleMessageChange}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -862,6 +1197,11 @@ const WhatsAppStyleChat = () => {
             <Typography variant="h6">
               Selecione um chat para começar
             </Typography>
+            {usingMockData && (
+              <Typography variant="body2" sx={{ color: 'red' }}>
+                Usando dados mockados
+              </Typography>
+            )}
           </Box>
         )}
       </ChatMainArea>

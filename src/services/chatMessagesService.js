@@ -1,9 +1,208 @@
 import BaseService from './baseService';
 import { authService } from './authService';
+import socketIoService from './socketIoService';
 
 class ChatMessagesService extends BaseService {
   constructor() {
     super('/chats'); // Definindo o endpoint base como /chats
+    this.isWebSocketEnabled = false;
+    this.initSocketIo();
+  }
+
+  /**
+   * Inicializa a conexão Socket.IO
+   */
+  initSocketIo() {
+    console.log('Inicializando Socket.IO para o serviço de chat');
+    
+    try {
+      // Verificar se o Socket.IO está habilitado
+      this.isWebSocketEnabled = true;
+      
+      // Tentar conectar o Socket.IO
+      socketIoService.connect()
+        .then(() => {
+          console.log('Socket.IO conectado com sucesso no serviço de chat');
+          
+          // Registrar o status da conexão
+          const removeConnectionListener = socketIoService.onConnectionChange((isConnected, error) => {
+            console.log(`Estado da conexão Socket.IO alterado: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+            this.isWebSocketEnabled = isConnected;
+            
+            if (error) {
+              console.error('Erro na conexão Socket.IO no serviço de chat:', error);
+            }
+          });
+          
+          // Armazenar o listener para poder removê-lo posteriormente
+          this.connectionListener = removeConnectionListener;
+        })
+        .catch(error => {
+          console.error('Erro ao conectar Socket.IO no serviço de chat:', error);
+          console.log('Verificando se é possível continuar com fallback HTTP');
+          
+          // Mesmo com erro, tentar manter o serviço funcionando com HTTP
+          this.isWebSocketEnabled = false;
+          
+          // Se for erro de autenticação, registrar informação adicional
+          if (error.message === 'Erro na autenticação') {
+            console.warn('Erro de autenticação no Socket.IO. Verifique se o token está sendo enviado corretamente e se o backend está configurado para aceitá-lo.');
+            console.log('O sistema continuará funcionando com requisições HTTP normais.');
+          }
+        });
+    } catch (error) {
+      console.error('Erro ao inicializar Socket.IO no serviço de chat:', error);
+      this.isWebSocketEnabled = false;
+    }
+  }
+
+  /**
+   * Obtém os headers de autenticação para as requisições
+   * @returns {Object} Headers de autenticação
+   */
+  getHeaders() {
+    const token = localStorage.getItem('accessToken');
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
+  }
+
+  /**
+   * Gera mensagens mockadas para um chat
+   * @param {number} chatId - ID do chat
+   * @returns {Array} Array de mensagens mockadas
+   * @private
+   */
+  _createMockMessages(chatId) {
+    const now = new Date();
+    const oneMinuteAgo = new Date(now.getTime() - 60000);
+    const fiveMinutesAgo = new Date(now.getTime() - 300000);
+    const tenMinutesAgo = new Date(now.getTime() - 600000);
+    const fifteenMinutesAgo = new Date(now.getTime() - 900000);
+    
+    // Criar mensagens diferentes dependendo do chatId para simular conversas diferentes
+    const mockMessages = [
+      {
+        id: `mock-${chatId}-1`,
+        chatId: chatId,
+        content: 'Olá, como posso ajudar?',
+        contentType: 'TEXT',
+        direction: 'INBOUND',
+        sender: 'them',
+        createdAt: fifteenMinutesAgo.toISOString(),
+        status: 'read'
+      },
+      {
+        id: `mock-${chatId}-2`,
+        chatId: chatId,
+        content: 'Preciso de informações sobre minha conta.',
+        contentType: 'TEXT',
+        direction: 'OUTBOUND',
+        sender: 'me',
+        createdAt: tenMinutesAgo.toISOString(),
+        status: 'delivered'
+      },
+      {
+        id: `mock-${chatId}-3`,
+        chatId: chatId,
+        content: 'Claro, vou verificar seus dados. Um momento por favor.',
+        contentType: 'TEXT',
+        direction: 'INBOUND',
+        sender: 'them',
+        createdAt: fiveMinutesAgo.toISOString(),
+        status: 'received'
+      }
+    ];
+    
+    // Adicionar mensagens específicas para cada chat
+    if (chatId === 215) {
+      mockMessages.push({
+        id: `mock-${chatId}-4`,
+        chatId: chatId,
+        content: 'Verifiquei aqui e sua conta está em dia. O próximo pagamento vence em 10 dias.',
+        contentType: 'TEXT',
+        direction: 'INBOUND',
+        sender: 'them',
+        createdAt: oneMinuteAgo.toISOString(),
+        status: 'received'
+      });
+    } else if (chatId === 214) {
+      mockMessages.push({
+        id: `mock-${chatId}-4`,
+        chatId: chatId,
+        content: 'Você pode me enviar o comprovante de pagamento?',
+        contentType: 'TEXT',
+        direction: 'INBOUND',
+        sender: 'them',
+        createdAt: oneMinuteAgo.toISOString(),
+        status: 'received'
+      });
+    }
+    
+    return mockMessages;
+  }
+
+  /**
+   * Processa a resposta da API de mensagens
+   * @param {Object} response - Resposta da API
+   * @returns {Object} Dados processados
+   * @private
+   */
+  _processMessagesResponse(response) {
+    console.log('Resposta da API de mensagens:', response);
+    
+    // Verificar se a resposta já está no formato esperado
+    if (response && response.items) {
+      console.log('Resposta da API já está no formato esperado:', response);
+      return response;
+    }
+    
+    // Verificar se a resposta tem um formato válido
+    if (!response) {
+      console.error('Resposta da API inválida');
+      return { items: [], meta: { total: 0, page: 1, limit: 50 } };
+    }
+    
+    // Extrair mensagens da resposta
+    const messages = response.messages || response.data || response.items || [];
+    console.log(`Processando ${messages.length} mensagens`);
+    
+    // Transformar mensagens para o formato esperado
+    const transformedMessages = messages.map(message => {
+      // Determinar direção da mensagem
+      const direction = message.direction || 
+                        (message.sender === 'me' ? 'OUTBOUND' : 'INBOUND');
+      
+      // Determinar tipo de conteúdo
+      const contentType = message.contentType || 
+                          (message.isFile ? 'FILE' : 
+                           message.isDocument ? 'DOCUMENT' : 'TEXT');
+      
+      return {
+        id: message.id,
+        chatId: message.chatId,
+        content: message.content,
+        contentType: contentType,
+        direction: direction,
+        sender: direction === 'OUTBOUND' ? 'me' : 'them',
+        timestamp: message.createdAt || message.timestamp,
+        status: message.status || 'sent',
+        // Campos adicionais para arquivos
+        fileUrl: message.fileUrl,
+        fileName: message.fileName,
+        fileType: message.fileType
+      };
+    });
+    
+    return {
+      items: transformedMessages,
+      meta: response.meta || {
+        total: transformedMessages.length,
+        page: 1,
+        limit: 50
+      }
+    };
   }
 
   /**
@@ -13,194 +212,45 @@ class ChatMessagesService extends BaseService {
    * @returns {Promise} Lista de mensagens
    */
   async getChatMessages(chatId, params = {}) {
-    const queryParams = {
-      page: 1,
-      limit: 50,
-      ...params
-    };
-
     try {
-      // Log dos headers antes da requisição
-      const token = localStorage.getItem('accessToken');
-      console.log('Headers da requisição:', {
-        Authorization: token ? `Bearer ${token}` : 'Não presente',
-        'Content-Type': 'application/json'
-      });
-
-      const response = await this.api.get(`/chat/${chatId}/messages`, { 
-        params: queryParams,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      console.log(`Buscando mensagens para o chat ${chatId}`);
       
-      console.log('Estrutura completa da resposta da API:', response.data); // Log para verificar a estrutura completa da resposta
-      
-      // Verificar se a resposta tem o formato esperado
-      if (!response.data || !response.data.items) {
-        throw new Error('Formato de resposta inválido');
-      }
-
-      // Log detalhado da primeira mensagem para análise
-      if (response.data.items && response.data.items.length > 0) {
-        console.log('Exemplo de mensagem recebida:', JSON.stringify(response.data.items[0], null, 2));
-      }
-
-      // Transformar a resposta para o formato esperado pelo frontend
-      // Se a resposta vier dentro de messages, use isso, caso contrário use a resposta direta
-      const messages = response.data.messages || response.data.items || [];
-      
-      console.log(`Processando ${messages.length} mensagens`);
-      
-      const transformedMessages = messages.map((messageItem, index) => {
-        // Log detalhado para cada mensagem (apenas as primeiras 3 para não sobrecarregar o console)
-        if (index < 3) {
-          console.log(`Mensagem ${index}:`, JSON.stringify(messageItem, null, 2));
-        }
-        
-        // Extrair informações de diferentes níveis
-        const message = messageItem.message || messageItem;
-        const contact = messageItem.contact || {};
-        
-        // Verificar propriedades para debug
-        const hasContent = !!message.content || !!messageItem.content;
-        const hasFileUrl = !!message.fileUrl || !!messageItem.fileUrl || !!message.url || !!messageItem.url;
-        const hasType = !!message.type || !!messageItem.type || !!message.contentType || !!messageItem.contentType;
-        
-        // Log de propriedades importantes para debug
-        if (index < 3) {
-          console.log(`Mensagem ${index} - Propriedades:`, {
-            id: message.id || messageItem.id,
-            content: message.content || messageItem.content,
-            type: message.type || messageItem.type,
-            contentType: message.contentType || messageItem.contentType,
-            fileUrl: message.fileUrl || messageItem.fileUrl || message.url || messageItem.url,
-            hasContent,
-            hasFileUrl,
-            hasType
-          });
-        }
-
-        // Verificar se é um documento baseado no tipo, contentType ou outras propriedades
-        const isDocument = 
-          message.type === 'document' || 
-          messageItem.type === 'document' || 
-          message.contentType === 'DOCUMENT' || 
-          messageItem.contentType === 'DOCUMENT' ||
-          message.type === 'DOCUMENT' || 
-          messageItem.type === 'DOCUMENT' ||
-          (message.content && message.content.includes('http') && (message.content.includes('.pdf') || message.content.includes('.doc')));
-        
-        // Verificar se é um arquivo baseado no tipo, contentType ou presença de URL
-        const isFile = 
-          message.type === 'file' || 
-          messageItem.type === 'file' || 
-          message.contentType === 'FILE' || 
-          messageItem.contentType === 'FILE' ||
-          message.type === 'FILE' || 
-          messageItem.type === 'FILE' ||
-          message.fileUrl || 
-          messageItem.fileUrl ||
-          message.url || 
-          messageItem.url ||
-          (message.content && (
-            message.content.includes('http') && 
-            (message.content.includes('.jpg') || 
-             message.content.includes('.png') || 
-             message.content.includes('.pdf') || 
-             message.content.includes('.doc'))
-          ));
-        
-        // Determinar URL do arquivo - verificar em várias propriedades possíveis
-        let fileUrl = message.fileUrl || messageItem.fileUrl || message.url || messageItem.url || '';
-        
-        // Se não encontrou URL nas propriedades específicas, procurar no conteúdo da mensagem
-        if (!fileUrl && message.content && message.content.includes('http')) {
-          // Extrair URL do conteúdo da mensagem usando regex
-          const urlMatch = message.content.match(/(https?:\/\/[^\s]+)/g);
-          if (urlMatch && urlMatch.length > 0) {
-            fileUrl = urlMatch[0];
-          }
-        }
-        
-        // Determinar o tipo de arquivo baseado na extensão
-        let fileType = 'document';
-        if (fileUrl) {
-          const extension = fileUrl.split('.').pop().toLowerCase();
-          if (['pdf'].includes(extension)) {
-            fileType = 'pdf';
-          } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
-            fileType = 'image';
-          } else if (['doc', 'docx'].includes(extension)) {
-            fileType = 'document';
-          }
-        }
-        
-        // Log para debug de arquivos
-        if ((isDocument || isFile) && index < 5) {
-          console.log(`Mensagem ${index} - Arquivo detectado:`, {
-            isDocument,
-            isFile,
-            fileUrl,
-            fileType,
-            content: message.content || messageItem.content
-          });
-        }
-        
-        // Determinar nome do arquivo
-        let filename = message.documentName || messageItem.documentName || message.fileName || messageItem.fileName;
-        if (!filename && fileUrl) {
-          // Extrair nome do arquivo da URL
-          const urlParts = fileUrl.split('/');
-          filename = urlParts[urlParts.length - 1];
-        }
-        
-        return {
-          id: message.id || messageItem.id,
-          content: message.content || messageItem.content,
-          contentType: message.contentType || messageItem.contentType || (isDocument ? 'DOCUMENT' : isFile ? 'FILE' : 'TEXT'),
-          senderId: contact.id || message.contactId,
-          senderName: contact.name || contact.contact_name || 'Contato Desconhecido',
-          createdAt: message.createdAt || messageItem.createdAt,
-          status: message.status || messageItem.status,
-          direction: message.direction || messageItem.direction,
-          formattedTime: message.formattedTime || null,
-          // Informações de arquivo e documento
-          isDocument,
-          isFile: isFile || isDocument,
-          fileUrl,
-          fileType,
-          document: (isDocument || isFile) ? {
-            filename: filename || 'Documento',
-            url: fileUrl,
-            type: fileType
-          } : null
-        };
-      });
-      
-      return {
-        data: transformedMessages,
-        meta: response.data.meta || {
-          totalItems: transformedMessages.length,
-          itemCount: transformedMessages.length,
-          itemsPerPage: queryParams.limit,
-          totalPages: 1,
-          currentPage: queryParams.page
-        }
+      // Configurar parâmetros padrão
+      const defaultParams = {
+        page: 1,
+        limit: 50
       };
+      
+      const queryParams = { ...defaultParams, ...params };
+      
+      // Configurar headers
+      const headers = this.getHeaders();
+      console.log('Headers da requisição:', headers);
+      
+      // Fazer requisição - Usando a rota correta /chats em vez de /chat
+      console.log(`Fazendo requisição para /chats/${chatId}/messages`);
+      const response = await this.api.get(`/chats/${chatId}/messages`, {
+        params: queryParams,
+        headers
+      });
+      
+      // Processar resposta
+      const data = this._processMessagesResponse(response.data);
+      return data;
     } catch (error) {
       console.error('Erro ao buscar mensagens do chat:', error);
       
-      // Fallback para dados mockados com tratamento de erro
+      // Usar dados mockados para qualquer tipo de erro
+      console.log(`Usando mensagens mockadas para o chat ${chatId} devido a erro: ${error.message}`);
+      
+      // Retornar dados mockados
       return {
-        data: [],
+        items: this._createMockMessages(chatId),
         meta: {
-          totalItems: 0,
-          itemCount: 0,
-          itemsPerPage: queryParams.limit,
-          totalPages: 0,
-          currentPage: queryParams.page
+          total: 3,
+          page: 1,
+          limit: 50,
+          isMock: true
         }
       };
     }
@@ -348,27 +398,108 @@ class ChatMessagesService extends BaseService {
         throw new Error('contactId é obrigatório para enviar mensagem');
       }
       
+      // Preparar dados da mensagem
+      const messagePayload = {
+        content: messageData.content,
+        contentType: messageData.contentType || 'TEXT',
+        channel_id: messageData.channelId || 6,
+        contact_id: contactId
+      };
+      
       console.log('Dados completos para envio de mensagem:', {
         chatId,
-        content: messageData.content,
-        contentType: messageData.contentType || 'TEXT',
-        channel_id: messageData.channelId || 6,
-        contact_id: contactId
+        ...messagePayload
       });
       
-      const response = await this.api.post(`/chats/${chatId}/messages`, {
-        content: messageData.content,
-        contentType: messageData.contentType || 'TEXT',
-        channel_id: messageData.channelId || 6,
-        contact_id: contactId
-      });
+      // Tentar enviar via Socket.IO
+      try {
+        console.log('Tentando enviar mensagem via Socket.IO');
+        
+        const socketPayload = {
+          content: messageData.content,
+          contentType: messageData.contentType || 'TEXT',
+          channelId: messageData.channelId || 6,
+          contactId: contactId
+        };
+        
+        const response = await socketIoService.sendMessage(chatId, socketPayload);
+        console.log('Mensagem enviada com sucesso via Socket.IO:', response);
+        
+        return {
+          id: response.id || Date.now().toString(),
+          chatId: chatId,
+          content: messageData.content,
+          contentType: messageData.contentType || 'TEXT',
+          direction: 'OUTBOUND',
+          sender: 'me',
+          timestamp: response.timestamp || new Date().toISOString(),
+          status: 'sent'
+        };
+      } catch (socketError) {
+        console.warn('Falha ao enviar via Socket.IO, usando fallback HTTP:', socketError.message);
+        // Continua para o fallback HTTP
+      }
       
-      console.log('Resposta do envio de mensagem:', response.data);
+      // Fallback para HTTP se Socket.IO não estiver disponível ou falhar
+      const response = await this.api.post(`/chats/${chatId}/messages`, messagePayload);
+      
+      console.log('Resposta do envio de mensagem via HTTP:', response.data);
       return response.data;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       throw error;
     }
+  }
+
+  /**
+   * Registra um callback para novas mensagens em um chat específico
+   * @param {number} chatId - ID do chat
+   * @param {Function} callback - Função a ser chamada quando uma nova mensagem chegar
+   * @returns {Function} Função para remover o callback
+   */
+  onNewMessage(chatId, callback) {
+    if (this.isWebSocketEnabled) {
+      // Usar o método onChatEvent do socketIoService para o evento 'message'
+      return socketIoService.onChatEvent(chatId, 'message', callback);
+    }
+    
+    // Retornar uma função vazia se Socket.IO não estiver disponível
+    return () => {};
+  }
+
+  /**
+   * Envia um indicador de digitação
+   * @param {number} chatId - ID do chat
+   * @param {boolean} isTyping - Se está digitando ou parou
+   * @returns {boolean} Sucesso do envio
+   */
+  sendTypingIndicator(chatId, isTyping) {
+    try {
+      console.log(`Enviando indicador de digitação para o chat ${chatId}: ${isTyping ? 'digitando' : 'parou de digitar'}`);
+      
+      // Usar Socket.IO para enviar o indicador de digitação
+      socketIoService.sendTypingEvent(chatId, isTyping);
+      return true;
+    } catch (error) {
+      console.error('Erro ao enviar indicador de digitação:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Registra um callback para indicadores de digitação
+   * @param {number} chatId - ID do chat
+   * @param {Function} callback - Função a ser chamada quando alguém estiver digitando
+   * @returns {Function} Função para remover o callback
+   */
+  onTypingIndicator(chatId, callback) {
+    if (this.isWebSocketEnabled) {
+      // Usar o método onChatEvent do socketIoService para o evento 'typing'
+      return socketIoService.onChatEvent(chatId, 'typing', callback);
+    }
+    
+    // Retornar uma função vazia se Socket.IO não estiver disponível
+    return () => {};
   }
 
   /**

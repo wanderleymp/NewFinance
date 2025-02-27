@@ -24,7 +24,21 @@ export default defineConfig(({ mode }) => {
       hmr: {
         port: 5173
       },
-      // Removido proxy para usar a URL da API diretamente
+      // Configuração de proxy para lidar com certificados SSL em desenvolvimento
+      proxy: {
+        '/api': {
+          target: env.VITE_API_URL,
+          changeOrigin: true,
+          secure: false, // Ignorar erros de certificado SSL
+          rewrite: (path) => path.replace(/^\/api/, '')
+        },
+        '/socket.io': {
+          target: env.VITE_API_URL,
+          changeOrigin: true,
+          secure: false, // Ignorar erros de certificado SSL
+          ws: true // Suporte a WebSockets
+        }
+      }
     },
     build: {
       rollupOptions: {
