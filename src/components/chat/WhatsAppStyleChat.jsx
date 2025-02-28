@@ -24,6 +24,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Button,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -286,6 +288,11 @@ const WhatsAppStyleChat = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const messageContainerRef = useRef(null);
+
+  // Estado para Snackbar
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('error');
 
   // Buscar chats ao montar o componente
   useEffect(() => {
@@ -556,23 +563,45 @@ const WhatsAppStyleChat = () => {
         selectedChat.id,
         (newMessage) => {
           console.log('Nova mensagem recebida para o chat atual:', newMessage);
+          console.log('Estrutura completa da nova mensagem:', JSON.stringify(newMessage, null, 2));
           
           // Verificar se a mensagem já existe para evitar duplicação
           setChatMessages(prevMessages => {
-            // Se a mensagem já existe, não adicionar novamente
-            if (prevMessages.some(msg => msg.id === newMessage.id)) {
+            // Verificar se a mensagem já existe usando diferentes IDs possíveis
+            const messageId = newMessage.id || newMessage.message_id;
+            const messageExists = prevMessages.some(msg => 
+              (msg.id === messageId) || 
+              (msg.message_id === messageId) ||
+              (msg.id === newMessage.message_id) ||
+              (msg.message_id === newMessage.id)
+            );
+            
+            if (messageExists) {
+              console.log(`Mensagem ${messageId} já existe no chat, ignorando`);
               return prevMessages;
             }
             
-            // Adicionar a nova mensagem
-            const updatedMessages = [...prevMessages, {
-              id: newMessage.id,
+            console.log(`Adicionando nova mensagem ${messageId} ao chat`);
+            
+            // Processar a mensagem para garantir formato consistente
+            const processedMessage = {
+              id: messageId,
+              message_id: messageId,
+              chat_id: selectedChat.id,
               content: newMessage.content,
-              contentType: newMessage.contentType,
-              sender: newMessage.sender || 'them',
-              timestamp: newMessage.timestamp || new Date().toISOString(),
-              status: newMessage.status || 'received'
-            }];
+              contentType: newMessage.contentType || newMessage.type || 'TEXT',
+              direction: newMessage.direction || (newMessage.sender === 'me' ? 'OUTBOUND' : 'INBOUND'),
+              sender: newMessage.sender || (newMessage.direction === 'OUTBOUND' ? 'me' : 'them'),
+              timestamp: newMessage.timestamp || newMessage.createdAt || new Date().toISOString(),
+              status: newMessage.status || 'received',
+              // Campos para arquivos/documentos
+              fileUrl: newMessage.fileUrl,
+              fileName: newMessage.fileName,
+              fileType: newMessage.fileType
+            };
+            
+            // Adicionar a nova mensagem
+            const updatedMessages = [...prevMessages, processedMessage];
             
             // Rolar para a última mensagem após um pequeno delay
             setTimeout(scrollToBottom, 100);
@@ -599,25 +628,34 @@ const WhatsAppStyleChat = () => {
           
           // Limpar o indicador após 3 segundos se não receber atualização
           if (typingData.isTyping) {
-            setTimeout(() => {
-              setRemoteTyping(prev => {
-                const typing = prev[selectedChat.id];
-                if (typing && (new Date() - new Date(typing.timestamp)) > 3000) {
-                  const newState = { ...prev };
-                  delete newState[selectedChat.id];
-                  return newState;
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+            }
+            
+            typingTimeoutRef.current = setTimeout(() => {
+              setRemoteTyping(prev => ({
+                ...prev,
+                [selectedChat.id]: {
+                  isTyping: false,
+                  timestamp: new Date()
                 }
-                return prev;
-              });
+              }));
             }, 3000);
           }
         }
       );
       
+      // Armazenar referências para limpar ao desmontar
+      setActiveListeners({
+        message: unsubscribeMessage,
+        typing: unsubscribeTyping
+      });
+      
+      // Limpar listeners quando o componente for desmontado ou o chat mudar
       return () => {
-        // Limpar os listeners
-        unsubscribeMessage();
-        unsubscribeTyping();
+        if (unsubscribeMessage) unsubscribeMessage();
+        if (unsubscribeTyping) unsubscribeTyping();
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       };
     }
   }, [selectedChat]);
@@ -688,6 +726,15 @@ const WhatsAppStyleChat = () => {
     if (!message.trim() || !selectedChat) return;
     
     try {
+      // Verificar se o chat tem contactId ou lastContactId
+      if (!selectedChat.contactId && !selectedChat.lastContactId) {
+        console.error('Erro: Chat não possui contactId ou lastContactId');
+        setSnackbarMessage('Erro ao enviar mensagem: dados de contato incompletos.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+      
       // Adicionar a mensagem localmente com um ID temporário
       const tempId = `temp-${Date.now()}`;
       const tempMessage = {
@@ -709,48 +756,31 @@ const WhatsAppStyleChat = () => {
       // Rolar para a última mensagem
       setTimeout(() => scrollToBottom(), 100);
       
-      // Enviar a mensagem via Socket.IO
+      // Preparar dados da mensagem
       const messageData = {
         content: message,
         contentType: 'TEXT',
-        contactId: selectedChat.lastContactId,
-        channelId: selectedChat.channel_id || 6
+        contactId: selectedChat.lastContactId || selectedChat.contactId,
+        channelId: selectedChat.channel_id || selectedChat.channelId || 6
       };
       
-      // Tentar enviar via Socket.IO primeiro
-      if (socketIoService.isConnected) {
-        try {
-          console.log('Enviando mensagem via Socket.IO:', messageData);
-          const response = await socketIoService.sendMessage(selectedChat.id, messageData);
-          console.log('Mensagem enviada com sucesso via Socket.IO:', response);
-          
-          // Atualizar a mensagem temporária com os dados da resposta
-          setChatMessages(prev => prev.map(msg => 
-            msg.id === tempId 
-              ? { 
-                  ...msg, 
-                  id: response.id || msg.id,
-                  status: 'sent',
-                  createdAt: response.timestamp || msg.createdAt
-                }
-              : msg
-          ));
-          
-          return;
-        } catch (socketError) {
-          console.warn('Falha ao enviar via Socket.IO, usando fallback HTTP:', socketError.message);
-          // Continua para o fallback HTTP
-        }
-      }
+      console.log('Enviando mensagem:', {
+        chatId: selectedChat.id,
+        messageData
+      });
       
-      // Fallback: enviar via HTTP
-      console.log('Enviando mensagem via HTTP:', messageData);
+      // Enviar a mensagem
       const response = await chatMessagesService.sendMessage(selectedChat.id, messageData);
-      console.log('Mensagem enviada com sucesso via HTTP:', response);
+      console.log('Resposta do envio de mensagem:', response);
+      
+      // Verificar se a resposta contém um erro
+      if (response && response.status === 'error') {
+        throw new Error(response.error || 'Erro ao enviar mensagem');
+      }
       
       // Atualizar a mensagem temporária com os dados da resposta
       setChatMessages(prev => prev.map(msg => 
-        msg.id === tempId 
+        msg && msg.id === tempId 
           ? { 
               ...msg, 
               id: response.id || msg.id,
@@ -759,18 +789,24 @@ const WhatsAppStyleChat = () => {
             }
           : msg
       ));
+      
+      // Mostrar mensagem de sucesso
+      setSnackbarMessage('Mensagem enviada com sucesso.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       
       // Atualizar o status da mensagem temporária para erro
       setChatMessages(prev => prev.map(msg => 
-        msg.id.startsWith('temp-') 
+        msg && msg.id && typeof msg.id === 'string' && msg.id.startsWith('temp-') 
           ? { ...msg, status: 'error' }
           : msg
       ));
       
       // Mostrar mensagem de erro
-      setSnackbarMessage('Erro ao enviar mensagem. Tente novamente.');
+      setSnackbarMessage(`Erro ao enviar mensagem: ${error.message}`);
+      setSnackbarSeverity('error');
       setSnackbarOpen(true);
     }
   };
@@ -1205,6 +1241,22 @@ const WhatsAppStyleChat = () => {
           </Box>
         )}
       </ChatMainArea>
+      
+      {/* Snackbar para mensagens de feedback */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbarOpen(false)} 
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </ChatContainer>
   );
 };

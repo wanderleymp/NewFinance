@@ -201,14 +201,21 @@ class SocketIoService {
     
     // Listener para mensagens
     this.socket.on('message', (data) => {
-      console.log('Mensagem recebida:', data);
+      console.log('Mensagem recebida via Socket.IO:', data);
+      console.log('Estrutura completa da mensagem recebida:', JSON.stringify(data, null, 2));
       
       // Notificar listeners globais
       this._notifyEvent('message', data);
       
       // Notificar listeners específicos do chat
       if (data.chatId) {
+        console.log(`Notificando listeners do chat ${data.chatId} sobre nova mensagem`);
         this._notifyChatEvent(data.chatId, 'message', data);
+      } else if (data.chat_id) {
+        console.log(`Notificando listeners do chat ${data.chat_id} sobre nova mensagem (usando chat_id)`);
+        this._notifyChatEvent(data.chat_id, 'message', data);
+      } else {
+        console.warn('Mensagem recebida sem chatId ou chat_id, não é possível notificar listeners específicos');
       }
     });
     

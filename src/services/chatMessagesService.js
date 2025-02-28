@@ -390,12 +390,28 @@ class ChatMessagesService extends BaseService {
         messageData
       });
       
-      // Usar o lastContactId que já vem nos dados do chat
+      // Verificar se temos um contactId válido
       const contactId = messageData.contactId || messageData.lastContactId;
       
       if (!contactId) {
         console.error('Erro: contactId não fornecido para envio de mensagem');
-        throw new Error('contactId é obrigatório para enviar mensagem');
+        console.log('Dados disponíveis:', messageData);
+        
+        // Tentar obter o chat para extrair o contactId
+        try {
+          const chatResponse = await this.api.get(`/chats/${chatId}`);
+          const chatData = chatResponse.data;
+          
+          if (chatData && (chatData.lastContactId || chatData.contactId)) {
+            console.log('Obtido contactId do chat:', chatData.lastContactId || chatData.contactId);
+            messageData.contactId = chatData.lastContactId || chatData.contactId;
+          } else {
+            throw new Error('contactId é obrigatório para enviar mensagem');
+          }
+        } catch (chatError) {
+          console.error('Erro ao tentar obter dados do chat:', chatError);
+          throw new Error('contactId é obrigatório para enviar mensagem');
+        }
       }
       
       // Preparar dados da mensagem
@@ -403,7 +419,7 @@ class ChatMessagesService extends BaseService {
         content: messageData.content,
         contentType: messageData.contentType || 'TEXT',
         channel_id: messageData.channelId || 6,
-        contact_id: contactId
+        contact_id: messageData.contactId
       };
       
       console.log('Dados completos para envio de mensagem:', {
@@ -419,7 +435,7 @@ class ChatMessagesService extends BaseService {
           content: messageData.content,
           contentType: messageData.contentType || 'TEXT',
           channelId: messageData.channelId || 6,
-          contactId: contactId
+          contactId: messageData.contactId
         };
         
         const response = await socketIoService.sendMessage(chatId, socketPayload);
@@ -447,7 +463,19 @@ class ChatMessagesService extends BaseService {
       return response.data;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
-      throw error;
+      
+      // Criar uma resposta de erro formatada para que o componente possa tratar adequadamente
+      return {
+        id: `error-${Date.now()}`,
+        chatId: chatId,
+        content: messageData.content,
+        contentType: messageData.contentType || 'TEXT',
+        direction: 'OUTBOUND',
+        sender: 'me',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: error.message
+      };
     }
   }
 
@@ -458,13 +486,40 @@ class ChatMessagesService extends BaseService {
    * @returns {Function} Função para remover o callback
    */
   onNewMessage(chatId, callback) {
-    if (this.isWebSocketEnabled) {
-      // Usar o método onChatEvent do socketIoService para o evento 'message'
-      return socketIoService.onChatEvent(chatId, 'message', callback);
+    console.log(`Registrando callback para novas mensagens no chat ${chatId}`);
+    
+    if (!this.isWebSocketEnabled || !socketIoService.isConnected) {
+      console.warn(`Socket.IO não está disponível ou conectado. Estado: ${this.isWebSocketEnabled ? 'Habilitado' : 'Desabilitado'}, Conectado: ${socketIoService.isConnected ? 'Sim' : 'Não'}`);
+      console.log('Tentando registrar callback mesmo assim...');
     }
     
-    // Retornar uma função vazia se Socket.IO não estiver disponível
-    return () => {};
+    // Usar o método onChatEvent do socketIoService para o evento 'message'
+    const removeListener = socketIoService.onChatEvent(chatId, 'message', (messageData) => {
+      console.log(`Callback de nova mensagem acionado para o chat ${chatId}:`, messageData);
+      
+      // Processar a mensagem para garantir formato consistente
+      let processedMessage = messageData;
+      
+      // Se a mensagem vier dentro de um objeto 'data', extrair
+      if (messageData.data && typeof messageData.data === 'object') {
+        processedMessage = messageData.data;
+      }
+      
+      // Garantir que a mensagem tenha um ID
+      if (!processedMessage.id && processedMessage.message_id) {
+        processedMessage.id = processedMessage.message_id;
+      }
+      
+      // Garantir que a mensagem tenha um timestamp
+      if (!processedMessage.timestamp && processedMessage.createdAt) {
+        processedMessage.timestamp = processedMessage.createdAt;
+      }
+      
+      // Chamar o callback com a mensagem processada
+      callback(processedMessage);
+    });
+    
+    return removeListener;
   }
 
   /**
