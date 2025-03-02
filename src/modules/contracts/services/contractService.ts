@@ -356,5 +356,37 @@ export const contractService = {
       // Lançar erro com mensagem específica
       throw new Error(errorMessage);
     }
+  },
+
+  async terminateRecurring(id: string, data: { endDate: string; reason: string }): Promise<any> {
+    try {
+      console.log('Encerrando contrato recorrente:', { id, data });
+      
+      // Chamada para a API para encerrar o contrato
+      const response = await api.post(`/contracts-recurring/${id}/terminate`, data);
+      
+      console.log('Contrato encerrado com sucesso:', response.data);
+      return response.data;
+    } catch (error: any) {
+      // Log detalhado do erro
+      console.error('Erro ao encerrar contrato recorrente:', {
+        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
+        errorMessage: error.message,
+        status: error.response?.status,
+        contractId: id,
+        payload: JSON.stringify(data)
+      });
+
+      // Capturar mensagem de erro específica do servidor
+      const errorMessage = 
+        (error.response?.data?.details && error.response.data.details[0]) || 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        error.message || 
+        'Erro desconhecido ao encerrar contrato';
+      
+      // Lançar erro com mensagem específica
+      throw new Error(errorMessage);
+    }
   }
 };

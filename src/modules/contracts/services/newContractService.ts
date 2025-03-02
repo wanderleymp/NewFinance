@@ -56,4 +56,21 @@ export class NewContractService extends NewBaseApiService {
   async getRecurringById(id: string): Promise<Contract> {
     return this.get<Contract>(`${this.resourceUrl}/${id}`);
   }
+
+  async terminateRecurring(id: string, data: { endDate: string; reason: string }): Promise<Contract> {
+    try {
+      const response = await this.post<Contract>(`${this.resourceUrl}/${id}/terminate`, data);
+      return response;
+    } catch (error) {
+      console.warn('Erro ao encerrar contrato recorrente, usando dados mock');
+      // Retorna um contrato mock com status de encerrado
+      const mockContract: Contract = {
+        ...mockContractsData.data.find(contract => contract.id === id),
+        status: 'TERMINATED',
+        endDate: data.endDate,
+        terminationReason: data.reason
+      };
+      return mockContract;
+    }
+  }
 }

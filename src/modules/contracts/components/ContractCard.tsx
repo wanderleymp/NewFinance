@@ -22,7 +22,8 @@ import {
   Visibility as ViewIcon,
   Build as ManageServicesIcon,
   Info as InfoIcon,
-  AddCircle as AddExtraServiceIcon
+  AddCircle as AddExtraServiceIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { AttachMoney } from '@mui/icons-material';
 import { Receipt } from 'lucide-react';
@@ -31,6 +32,7 @@ import { Contract } from '../types/contract';
 import { ContractFullDetailsModal } from './ContractFullDetailsModal';
 import { BillingConfirmationModal } from './BillingConfirmationModal';
 import { AddExtraServiceModal } from './AddExtraServiceModal';
+import { TerminateContractModal } from './TerminateContractModal';
 import { contractService } from '../services/contractService';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -56,6 +58,8 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [isExtraServiceModalOpen, setIsExtraServiceModalOpen] = useState(false);
+  const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
   const navigate = useNavigate();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -197,6 +201,50 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     console.log('Serviço extra adicionado:', extraService);
     toast.success('Serviço extra adicionado com sucesso!');
     setIsExtraServiceModalOpen(false);
+  };
+
+  const handleTerminateContract = async (data: { endDate: string; reason: string }) => {
+    if (!contract || !contract.id) {
+      toast.error('Não foi possível identificar o contrato para encerramento.');
+      return;
+    }
+
+    setIsTerminating(true);
+
+    try {
+      // Log detalhado
+      console.log('Encerrando contrato', {
+        contractId: contract.id,
+        contractName: contract.name,
+        endDate: data.endDate,
+        reason: data.reason
+      });
+
+      // Chama o serviço para encerrar o contrato
+      await contractService.terminateRecurring(String(contract.id), data);
+      
+      // Notificação de sucesso
+      toast.success('Contrato encerrado com sucesso', { 
+        duration: 3000,
+        position: 'bottom-right'
+      });
+
+      // Fecha o modal
+      setIsTerminateModalOpen(false);
+      
+      // Atualiza a lista se o callback de refresh estiver disponível
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      // Log e tratamento de erro
+      console.error('Erro ao encerrar contrato:', error);
+      
+      toast.error('Erro ao encerrar contrato. Tente novamente.', {
+        duration: 4000,
+        position: 'bottom-right'
+      });
+    } finally {
+      setIsTerminating(false);
+    }
   };
 
   if (!contract) return null;
@@ -378,6 +426,16 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                 />
               </IconButton>
             </Tooltip>
+            <Tooltip title="Encerrar Contrato">
+              <IconButton 
+                onClick={() => setIsTerminateModalOpen(true)} 
+                size="small"
+                disabled={contract.status !== 'active'}
+                color="error"
+              >
+                <CancelIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
           <Tooltip title="Excluir Contrato">
             <IconButton onClick={onDelete} size="small" color="error">
@@ -435,6 +493,18 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             </ListItemIcon>
             Excluir
           </MenuItem>
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              setIsTerminateModalOpen(true);
+            }}
+            disabled={contract.status !== 'active'}
+          >
+            <ListItemIcon>
+              <CancelIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            Encerrar Contrato
+          </MenuItem>
         </Menu>
       </Card>
 
@@ -458,6 +528,16 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           onClose={() => setIsConfirmationOpen(false)}
           onConfirm={handleBillContract}
           contract={contract}
+        />
+      )}
+
+      {contract && (
+        <TerminateContractModal
+          isOpen={isTerminateModalOpen}
+          onClose={() => setIsTerminateModalOpen(false)}
+          onConfirm={handleTerminateContract}
+          contract={contract}
+          isProcessing={isTerminating}
         />
       )}
     </>

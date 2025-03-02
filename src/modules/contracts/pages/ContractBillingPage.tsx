@@ -18,14 +18,18 @@ import {
   IconButton,
   TextField,
   InputAdornment,
-  Checkbox
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useParams, useLocation } from 'react-router-dom';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import SearchIcon from '@mui/icons-material/Search';
-import { debounce } from '@mui/material/utils';
 
 import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
@@ -75,6 +79,9 @@ export default function ContractBillingPage() {
     pendingMonth: 0
   });
   const [selectedContracts, setSelectedContracts] = useState<number[]>([]);
+  const [terminatingIds, setTerminatingIds] = useState<string[]>([]);
+  const [openTerminateDialog, setOpenTerminateDialog] = useState(false);
+  const [selectedContractToTerminate, setSelectedContractToTerminate] = useState<ContractBilling | null>(null);
   const { enqueueSnackbar } = useSnackbar();
 
   // Função para lidar com a busca
@@ -231,6 +238,42 @@ export default function ContractBillingPage() {
       // Remover ID do estado de processamento
       setProcessingIds(prev => prev.filter(id => id !== billingId));
     }
+  };
+
+  const handleTerminateContract = async (contract: ContractBilling) => {
+    setSelectedContractToTerminate(contract);
+    setOpenTerminateDialog(true);
+  };
+
+  const confirmTerminateContract = async () => {
+    if (!selectedContractToTerminate) return;
+
+    const contractId = String(selectedContractToTerminate.contract_id);
+    setTerminatingIds(prev => [...prev, contractId]);
+
+    try {
+      const endDate = new Date().toISOString().split('T')[0]; // Data atual
+      const result = await contractService.terminateRecurring(contractId, {
+        endDate,
+        reason: 'Encerramento solicitado pelo usuário'
+      });
+
+      // Atualiza a lista de contratos removendo o contrato encerrado
+      setBillings(prev => prev.filter(billing => billing.contract_id !== selectedContractToTerminate.contract_id));
+
+      enqueueSnackbar('Contrato encerrado com sucesso!', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar('Erro ao encerrar contrato', { variant: 'error' });
+    } finally {
+      setTerminatingIds(prev => prev.filter(id => id !== contractId));
+      setOpenTerminateDialog(false);
+      setSelectedContractToTerminate(null);
+    }
+  };
+
+  const handleCloseTerminateDialog = () => {
+    setOpenTerminateDialog(false);
+    setSelectedContractToTerminate(null);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
@@ -408,6 +451,19 @@ export default function ContractBillingPage() {
                         )}
                       </Button>
                     )}
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="small"
+                      onClick={() => handleTerminateContract(billing)}
+                      disabled={terminatingIds.includes(String(billing.contract_id))}
+                    >
+                      {terminatingIds.includes(String(billing.contract_id)) ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        'Encerrar'
+                      )}
+                    </Button>
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -465,6 +521,40 @@ export default function ContractBillingPage() {
           Total: {pagination.totalItems} registros
         </Typography>
       </Box>
+
+      <Dialog
+        open={openTerminateDialog}
+        onClose={handleCloseTerminateDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Confirmar Encerramento de Contrato
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Tem certeza que deseja encerrar o contrato de {selectedContractToTerminate?.client_name}?
+            Esta ação não pode ser desfeita.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTerminateDialog} color="primary">
+            Cancelar
+          </Button>
+          <Button 
+            onClick={confirmTerminateContract} 
+            color="error" 
+            autoFocus
+            disabled={terminatingIds.includes(String(selectedContractToTerminate?.contract_id))}
+          >
+            {terminatingIds.includes(String(selectedContractToTerminate?.contract_id)) ? (
+              <CircularProgress size={20} />
+            ) : (
+              'Confirmar Encerramento'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
