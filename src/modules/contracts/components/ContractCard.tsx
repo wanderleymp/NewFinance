@@ -39,7 +39,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface ContractCardProps {
   contract?: Contract;
-  onEdit?: (contract?: Contract) => void;
+  onEdit?: (contractId?: number) => void;
   onDelete?: () => void;
   onView?: () => void;
   onManageServices?: (contractId: number) => void;
@@ -402,7 +402,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="Editar Contrato">
-              <IconButton onClick={() => onEdit(contract)} size="small">
+              <IconButton onClick={() => onEdit(contract?.id)} size="small">
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>

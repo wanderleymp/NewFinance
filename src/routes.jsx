@@ -38,6 +38,7 @@ const PaymentMethodForm = lazy(() => import('./pages/PaymentMethodForm'));
 const TaskMonitoring = lazy(() => import('./pages/TaskMonitoring'));
 const ContractsPage = lazy(() => import('./modules/contracts/pages/ContractsPage'));
 const ContractBillingPage = lazy(() => import('./modules/contracts/pages/ContractBillingPage'));
+const ContractFormPage = lazy(() => import('./modules/contracts/pages/ContractFormPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 
 
@@ -221,48 +222,67 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
               </Suspense>
             </PrivateRoute>
           } 
-        >
-          <Route 
-            path="dashboard" 
-            element={
-              <PrivateRoute>
-                <Suspense fallback={<Loading />}>
-                  <Home />
-                </Suspense>
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="billing" 
-            element={
-              <PrivateRoute>
-                <Suspense fallback={<Loading />}>
-                  <ContractBillingPage />
-                </Suspense>
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path=":contractId/billing" 
-            element={
-              <PrivateRoute>
-                <Suspense fallback={<Loading />}>
-                  <ContractBillingPage />
-                </Suspense>
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path=":contractId/billing/:billingId" 
-            element={
-              <PrivateRoute>
-                <Suspense fallback={<Loading />}>
-                  <ContractBillingPage />
-                </Suspense>
-              </PrivateRoute>
-            } 
-          />
-        </Route>
+        />
+        <Route 
+          path="contracts/dashboard" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <Home />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/form" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractFormPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/form/:id" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractFormPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/billing" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/:contractId/billing" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts/:contractId/billing/:billingId" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractBillingPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
         {/* Rotas de Contratos Recorrentes */}
         <Route 
           path="contracts-recurring" 
@@ -280,6 +300,26 @@ const AppRoutes = ({ darkMode, setDarkMode }) => {
             <PrivateRoute>
               <Suspense fallback={<Loading />}>
                 <Home />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/form" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractFormPage />
+              </Suspense>
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="contracts-recurring/form/:id" 
+          element={
+            <PrivateRoute>
+              <Suspense fallback={<Loading />}>
+                <ContractFormPage />
               </Suspense>
             </PrivateRoute>
           } 

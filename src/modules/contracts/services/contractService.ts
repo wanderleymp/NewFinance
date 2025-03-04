@@ -69,10 +69,20 @@ export const contractService = {
 
   async getContractById(id: number): Promise<Contract> {
     try {
+      const response = await api.get(`/contracts/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar contrato regular:', error);
+      throw error;
+    }
+  },
+
+  async getRecurringContractById(id: string): Promise<Contract> {
+    try {
       const response = await api.get(`/contracts-recurring/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Erro ao buscar contrato:', error);
+      console.error('Erro ao buscar contrato recorrente:', error);
       throw error;
     }
   },

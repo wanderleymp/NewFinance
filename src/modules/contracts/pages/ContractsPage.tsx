@@ -119,11 +119,15 @@ const ContractsPage: React.FC = () => {
   };
 
   const handleNewContract = () => {
-    navigate('/contracts/form');
+    // Verifica se está na página de contratos recorrentes
+    const isRecurring = window.location.pathname.includes('contracts-recurring');
+    navigate(isRecurring ? '/contracts-recurring/form' : '/contracts/form');
   };
 
   const handleEditContract = (contractId: number) => {
-    navigate(`/contracts/form/${contractId}`);
+    // Verifica se está na página de contratos recorrentes
+    const isRecurring = window.location.pathname.includes('contracts-recurring');
+    navigate(isRecurring ? `/contracts-recurring/form/${contractId}` : `/contracts/form/${contractId}`);
   };
 
   // Renderização do conteúdo

@@ -83,10 +83,16 @@ const initialFormData: ContractFormData = {
 const ContractFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = window.location.pathname;
+  const isRecurring = location.includes('contracts-recurring');
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<ContractFormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof ContractFormData, string>>>({});
+  
+  // Log para debug
+  console.log('Tipo de contrato:', isRecurring ? 'Recorrente' : 'Regular');
+  console.log('ID do contrato:', id);
 
   useEffect(() => {
     const loadContract = async () => {
@@ -94,7 +100,16 @@ const ContractFormPage: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await contractService.getContractById(Number(id));
+        let response;
+        
+        // Usa o método apropriado dependendo do tipo de contrato
+        if (isRecurring) {
+          console.log('Carregando contrato recorrente com ID:', id);
+          response = await contractService.getRecurringContractById(id);
+        } else {
+          console.log('Carregando contrato regular com ID:', id);
+          response = await contractService.getContractById(Number(id));
+        }
         
         if (response) {
           console.log('Resposta do contrato:', response);
@@ -127,7 +142,7 @@ const ContractFormPage: React.FC = () => {
     };
 
     loadContract();
-  }, [id, enqueueSnackbar]);
+  }, [id, enqueueSnackbar, isRecurring]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof ContractFormData, string>> = {};
@@ -172,10 +187,21 @@ const ContractFormPage: React.FC = () => {
         items: formData.services, 
       };
       
-      await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
-      
-      enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
-      navigate('/contracts');
+      if (isRecurring) {
+        // Para contratos recorrentes
+        if (id) {
+          await contractService.updateRecurring(id, contractData);
+        } else {
+          await contractService.createRecurring(contractData);
+        }
+        enqueueSnackbar('Contrato recorrente salvo com sucesso!', { variant: 'success' });
+        navigate('/contracts-recurring');
+      } else {
+        // Para contratos regulares
+        await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
+        enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
+        navigate('/contracts');
+      }
     } catch (error) {
       console.error('Erro ao salvar contrato:', error);
       enqueueSnackbar('Erro ao salvar contrato', { variant: 'error' });
@@ -486,7 +512,7 @@ const ContractFormPage: React.FC = () => {
                 <Box display="flex" gap={2} justifyContent="flex-end" mt={3}>
                   <Button
                     variant="outlined"
-                    onClick={() => navigate('/contracts')}
+                    onClick={() => navigate(isRecurring ? '/contracts-recurring' : '/contracts')}
                     disabled={loading}
                   >
                     Cancelar
