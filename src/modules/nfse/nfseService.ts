@@ -30,7 +30,8 @@ export const nfseService = {
   async recuperarPdf(nfseId: number): Promise<any> {
     try {
       console.log('📄 Recuperando PDF da NFSe:', nfseId);
-      const response = await api.post(`/nfse/${nfseId}/recuperar-pdf`);
+      // Corrigido para usar o endpoint correto
+      const response = await api.post(`/nfse/${nfseId}/pdf`);
       console.log('📎 PDF recuperado:', response.data);
       return response.data;
     } catch (error) {
