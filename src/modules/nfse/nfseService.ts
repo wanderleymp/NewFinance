@@ -17,7 +17,8 @@ export const nfseService = {
   async atualizarStatus(nfseId: number): Promise<any> {
     try {
       console.log('🔄 Atualizando status da NFSe:', nfseId);
-      const response = await api.post(`/nfse/${nfseId}/atualizar-status`);
+      // Corrigido para usar método PUT e o endpoint correto
+      const response = await api.put(`/nfse/${nfseId}/update-status`);
       console.log('✅ Status atualizado:', response.data);
       return response.data;
     } catch (error) {
