@@ -8,10 +8,12 @@ class SocketIoService {
     this.socket = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.maxReconnectAttempts = 10; // Aumentado para 10 tentativas
     this.listeners = new Map();
     this.chatListeners = new Map();
     this.connectionCallbacks = new Set();
+    this.pendingMessages = []; // Fila de mensagens pendentes para reenvio após reconexão
+    this.lastConnectionAttempt = 0; // Timestamp da última tentativa de conexão
   }
 
   /**
@@ -40,11 +42,16 @@ class SocketIoService {
       // Obter URL base da API a partir das variáveis de ambiente
       const apiUrl = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
       
-      // Em ambiente de desenvolvimento, usar o proxy configurado no vite.config.js
+      // Em ambiente de desenvolvimento, SEMPRE usar o proxy configurado no vite.config.js
       const isDevelopment = import.meta.env.DEV;
-      const socketUrl = isDevelopment ? window.location.origin : apiUrl;
+      
+      // Usar o proxy do Vite para WebSockets em desenvolvimento
+      // Isso é crucial para evitar erros de certificado SSL
+      const socketUrl = window.location.origin;
+      const socketPath = isDevelopment ? '/socket.io' : undefined;
       
       console.log(`Conectando ao Socket.IO em ${socketUrl}${isDevelopment ? ' (via proxy de desenvolvimento)' : ''}`);
+      console.log(`Usando path: ${socketPath || '/socket.io'}`);
       
       // Inicializar Socket.IO com opções
       this.socket = io(socketUrl, {
@@ -54,10 +61,12 @@ class SocketIoService {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
-        path: '/socket.io',
+        path: socketPath,
         // Enviando o token como query parameter (sem o prefixo Bearer)
         query: {
-          token: token
+          token: token,
+          // Adicionar parâmetro para indicar que devemos ignorar erros de certificado em desenvolvimento
+          ignoreSSL: isDevelopment
         },
         // Mantendo o formato Bearer nos headers para compatibilidade com HTTP
         extraHeaders: {
@@ -68,7 +77,7 @@ class SocketIoService {
           token: token
         },
         // Ignorar erros de certificado SSL em ambiente de desenvolvimento
-        rejectUnauthorized: false
+        rejectUnauthorized: !isDevelopment
       });
       
       // Configurar handlers
@@ -297,43 +306,227 @@ class SocketIoService {
    */
   sendMessage(chatId, messageData) {
     return new Promise((resolve, reject) => {
-      if (!this.isConnected || !this.socket) {
-        const error = new Error('Não é possível enviar mensagem: Socket.IO não está conectado');
-        console.warn(error.message);
-        reject(error);
+      // Validar parâmetros de entrada
+      if (!chatId) {
+        reject(new Error('ID do chat não fornecido'));
         return;
       }
       
-      console.log(`Enviando mensagem para o chat ${chatId}:`, messageData);
+      if (!messageData || typeof messageData !== 'object') {
+        reject(new Error('Dados da mensagem inválidos'));
+        return;
+      }
       
-      // Gerar um ID temporário para a mensagem
-      const tempId = `temp-${Date.now()}`;
-      
-      // Adicionar o ID do chat e o ID temporário aos dados da mensagem
-      const payload = {
-        ...messageData,
-        chatId,
-        id: tempId,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Enviar a mensagem via Socket.IO
-      this.socket.emit('sendMessage', payload, (response) => {
-        if (response.error) {
-          console.error('Erro ao enviar mensagem via Socket.IO:', response.error);
-          reject(new Error(response.error));
+      // Verificar se o socket existe
+      if (!this.socket) {
+        console.warn('Socket não inicializado, tentando conectar primeiro...');
+        
+        // Verificar se já tentamos conectar recentemente (evitar múltiplas tentativas simultâneas)
+        const now = Date.now();
+        const timeSinceLastAttempt = now - this.lastConnectionAttempt;
+        
+        if (timeSinceLastAttempt < 5000) { // Menos de 5 segundos desde a última tentativa
+          console.log('Tentativa de conexão recente detectada, adicionando mensagem à fila de pendentes');
+          this.pendingMessages.push({ chatId, messageData, resolve, reject });
           return;
         }
         
-        console.log('Mensagem enviada com sucesso via Socket.IO:', response);
-        resolve(response.data || response);
-      });
+        this.lastConnectionAttempt = now;
+        
+        // Tentar conectar primeiro
+        this.connect()
+          .then(() => {
+            console.log('Conexão estabelecida com sucesso, enviando mensagem');
+            this._sendMessageWithTimeout(chatId, messageData, resolve, reject);
+          })
+          .catch(error => {
+            console.error('Falha ao conectar o Socket.IO:', error);
+            reject(new Error(`Não foi possível conectar o Socket.IO: ${error.message}`));
+          });
+        
+        return;
+      }
       
-      // Definir um timeout para a resposta
-      setTimeout(() => {
-        reject(new Error('Timeout ao enviar mensagem via Socket.IO'));
-      }, 10000); // 10 segundos
+      // Verificar se o socket está conectado
+      if (!this.socket.connected) {
+        console.warn('Socket não está conectado, tentando reconectar...');
+        
+        // Adicionar à fila de mensagens pendentes
+        this.pendingMessages.push({ chatId, messageData, resolve, reject });
+        
+        try {
+          // Registrar timestamp da tentativa
+          this.lastConnectionAttempt = Date.now();
+          
+          // Tentar reconectar
+          this.socket.connect();
+          
+          // Definir um timeout para a reconexão
+          setTimeout(() => {
+            // Verificar se esta mensagem ainda está na fila
+            const msgIndex = this.pendingMessages.findIndex(
+              msg => msg.chatId === chatId && msg.messageData === messageData
+            );
+            
+            if (msgIndex >= 0 && !this.socket.connected) {
+              // Remover da fila
+              this.pendingMessages.splice(msgIndex, 1);
+              reject(new Error('Timeout na reconexão do Socket.IO'));
+            }
+          }, 8000); // 8 segundos para reconectar
+        } catch (error) {
+          console.error('Erro ao tentar reconectar:', error);
+          
+          // Remover da fila de pendentes
+          const msgIndex = this.pendingMessages.findIndex(
+            msg => msg.chatId === chatId && msg.messageData === messageData
+          );
+          if (msgIndex >= 0) {
+            this.pendingMessages.splice(msgIndex, 1);
+          }
+          
+          reject(error);
+        }
+        return;
+      }
+      
+      // Socket está conectado, enviar a mensagem
+      this._sendMessageWithTimeout(chatId, messageData, resolve, reject);
     });
+  }
+  
+  /**
+   * Método auxiliar para enviar mensagem com timeout
+   * @param {string|number} chatId - ID do chat
+   * @param {Object} messageData - Dados da mensagem
+   * @param {Function} resolve - Função de resolução da Promise
+   * @param {Function} reject - Função de rejeição da Promise
+   * @private
+   */
+  _sendMessageWithTimeout(chatId, messageData, resolve, reject) {
+    console.log(`Enviando mensagem para o chat ${chatId}:`, messageData);
+    
+    // Verificar novamente se o socket está conectado
+    if (!this.socket || !this.socket.connected) {
+      console.warn('Socket não está conectado ao tentar enviar mensagem');
+      
+      // Adicionar à fila de mensagens pendentes
+      this.pendingMessages = this.pendingMessages || [];
+      this.pendingMessages.push({ chatId, messageData, resolve, reject });
+      
+      // Tentar reconectar
+      console.log('Tentando reconectar o socket antes de enviar...');
+      try {
+        this.socket.connect();
+        
+        // Rejeitar após um tempo se não conseguir conectar
+        setTimeout(() => {
+          // Verificar se esta mensagem ainda está na fila
+          const msgIndex = this.pendingMessages.findIndex(
+            msg => msg.chatId === chatId && msg.messageData === messageData
+          );
+          
+          if (msgIndex >= 0) {
+            // Remover da fila
+            this.pendingMessages.splice(msgIndex, 1);
+            reject(new Error('Não foi possível conectar o Socket.IO para enviar a mensagem'));
+          }
+        }, 8000);
+        
+        return;
+      } catch (error) {
+        console.error('Erro ao tentar reconectar o socket:', error);
+        reject(error);
+        return;
+      }
+    }
+    
+    // Gerar um ID temporário para a mensagem
+    const tempId = `temp-${Date.now()}`;
+    
+    // Adicionar o ID do chat e o ID temporário aos dados da mensagem
+    const payload = {
+      ...messageData,
+      chatId,
+      id: tempId,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Criar uma flag para controlar se o timeout já foi acionado
+    let isResolved = false;
+    let timeoutId = null;
+    
+    // Definir um timeout para a resposta - aumentado para 10 segundos
+    timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true;
+        console.warn(`Timeout ao enviar mensagem para o chat ${chatId}`);
+        reject(new Error('Timeout ao enviar mensagem via Socket.IO'));
+      }
+    }, 10000); // 10 segundos
+    
+    // Enviar a mensagem via Socket.IO com retry
+    const maxRetries = 2;
+    let retryCount = 0;
+    
+    const attemptSend = () => {
+      try {
+        // Verificar novamente se o socket está conectado
+        if (!this.socket.connected) {
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Tentativa ${retryCount}/${maxRetries} de reconexão antes de enviar...`);
+            setTimeout(attemptSend, 1000);
+            return;
+          } else {
+            throw new Error('Socket desconectado após tentativas de reconexão');
+          }
+        }
+        
+        console.log(`Emitindo evento sendMessage para o chat ${chatId}`);
+        this.socket.emit('sendMessage', payload, (response) => {
+          // Limpar o timeout
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          
+          // Verificar se já foi resolvido pelo timeout
+          if (isResolved) return;
+          
+          isResolved = true;
+          
+          if (!response) {
+            console.error('Resposta vazia do Socket.IO');
+            reject(new Error('Resposta vazia do Socket.IO'));
+            return;
+          }
+          
+          if (response.error) {
+            console.error('Erro ao enviar mensagem via Socket.IO:', response.error);
+            reject(new Error(response.error));
+            return;
+          }
+          
+          console.log('Mensagem enviada com sucesso via Socket.IO:', response);
+          resolve(response.data || response);
+        });
+      } catch (error) {
+        // Limpar o timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (!isResolved) {
+          isResolved = true;
+          console.error('Erro ao enviar mensagem via Socket.IO:', error);
+          reject(error);
+        }
+      }
+    };
+    
+    attemptSend();
   }
   
   /**

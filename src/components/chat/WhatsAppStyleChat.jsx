@@ -46,6 +46,7 @@ import {
   Add as AddIcon,
   ExitToApp as ExitIcon,
   Close as CloseIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 
@@ -811,6 +812,82 @@ const WhatsAppStyleChat = () => {
     }
   };
 
+  // Função para reenviar uma mensagem que falhou
+  const handleResendMessage = async (message) => {
+    try {
+      console.log('Tentando reenviar mensagem:', message);
+      
+      // Verificar se o chat tem contactId ou lastContactId
+      if (!selectedChat.contactId && !selectedChat.lastContactId) {
+        console.error('Erro: Chat não possui contactId ou lastContactId');
+        setSnackbarMessage('Erro ao reenviar mensagem: dados de contato incompletos.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return;
+      }
+      
+      // Atualizar o status da mensagem para 'sending'
+      setChatMessages(prev => prev.map(msg => 
+        msg.id === message.id 
+          ? { ...msg, status: 'sending' }
+          : msg
+      ));
+      
+      // Preparar dados da mensagem
+      const messageData = {
+        content: message.content,
+        contentType: message.contentType || 'TEXT',
+        contactId: selectedChat.lastContactId || selectedChat.contactId,
+        channelId: selectedChat.channel_id || selectedChat.channelId || 6
+      };
+      
+      console.log('Reenviando mensagem:', {
+        chatId: selectedChat.id,
+        messageData
+      });
+      
+      // Enviar a mensagem
+      const response = await chatMessagesService.sendMessage(selectedChat.id, messageData);
+      console.log('Resposta do reenvio de mensagem:', response);
+      
+      // Verificar se a resposta contém um erro
+      if (response && response.status === 'error') {
+        throw new Error(response.error || 'Erro ao reenviar mensagem');
+      }
+      
+      // Atualizar a mensagem com os dados da resposta
+      setChatMessages(prev => prev.map(msg => 
+        msg.id === message.id 
+          ? { 
+              ...msg, 
+              id: response.id || msg.id,
+              status: 'sent',
+              createdAt: response.timestamp || response.createdAt || msg.createdAt
+            }
+          : msg
+      ));
+      
+      // Mostrar mensagem de sucesso
+      setSnackbarMessage('Mensagem reenviada com sucesso.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Erro ao reenviar mensagem:', error);
+      
+      // Atualizar o status da mensagem para erro
+      setChatMessages(prev => prev.map(msg => 
+        msg.id === message.id 
+          ? { ...msg, status: 'error' }
+          : msg
+      ));
+      
+      // Mostrar mensagem de erro
+      setSnackbarMessage(`Erro ao reenviar mensagem: ${error.message}`);
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
   return (
     <ChatContainer>
       <LeftSidebar>
@@ -1016,22 +1093,46 @@ const WhatsAppStyleChat = () => {
                     console.log(`Mensagem ${index} completa:`, msg);
                   }
                   
+                  // Garantir que contentType seja definido
+                  if (!msg.contentType) {
+                    if (msg.content_type) {
+                      msg.contentType = msg.content_type;
+                    } else if (msg.type) {
+                      if (msg.type.toUpperCase() === 'DOCUMENT' || msg.type.toLowerCase() === 'document') {
+                        msg.contentType = 'DOCUMENT';
+                      } else if (msg.type.toUpperCase() === 'FILE' || msg.type.toLowerCase() === 'file') {
+                        msg.contentType = 'FILE';
+                      } else {
+                        msg.contentType = 'TEXT';
+                      }
+                    } else {
+                      msg.contentType = 'TEXT';
+                    }
+                  }
+                  
                   // Verificar tipos de mensagem
                   const isDocument = 
                     msg.isDocument || 
-                    msg.contentType === 'DOCUMENT' || 
-                    msg.type === 'document' || 
-                    msg.type === 'DOCUMENT';
+                    msg.is_document ||
+                    (msg.contentType && msg.contentType.toUpperCase() === 'DOCUMENT') || 
+                    (msg.content_type && msg.content_type.toUpperCase() === 'DOCUMENT') || 
+                    (msg.type && (msg.type.toLowerCase() === 'document' || msg.type.toUpperCase() === 'DOCUMENT'));
                   
                   const isFile = 
                     msg.isFile || 
-                    msg.contentType === 'FILE' || 
-                    msg.type === 'file' || 
-                    msg.type === 'FILE' || 
-                    !!msg.fileUrl;
+                    msg.is_file ||
+                    (msg.contentType && msg.contentType.toUpperCase() === 'FILE') || 
+                    (msg.content_type && msg.content_type.toUpperCase() === 'FILE') || 
+                    (msg.type && (msg.type.toLowerCase() === 'file' || msg.type.toUpperCase() === 'FILE')) || 
+                    !!msg.fileUrl || 
+                    !!(msg.metadata && msg.metadata.fileUrl);
                   
                   // Verificar se há URL no conteúdo da mensagem
-                  let fileUrl = msg.fileUrl || msg.document?.url || '';
+                  let fileUrl = msg.fileUrl || 
+                              (msg.metadata && msg.metadata.fileUrl) || 
+                              msg.document?.url || 
+                              msg.url || 
+                              '';
                   let hasUrlInContent = false;
                   
                   if (!fileUrl && msg.content && typeof msg.content === 'string' && msg.content.includes('http')) {
@@ -1066,15 +1167,16 @@ const WhatsAppStyleChat = () => {
                   
                   // Log para debug
                   console.log(`Renderizando mensagem ${index}:`, {
-                    id: msg.id,
+                    id: msg.id || msg.message_id,
                     contentType: msg.contentType,
-                    isDocument,
-                    isFile,
+                    isDocument: isDocument || msg.isDocument || false,
+                    isFile: isFile || msg.isFile || false,
                     hasFileUrl,
                     hasUrlInContent,
                     fileType,
                     fileUrl,
-                    showAsDocument
+                    showAsDocument,
+                    originalMessage: msg.originalMessage || msg
                   });
                   
                   // Determinar nome do arquivo
@@ -1086,7 +1188,7 @@ const WhatsAppStyleChat = () => {
                   
                   return (
                     <Box
-                      key={msg.id || index} // Usar índice como fallback para evitar warning de key
+                      key={msg.id || msg.message_id || index} // Usar message_id ou índice como fallback para evitar warning de key
                       sx={{
                         display: 'flex',
                         justifyContent: isOutbound ? 'flex-end' : 'flex-start',
@@ -1123,17 +1225,67 @@ const WhatsAppStyleChat = () => {
                             {msg.content}
                           </Typography>
                         )}
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: '#667781', 
-                            display: 'block', 
-                            textAlign: 'right',
-                            mt: 0.5
-                          }}
-                        >
-                          {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mt: 0.5 }}>
+                          {/* Indicador de status da mensagem */}
+                          {isOutbound && (
+                            <Box sx={{ mr: 0.5, display: 'flex', alignItems: 'center' }}>
+                              {msg.status === 'error' && (
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => handleResendMessage(msg)}
+                                  title="Erro ao enviar. Clique para tentar novamente"
+                                  sx={{ p: 0.5 }}
+                                >
+                                  <RefreshIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              {msg.status === 'sending' && (
+                                <Box 
+                                  component="span" 
+                                  sx={{ 
+                                    display: 'inline-block',
+                                    width: 16,
+                                    height: 16,
+                                    borderRadius: '50%',
+                                    border: '2px solid #9e9e9e',
+                                    borderTopColor: 'transparent',
+                                    animation: 'spin 1s linear infinite',
+                                    '@keyframes spin': {
+                                      '0%': { transform: 'rotate(0deg)' },
+                                      '100%': { transform: 'rotate(360deg)' }
+                                    }
+                                  }}
+                                />
+                              )}
+                              {msg.status === 'sent' && (
+                                <Box component="span" sx={{ color: '#8c8c8c', fontSize: '1rem', lineHeight: 1 }}>
+                                  ✓
+                                </Box>
+                              )}
+                              {msg.status === 'delivered' && (
+                                <Box component="span" sx={{ color: '#8c8c8c', fontSize: '1rem', lineHeight: 1 }}>
+                                  ✓✓
+                                </Box>
+                              )}
+                              {msg.status === 'read' && (
+                                <Box component="span" sx={{ color: '#53bdeb', fontSize: '1rem', lineHeight: 1 }}>
+                                  ✓✓
+                                </Box>
+                              )}
+                            </Box>
+                          )}
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: '#667781', 
+                              display: 'block',
+                              ml: 0.5
+                            }}
+                          >
+                            {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                        </Box>
                       </Box>
                     </Box>
                   );

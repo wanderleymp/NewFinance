@@ -175,23 +175,39 @@ class ChatMessagesService extends BaseService {
                         (message.sender === 'me' ? 'OUTBOUND' : 'INBOUND');
       
       // Determinar tipo de conteúdo
-      const contentType = message.contentType || 
-                          (message.isFile ? 'FILE' : 
-                           message.isDocument ? 'DOCUMENT' : 'TEXT');
+      // Verificar várias propriedades possíveis para determinar o tipo de conteúdo
+      let contentType = message.contentType || message.content_type;
       
+      // Se ainda não tiver contentType, tentar inferir pelo tipo de mensagem
+      if (!contentType) {
+        if (message.isFile || message.is_file || message.fileUrl || (message.metadata && message.metadata.fileUrl)) {
+          contentType = 'FILE';
+        } else if (message.isDocument || message.is_document || 
+                  (message.type && (message.type.toUpperCase() === 'DOCUMENT' || message.type.toUpperCase() === 'FILE'))) {
+          contentType = 'DOCUMENT';
+        } else {
+          contentType = 'TEXT';
+        }
+      }
+      
+      // Mapear os campos da API para o formato esperado pelo componente
       return {
-        id: message.id,
-        chatId: message.chatId,
+        id: message.id || message.message_id, // Usar message_id como fallback
+        chatId: message.chatId || message.chat_id,
         content: message.content,
-        contentType: contentType,
+        contentType: contentType, // Já garantimos que contentType não será undefined
+        isDocument: contentType === 'DOCUMENT',
+        isFile: contentType === 'FILE',
         direction: direction,
         sender: direction === 'OUTBOUND' ? 'me' : 'them',
-        timestamp: message.createdAt || message.timestamp,
+        timestamp: message.createdAt || message.timestamp || message.created_at,
         status: message.status || 'sent',
         // Campos adicionais para arquivos
-        fileUrl: message.fileUrl,
-        fileName: message.fileName,
-        fileType: message.fileType
+        fileUrl: message.fileUrl || (message.metadata && message.metadata.fileUrl),
+        fileName: message.fileName || (message.metadata && message.metadata.fileName),
+        fileType: message.fileType || (message.metadata && message.metadata.fileType),
+        // Preservar campos originais para debug
+        originalMessage: message
       };
     });
     
@@ -211,6 +227,38 @@ class ChatMessagesService extends BaseService {
    * @param {Object} params - Parâmetros de busca
    * @returns {Promise} Lista de mensagens
    */
+  /**
+   * Tenta usar um proxy CORS para contornar problemas de certificado SSL
+   * @param {string} url - URL a ser acessada
+   * @returns {Promise<Object>} - Resposta do proxy
+   * @private
+   */
+  async _useCorsProxy(url) {
+    try {
+      // Usar um serviço de proxy CORS público como fallback
+      const corsProxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      console.log('Tentando usar proxy CORS:', corsProxyUrl);
+      
+      const headers = await this.getHeaders();
+      const response = await fetch(corsProxyUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': headers.Authorization
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro no proxy CORS: ${response.status} ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Erro ao usar proxy CORS:', error);
+      throw error;
+    }
+  }
+  
   async getChatMessages(chatId, params = {}) {
     try {
       console.log(`Buscando mensagens para o chat ${chatId}`);
@@ -224,21 +272,59 @@ class ChatMessagesService extends BaseService {
       const queryParams = { ...defaultParams, ...params };
       
       // Configurar headers
-      const headers = this.getHeaders();
+      const headers = await this.getHeaders();
       console.log('Headers da requisição:', headers);
+      
+      // Verificar se estamos em ambiente de desenvolvimento
+      const isDevelopment = import.meta.env.DEV;
+      console.log('Ambiente de desenvolvimento?', isDevelopment ? 'Sim' : 'Não');
       
       // Fazer requisição - Usando a rota correta /chats em vez de /chat
       console.log(`Fazendo requisição para /chats/${chatId}/messages`);
-      const response = await this.api.get(`/chats/${chatId}/messages`, {
-        params: queryParams,
-        headers
-      });
+      
+      let responseData;
+      try {
+        // Tentar primeiro com o proxy do Vite
+        const response = await this.api.get(`/chats/${chatId}/messages`, {
+          params: queryParams,
+          headers,
+          timeout: 10000 // 10 segundos
+        });
+        
+        console.log('Resposta da API:', response.status, response.statusText);
+        console.log('Primeiras mensagens:', response.data?.items?.slice(0, 2));
+        
+        responseData = response.data;
+      } catch (apiError) {
+        console.warn('Erro ao usar API diretamente:', apiError.message);
+        
+        // Se falhar, tentar com o proxy CORS
+        if (isDevelopment) {
+          try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
+            const fullUrl = `${apiUrl}/chats/${chatId}/messages?page=${queryParams.page}&limit=${queryParams.limit}`;
+            responseData = await this._useCorsProxy(fullUrl);
+            console.log('Resposta do proxy CORS:', responseData);
+          } catch (corsError) {
+            console.error('Erro ao usar proxy CORS:', corsError);
+            throw apiError; // Manter o erro original
+          }
+        } else {
+          throw apiError;
+        }
+      }
       
       // Processar resposta
-      const data = this._processMessagesResponse(response.data);
+      const data = this._processMessagesResponse(responseData);
       return data;
     } catch (error) {
       console.error('Erro ao buscar mensagens do chat:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: error.config?.url
+      });
       
       // Usar dados mockados para qualquer tipo de erro
       console.log(`Usando mensagens mockadas para o chat ${chatId} devido a erro: ${error.message}`);
@@ -390,6 +476,11 @@ class ChatMessagesService extends BaseService {
         messageData
       });
       
+      // Validar conteúdo da mensagem
+      if (!messageData.content) {
+        throw new Error('Conteúdo da mensagem não pode ser vazio');
+      }
+      
       // Verificar se temos um contactId válido
       const contactId = messageData.contactId || messageData.lastContactId;
       
@@ -414,6 +505,21 @@ class ChatMessagesService extends BaseService {
         }
       }
       
+      // Criar um objeto de mensagem temporária para retornar imediatamente
+      const tempMessageId = `temp-${Date.now()}`;
+      const tempMessage = {
+        id: tempMessageId,
+        chatId: chatId,
+        content: messageData.content,
+        contentType: messageData.contentType || 'TEXT',
+        isDocument: (messageData.contentType || 'TEXT') === 'DOCUMENT',
+        isFile: (messageData.contentType || 'TEXT') === 'FILE',
+        direction: 'OUTBOUND',
+        sender: 'me',
+        timestamp: new Date().toISOString(),
+        status: 'sending'
+      };
+      
       // Preparar dados da mensagem
       const messagePayload = {
         content: messageData.content,
@@ -427,40 +533,143 @@ class ChatMessagesService extends BaseService {
         ...messagePayload
       });
       
-      // Tentar enviar via Socket.IO
-      try {
-        console.log('Tentando enviar mensagem via Socket.IO');
-        
-        const socketPayload = {
-          content: messageData.content,
-          contentType: messageData.contentType || 'TEXT',
-          channelId: messageData.channelId || 6,
-          contactId: messageData.contactId
-        };
-        
-        const response = await socketIoService.sendMessage(chatId, socketPayload);
-        console.log('Mensagem enviada com sucesso via Socket.IO:', response);
-        
-        return {
-          id: response.id || Date.now().toString(),
-          chatId: chatId,
-          content: messageData.content,
-          contentType: messageData.contentType || 'TEXT',
-          direction: 'OUTBOUND',
-          sender: 'me',
-          timestamp: response.timestamp || new Date().toISOString(),
-          status: 'sent'
-        };
-      } catch (socketError) {
-        console.warn('Falha ao enviar via Socket.IO, usando fallback HTTP:', socketError.message);
-        // Continua para o fallback HTTP
+      // Tentar todas as estratégias de envio em sequência
+      let sentMessage = null;
+      
+      // 1. Tentar Socket.IO primeiro
+      if (socketIoService.isConnected && socketIoService.socket) {
+        try {
+          console.log('Tentando enviar mensagem via Socket.IO');
+          
+          const socketPayload = {
+            content: messageData.content,
+            contentType: messageData.contentType || 'TEXT',
+            channelId: messageData.channelId || 6,
+            contactId: messageData.contactId
+          };
+          
+          // Usar o método sendMessage do socketIoService que já tem timeout interno
+          const response = await socketIoService.sendMessage(chatId, socketPayload);
+          console.log('Mensagem enviada com sucesso via Socket.IO:', response);
+          
+          sentMessage = {
+            ...tempMessage,
+            id: response.id || tempMessage.id,
+            timestamp: response.timestamp || tempMessage.timestamp,
+            status: 'sent'
+          };
+          
+          return sentMessage;
+        } catch (socketError) {
+          console.warn('Falha ao enviar via Socket.IO:', socketError.message);
+          // Continuar para próxima estratégia
+        }
+      } else {
+        console.log('Socket.IO não está conectado, tentando outras estratégias');
       }
       
-      // Fallback para HTTP se Socket.IO não estiver disponível ou falhar
-      const response = await this.api.post(`/chats/${chatId}/messages`, messagePayload);
+      // 2. Tentar HTTP via proxy do Vite
+      try {
+        console.log('Tentando enviar mensagem via HTTP (proxy Vite)');
+        const headers = await this.getHeaders();
+        
+        const response = await this.api.post(`/chats/${chatId}/messages`, messagePayload, { 
+          headers,
+          timeout: 8000 // 8 segundos de timeout
+        });
+        
+        console.log('Resposta do envio de mensagem via HTTP (proxy Vite):', response.data);
+        
+        // Garantir que a resposta tenha todos os campos necessários
+        const responseData = response.data;
+        sentMessage = {
+          ...tempMessage,
+          id: responseData.id || responseData.message_id || tempMessage.id,
+          timestamp: responseData.timestamp || responseData.created_at || tempMessage.timestamp,
+          status: 'sent'
+        };
+        
+        return sentMessage;
+      } catch (proxyError) {
+        console.warn('Falha ao enviar via HTTP (proxy Vite):', proxyError.message);
+        // Continuar para próxima estratégia
+      }
       
-      console.log('Resposta do envio de mensagem via HTTP:', response.data);
-      return response.data;
+      // 3. Tentar HTTP direto (sem proxy)
+      try {
+        // Usar a URL completa da API
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
+        const url = `${apiUrl}/chats/${chatId}/messages`;
+        
+        console.log('Tentando enviar mensagem via HTTP direto para:', url);
+        const headers = await this.getHeaders();
+        
+        // Usar fetch em vez de axios para ter mais controle
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': headers.Authorization
+          },
+          body: JSON.stringify(messagePayload)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log('Resposta do envio de mensagem via HTTP direto:', responseData);
+        
+        sentMessage = {
+          ...tempMessage,
+          id: responseData.id || responseData.message_id || tempMessage.id,
+          timestamp: responseData.timestamp || responseData.created_at || tempMessage.timestamp,
+          status: 'sent'
+        };
+        
+        return sentMessage;
+      } catch (directHttpError) {
+        console.error('Falha ao enviar via HTTP direto:', directHttpError.message);
+      }
+      
+      // 4. Tentar via proxy CORS como último recurso
+      try {
+        console.log('Tentando enviar mensagem via proxy CORS');
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
+        const targetUrl = `${apiUrl}/chats/${chatId}/messages`;
+        const corsProxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        
+        const headers = await this.getHeaders();
+        
+        const response = await fetch(corsProxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': headers.Authorization
+          },
+          body: JSON.stringify(messagePayload)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`CORS proxy error! status: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log('Resposta do envio de mensagem via proxy CORS:', responseData);
+        
+        sentMessage = {
+          ...tempMessage,
+          id: responseData.id || responseData.message_id || tempMessage.id,
+          timestamp: responseData.timestamp || responseData.created_at || tempMessage.timestamp,
+          status: 'sent'
+        };
+        
+        return sentMessage;
+      } catch (corsError) {
+        console.error('Falha ao enviar via proxy CORS:', corsError.message);
+        throw new Error('Todas as tentativas de envio falharam');
+      }
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       

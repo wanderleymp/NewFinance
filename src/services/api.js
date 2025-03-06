@@ -15,13 +15,16 @@ console.log('🔍 DEBUG - Todas variáveis Vite:',
 const isDevelopment = import.meta.env.DEV;
 
 // Determinar a URL base da API
-let baseURL = import.meta.env.VITE_API_URL;
+// Em ambiente de desenvolvimento, SEMPRE usar o proxy do Vite para evitar erros de certificado SSL
+let baseURL = '/api';
 
-// Em ambiente de desenvolvimento, usar o proxy configurado no vite.config.js
-if (isDevelopment) {
-  console.log('🔒 Ambiente de desenvolvimento detectado. Usando proxy para ignorar erros de certificado SSL.');
-  baseURL = '/api'; // Este é o caminho do proxy configurado no vite.config.js
+// Em produção, usar a URL real da API
+if (!isDevelopment) {
+  baseURL = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
 }
+
+console.log('🔒 Ambiente:', isDevelopment ? 'desenvolvimento' : 'produção');
+console.log('🔍 DEBUG - URL base definida para:', baseURL);
 
 const api = axios.create({
   baseURL,
