@@ -64,9 +64,8 @@ class SocketIoService {
         path: socketPath,
         // Enviando o token como query parameter (sem o prefixo Bearer)
         query: {
-          token: token,
-          // Adicionar parâmetro para indicar que devemos ignorar erros de certificado em desenvolvimento
-          ignoreSSL: isDevelopment
+          token: token
+          // Removido parâmetro ignoreSSL que causava erro na conexão WebSocket
         },
         // Mantendo o formato Bearer nos headers para compatibilidade com HTTP
         extraHeaders: {
@@ -159,7 +158,7 @@ class SocketIoService {
           timeout: 20000,
           path: '/socket.io',
           // Ignorar erros de certificado SSL em ambiente de desenvolvimento
-          rejectUnauthorized: false
+          rejectUnauthorized: !isDevelopment
         });
         
         // Configurar handlers
@@ -657,9 +656,20 @@ class SocketIoService {
   disconnect() {
     if (this.socket) {
       console.log('Desconectando Socket.IO');
-      this.socket.disconnect();
-      this.socket = null;
-      this.isConnected = false;
+      try {
+        // Verificar se o socket ainda está conectado antes de desconectar
+        if (this.socket.connected) {
+          this.socket.disconnect();
+        } else {
+          console.log('Socket já está desconectado');
+        }
+      } catch (error) {
+        console.error('Erro ao desconectar Socket.IO:', error);
+      } finally {
+        this.socket = null;
+        this.isConnected = false;
+        this._notifyConnectionChange(false);
+      }
     }
   }
 }

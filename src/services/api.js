@@ -45,9 +45,15 @@ console.log('Variáveis de ambiente:', Object.keys(import.meta.env).filter(key =
 // mas podemos adicionar um interceptor para ignorar erros específicos de certificado
 if (isDevelopment) {
   api.interceptors.request.use(config => {
-    // Adicionar parâmetro para indicar que devemos ignorar erros de certificado
-    // Isso será tratado pelo servidor proxy de desenvolvimento (se configurado)
-    config.params = { ...config.params, ignoreSSL: true };
+    // Removido o parâmetro ignoreSSL que estava causando erro 400 Bad Request
+    // O proxy já está configurado para ignorar erros de certificado no vite.config.js
+    // config.params = { ...config.params, ignoreSSL: true };
+    
+    // Adicionar header para identificar requisições de desenvolvimento
+    config.headers = {
+      ...config.headers,
+      'X-Development-Mode': 'true'
+    };
     return config;
   });
 }
@@ -814,11 +820,39 @@ export const updateInstallmentDueDate = async (
 export const paymentMethodService = {
   async getAll(params = {}) {
     console.log(`[GET] /payment-method: Params:`, params);
-    console.log(`[GET] /payment-method: Params (detailed):`, JSON.stringify(params, null, 2));
     
-    const response = await api.get('/payment-method', { params });
-    
-    return response.data;
+    try {
+      const response = await api.get('/payment-method', { params });
+      console.log(`[GET] /payment-method: Resposta:`, response.data);
+      
+      // Padroniza o formato de resposta para lidar com diferentes formatos
+      let items = [];
+      
+      if (Array.isArray(response.data)) {
+        // Se a resposta for um array direto
+        items = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Se a resposta for no formato { data: [...], meta: {...} }
+        items = response.data.data;
+      } else if (response.data.items && Array.isArray(response.data.items)) {
+        // Se a resposta for no formato { items: [...], meta: {...} }
+        items = response.data.items;
+      } else {
+        console.warn('Formato de resposta desconhecido:', response.data);
+        items = [];
+      }
+      
+      // Mapeia os itens para o formato esperado pelo frontend
+      const formattedMethods = items.map(method => ({
+        id: method.payment_method_id || method.id,
+        name: method.method_name || method.name || 'Sem nome'
+      }));
+      
+      return { data: formattedMethods };
+    } catch (error) {
+      console.error('Erro ao buscar formas de pagamento:', error);
+      return { data: [] };
+    }
   },
 
   async get(id) {
