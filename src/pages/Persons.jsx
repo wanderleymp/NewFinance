@@ -56,6 +56,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSnackbar } from 'notistack';
 import personsService from '../services/personsService';
+import ImportCnpjDialog from '../components/ImportCnpjDialog';
 
 const Persons = () => {
   const navigate = useNavigate();
@@ -74,6 +75,7 @@ const Persons = () => {
   const [contactSearch, setContactSearch] = useState('');
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const [importCnpjDialogOpen, setImportCnpjDialogOpen] = useState(false);
 
   const loadPersons = async () => {
     try {
@@ -296,6 +298,14 @@ const Persons = () => {
     navigate('/persons/new', { state: { personType: type } });
   };
 
+  const handleOpenImportCnpjDialog = () => {
+    setImportCnpjDialogOpen(true);
+  };
+
+  const handleCloseImportCnpjDialog = () => {
+    setImportCnpjDialogOpen(false);
+  };
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
@@ -311,7 +321,7 @@ const Persons = () => {
           <Button
             variant="outlined"
             startIcon={<CloudDownloadIcon />}
-            onClick={() => navigate('/persons/import-cnpj')}
+            onClick={handleOpenImportCnpjDialog}
             sx={{ 
               borderRadius: 2,
               textTransform: 'none',
@@ -620,6 +630,14 @@ const Persons = () => {
           </List>
         </DialogContent>
       </Dialog>
+      <ImportCnpjDialog
+        open={importCnpjDialogOpen}
+        onClose={handleCloseImportCnpjDialog}
+        onSuccess={() => {
+          handleCloseImportCnpjDialog();
+          loadPersons();
+        }}
+      />
     </Box>
   );
 };
