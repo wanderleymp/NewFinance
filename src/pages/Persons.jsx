@@ -295,7 +295,8 @@ const Persons = () => {
 
   const handleNewPerson = (type) => {
     handleCloseNewMenu();
-    navigate('/persons/new', { state: { personType: type } });
+    console.log('Navegando para criação de nova pessoa com tipo:', type);
+    navigate('/finance/persons/new', { state: { personType: type } });
   };
 
   const handleOpenImportCnpjDialog = () => {
@@ -333,7 +334,10 @@ const Persons = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => navigate('/persons/new')}
+            onClick={() => {
+              console.log('Navegando para criação de nova pessoa');
+              navigate('/finance/persons/new');
+            }}
             sx={{ 
               borderRadius: 2,
               textTransform: 'none',
@@ -514,7 +518,10 @@ const Persons = () => {
                     <Tooltip title="Editar">
                       <IconButton 
                         size="small" 
-                        onClick={() => navigate(`/persons/${person.person_id}/edit`)}
+                        onClick={() => {
+                          console.log('Navegando para edição de pessoa:', person);
+                          navigate(`/finance/persons/${person.person_id}/edit`);
+                        }}
                       >
                         <EditIcon fontSize="small" />
                       </IconButton>

@@ -161,6 +161,20 @@ const personsService = {
   updateAddress: (personId, addressId, data) => api.put(`/persons/${personId}/addresses/${addressId}`, data).then(response => response.data),
 
   deleteAddress: (personId, addressId) => api.delete(`/persons/${personId}/addresses/${addressId}`).then(response => response.data),
+
+  // Documentos
+  listDocuments: (personId) => api.get(`/persons/${personId}/documents`).then(response => response.data),
+  
+  getDocument: async (personId, documentId) => {
+    const response = await api.get(`/persons/${personId}/documents/${documentId}`);
+    return response.data;
+  },
+  
+  createDocument: (personId, data) => api.post(`/persons/${personId}/documents`, data).then(response => response.data),
+  
+  updateDocument: (personId, documentId, data) => api.put(`/persons/${personId}/documents/${documentId}`, data).then(response => response.data),
+  
+  deleteDocument: (personId, documentId) => api.delete(`/persons/${personId}/documents/${documentId}`).then(response => response.data),
 };
 
 export default personsService;

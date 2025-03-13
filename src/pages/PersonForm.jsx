@@ -97,6 +97,7 @@ const PersonForm = () => {
   // Dados relacionados
   const [addresses, setAddresses] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [searchContacts, setSearchContacts] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -126,6 +127,17 @@ const PersonForm = () => {
 
   const [editingContact, setEditingContact] = useState(null);
 
+  // Estado inicial do documento
+  const [newDocument, setNewDocument] = useState({
+    document_type: 'CPF',
+    document_value: '',
+    description: '',
+    is_main: false,
+    document_id: null
+  });
+
+  const [editingDocument, setEditingDocument] = useState(null);
+
   const resetAddressForm = () => {
     setNewAddress({
       postal_code: '',
@@ -146,16 +158,18 @@ const PersonForm = () => {
           setLoading(true);
           console.log('🔍 Carregando dados da pessoa:', { id });
 
-          const [personData, contactsData, addressesData] = await Promise.all([
+          const [personData, contactsData, addressesData, documentsData] = await Promise.all([
             personsService.get(id),
             personsService.listContacts({ person_id: id }),
-            personsService.listAddresses(id)
+            personsService.listAddresses(id),
+            personsService.listDocuments(id)
           ]);
 
           console.log('✅ Dados carregados:', {
             person: personData,
             contacts: contactsData,
-            addresses: addressesData
+            addresses: addressesData,
+            documents: documentsData
           });
 
           // Formatar a data para o formato esperado pelo input
@@ -184,6 +198,7 @@ const PersonForm = () => {
           console.log('📝 Contatos formatados:', formattedContacts);
           setContacts(formattedContacts);
           setAddresses(addressesData.items || []);
+          setDocuments(documentsData.items || []);
         } catch (error) {
           console.error('❌ Erro ao carregar dados:', error);
           enqueueSnackbar('Erro ao carregar dados da pessoa', { variant: 'error' });
@@ -379,6 +394,113 @@ const PersonForm = () => {
     }
   };
 
+  // Funções para gerenciar documentos
+  const handleAddDocument = async () => {
+    try {
+      if (!newDocument.document_value) {
+        enqueueSnackbar('Por favor, preencha o valor do documento', { variant: 'warning' });
+        return;
+      }
+
+      const documentData = {
+        document_type: newDocument.document_type,
+        document_value: newDocument.document_value,
+        description: newDocument.description || null,
+        is_main: newDocument.is_main
+      };
+
+      if (editingDocument) {
+        await personsService.updateDocument(id, editingDocument.id, documentData);
+        enqueueSnackbar('Documento atualizado com sucesso!', { variant: 'success' });
+      } else {
+        await personsService.createDocument(id, documentData);
+        enqueueSnackbar('Documento adicionado com sucesso!', { variant: 'success' });
+      }
+
+      // Recarrega a lista de documentos
+      const documentsData = await personsService.listDocuments(id);
+      setDocuments(documentsData.items || []);
+
+      // Limpa o formulário
+      setNewDocument({
+        document_type: 'CPF',
+        document_value: '',
+        description: '',
+        is_main: false,
+        document_id: null
+      });
+      setEditingDocument(null);
+    } catch (error) {
+      console.error('Erro ao adicionar/atualizar documento:', error);
+      enqueueSnackbar(
+        error.response?.data?.message || 'Erro ao adicionar/atualizar documento',
+        { variant: 'error' }
+      );
+    }
+  };
+
+  const handleEditDocument = (document) => {
+    setEditingDocument(document);
+    setNewDocument({
+      document_type: document.document_type,
+      document_value: document.document_value,
+      description: document.description || '',
+      is_main: document.is_main || false,
+      document_id: document.id
+    });
+  };
+
+  const handleCancelEditDocument = () => {
+    setEditingDocument(null);
+    setNewDocument({
+      document_type: 'CPF',
+      document_value: '',
+      description: '',
+      is_main: false,
+      document_id: null
+    });
+  };
+
+  const handleDeleteDocument = async (documentId) => {
+    try {
+      await personsService.deleteDocument(id, documentId);
+      const documentsData = await personsService.listDocuments(id);
+      setDocuments(documentsData.items || []);
+      enqueueSnackbar('Documento excluído com sucesso!', { variant: 'success' });
+    } catch (error) {
+      console.error('Erro ao excluir documento:', error);
+      enqueueSnackbar(
+        error.response?.data?.message || 'Erro ao excluir documento',
+        { variant: 'error' }
+      );
+    }
+  };
+
+  const formatDocumentValue = (type, value) => {
+    if (!value) return '';
+    
+    // Remove todos os caracteres não numéricos
+    const numbers = value.replace(/\D/g, '');
+    
+    // Formata CNPJ: 00.000.000/0000-00
+    if (type === 'CNPJ') {
+      return numbers.replace(
+        /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+        '$1.$2.$3/$4-$5'
+      );
+    }
+    
+    // Formata CPF: 000.000.000-00
+    if (type === 'CPF') {
+      return numbers.replace(
+        /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
+        '$1.$2.$3-$4'
+      );
+    }
+    
+    return value;
+  };
+
   const handleSearchContacts = async (search) => {
     try {
       setSearchText(search);
@@ -449,7 +571,10 @@ const PersonForm = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={() => navigate('/persons')} sx={{ mr: 1 }}>
+        <IconButton onClick={() => {
+          console.log('Retornando para a lista de pessoas');
+          navigate('/finance/persons');
+        }} sx={{ mr: 1 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box>
@@ -471,6 +596,7 @@ const PersonForm = () => {
           <Tab label="Dados Principais" />
           <Tab label="Contatos" />
           <Tab label="Endereços" />
+          <Tab label="Documentos" />
         </Tabs>
       </Paper>
 
@@ -780,6 +906,7 @@ const PersonForm = () => {
                       value={newAddress.street}
                       onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
                       fullWidth
+                      required
                     />
                   </Grid>
                   <Grid item xs={12} sm={3}>
@@ -788,6 +915,7 @@ const PersonForm = () => {
                       value={newAddress.number}
                       onChange={(e) => setNewAddress({ ...newAddress, number: e.target.value })}
                       fullWidth
+                      required
                     />
                   </Grid>
                   <Grid item xs={12} sm={4}>
@@ -879,6 +1007,145 @@ const PersonForm = () => {
                 ) : (
                   <Typography color="text.secondary" align="center">
                     Nenhum endereço cadastrado
+                  </Typography>
+                )}
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 3 && (
+        <Card
+          elevation={0}
+          sx={{
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <CardContent>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom>
+                  {editingDocument ? 'Editar Documento' : 'Adicionar Documento'}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <FormControl fullWidth>
+                      <InputLabel id="document-type-label">Tipo de Documento</InputLabel>
+                      <Select
+                        labelId="document-type-label"
+                        value={newDocument.document_type}
+                        onChange={(e) => setNewDocument({ ...newDocument, document_type: e.target.value })}
+                        label="Tipo de Documento"
+                      >
+                        <MenuItem value="CPF">CPF</MenuItem>
+                        <MenuItem value="CNPJ">CNPJ</MenuItem>
+                        <MenuItem value="RG">RG</MenuItem>
+                        <MenuItem value="CNH">CNH</MenuItem>
+                        <MenuItem value="PASSPORT">Passaporte</MenuItem>
+                        <MenuItem value="OTHER">Outro</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={8}>
+                    <TextField
+                      label="Número do Documento"
+                      value={newDocument.document_value}
+                      onChange={(e) => setNewDocument({ ...newDocument, document_value: e.target.value })}
+                      fullWidth
+                      required
+                      helperText={formatDocumentValue(newDocument.document_type, newDocument.document_value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Descrição"
+                      value={newDocument.description}
+                      onChange={(e) => setNewDocument({ ...newDocument, description: e.target.value })}
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={newDocument.is_main}
+                          onChange={(e) => setNewDocument({ ...newDocument, is_main: e.target.checked })}
+                        />
+                      }
+                      label="Documento Principal"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={5}>
+                    <Button
+                      variant="contained"
+                      onClick={handleAddDocument}
+                      disabled={!newDocument.document_value}
+                      sx={{ height: '100%', mr: 1 }}
+                      fullWidth
+                    >
+                      {editingDocument ? 'Atualizar' : 'Adicionar'}
+                    </Button>
+                  </Grid>
+                  {editingDocument && (
+                    <Grid item xs={12} sm={5}>
+                      <Button
+                        variant="outlined"
+                        onClick={handleCancelEditDocument}
+                        sx={{ height: '100%' }}
+                        fullWidth
+                      >
+                        Cancelar
+                      </Button>
+                    </Grid>
+                  )}
+                </Grid>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="h6" gutterBottom>
+                  Documentos
+                </Typography>
+                {documents.length > 0 ? (
+                  <List>
+                    {documents.map((document, index) => (
+                      <ListItem
+                        key={index}
+                        secondaryAction={
+                          <>
+                            <IconButton edge="end" onClick={() => handleEditDocument(document)} sx={{ mr: 1 }}>
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton edge="end" onClick={() => handleDeleteDocument(document.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        }
+                      >
+                        <ListItemText
+                          primary={
+                            <>
+                              <Chip 
+                                label={document.document_type} 
+                                size="small" 
+                                color="primary" 
+                                variant={document.is_main ? "filled" : "outlined"}
+                                sx={{ mr: 1 }}
+                              />
+                              {formatDocumentValue(document.document_type, document.document_value)}
+                            </>
+                          }
+                          secondary={document.description || 'Sem descrição'}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography color="text.secondary" align="center">
+                    Nenhum documento cadastrado
                   </Typography>
                 )}
               </Grid>
