@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -33,6 +33,7 @@ import SearchIcon from '@mui/icons-material/Search';
 
 import { contractService } from '../services/ContractService';
 import Loading from '../../../components/Loading';
+import debounce from 'lodash/debounce';
 
 interface ContractBilling {
   id: number;
@@ -85,11 +86,12 @@ export default function ContractBillingPage() {
   const { enqueueSnackbar } = useSnackbar();
 
   // Função para lidar com a busca
-  const debouncedSearch = useCallback(
-    debounce((value: string) => {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchPendingBillings(1, value);
-    }, 500),
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((value: string) => {
+        setPagination(prev => ({ ...prev, page: 1 }));
+        fetchPendingBillings(1, value);
+      }, 500),
     []
   );
 
@@ -98,7 +100,7 @@ export default function ContractBillingPage() {
     debouncedSearch(searchTerm);
     // Cleanup function para cancelar o debounce quando o componente for desmontado
     return () => {
-      debouncedSearch.clear();
+      debouncedSearch.cancel();
     };
   }, [searchTerm, debouncedSearch]);
 
