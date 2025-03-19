@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
+import { SearchPersonAutocomplete } from '../../../../components/SearchPersonAutocomplete';
 
 interface ContractFormModalProps {
   open: boolean;
@@ -25,12 +26,14 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({
   initialData 
 }) => {
   const [formData, setFormData] = useState<ContractFormData>({
-    name: initialData?.name || '',
-    currentValue: initialData?.currentValue || 0,
+    name: initialData?.contract_name || '',
+    currentValue: initialData?.contract_value ? parseFloat(initialData.contract_value) : 0,
     status: initialData?.status || 'ativo',
-    group: initialData?.group || '',
-    startDate: initialData?.startDate || '',
-    endDate: initialData?.endDate || '',
+    group: initialData?.group_name || '',
+    startDate: initialData?.start_date || '',
+    endDate: initialData?.end_date || '',
+    representativePersonId: initialData?.representative_person_id || null,
+    representativeName: initialData?.full_name || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +41,14 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handlePersonSelect = (person: any | null) => {
+    setFormData(prev => ({
+      ...prev,
+      representativePersonId: person?.id || null,
+      representativeName: person?.name || ''
     }));
   };
 
@@ -60,6 +71,13 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({
               fullWidth
               value={formData.name}
               onChange={handleChange}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <SearchPersonAutocomplete 
+              onPersonSelect={handlePersonSelect}
+              label="Representante do Contrato"
+              placeholder="Busque o representante do contrato"
             />
           </Grid>
           <Grid item xs={6}>

@@ -1,190 +1,203 @@
-import {
-  Box,
+import React, { useEffect } from 'react';
+import { 
+  Box, 
+  Typography,
   Card,
   CardContent,
-  Typography,
-  Grid,
-  useTheme,
+  IconButton,
+  Container,
+  Alert,
+  Grid
 } from '@mui/material';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  AttachMoney as FinanceIcon,
+  Chat as ChatIcon,
+  Person as CRMIcon,
+  Assignment as ServiceOrderIcon,
+  ListAlt as TaskIcon,
+  ArrowForward as ArrowForwardIcon,
+  People as PeopleIcon
+} from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService'; 
+import { motion } from 'framer-motion';
 
-const mockData = [
-  { name: 'Jan', valor: 4000 },
-  { name: 'Fev', valor: 3000 },
-  { name: 'Mar', valor: 5000 },
-  { name: 'Abr', valor: 2780 },
-  { name: 'Mai', valor: 1890 },
-  { name: 'Jun', valor: 2390 },
-];
-
-const Home = () => {
-  const theme = useTheme();
-  const user = JSON.parse(localStorage.getItem('user'));
-
-  console.log('Home - Usuário:', user);
-  console.log('Home - Tema:', theme.palette.mode);
+const SystemCard = ({ title, description, icon: Icon, route, isDisabled, color }) => {
+  const navigate = useNavigate();
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Typography variant="h5" fontWeight="600" gutterBottom>
-            Bem-vindo, {user?.username || 'Usuário'}
+    <Card
+      component={motion.div}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      sx={{
+        bgcolor: isDisabled ? '#f5f5f5' : color,
+        color: 'white',
+        cursor: isDisabled ? 'default' : 'pointer',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        borderRadius: 2,
+        overflow: 'hidden',
+        transition: 'all 0.3s ease',
+        boxShadow: 3
+      }}
+      onClick={() => !isDisabled && navigate(route)}
+    >
+      <CardContent sx={{ p: 3, flex: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          height: '100%'
+        }}>
+          <Icon sx={{ fontSize: 48, mb: 2, color: isDisabled ? '#999' : 'white' }} />
+          <Typography variant="h6" sx={{ mb: 1, color: isDisabled ? '#666' : 'white' }}>
+            {title}
           </Typography>
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            Aqui está um resumo das suas finanças
+          <Typography variant="body2" sx={{ color: isDisabled ? '#888' : 'rgba(255,255,255,0.8)' }}>
+            {description}
           </Typography>
-        </Grid>
-        
-        <Grid item xs={12} md={8}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight="600">
-                Visão Geral Financeira
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockData}>
-                    <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                    <XAxis 
-                      dataKey="name"
-                      stroke={theme.palette.text.secondary}
-                      tick={{ fill: theme.palette.text.secondary }}
-                    />
-                    <YAxis
-                      stroke={theme.palette.text.secondary}
-                      tick={{ fill: theme.palette.text.secondary }}
-                      tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: theme.palette.background.paper,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 8,
-                      }}
-                      formatter={(value) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Valor']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="valor"
-                      stroke={theme.palette.primary.main}
-                      fillOpacity={1}
-                      fill="url(#colorValue)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom fontWeight="600">
-                Saldo Total
-              </Typography>
-              <Typography variant="h4" sx={{ color: theme.palette.primary.main, my: 2 }}>
-                R$ 12.345,00
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Atualizado hoje às 09:00
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        </Box>
+        {!isDisabled && (
+          <IconButton
+            sx={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <ArrowForwardIcon />
+          </IconButton>
+        )}
+        {isDisabled && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              bgcolor: '#ff9800',
+              color: 'white',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              fontSize: '0.75rem'
+            }}
+          >
+            Em breve
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ position: 'relative' }}>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  width: 4,
-                  height: '100%',
-                  bgcolor: theme.palette.success.main,
-                  borderTopRightRadius: 16,
-                  borderBottomRightRadius: 16,
-                }}
-              />
-              <Typography variant="h6" gutterBottom fontWeight="600">
-                Receitas
-              </Typography>
-              <Typography variant="h4" sx={{ color: theme.palette.success.main, my: 2 }}>
-                R$ 5.678,00
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Este Mês
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+const Home = () => {
+  const navigate = useNavigate();
+  const currentUser = authService.getCurrentUser();
 
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ position: 'relative' }}>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  width: 4,
-                  height: '100%',
-                  bgcolor: theme.palette.error.main,
-                  borderTopRightRadius: 16,
-                  borderBottomRightRadius: 16,
-                }}
-              />
-              <Typography variant="h6" gutterBottom fontWeight="600">
-                Despesas
-              </Typography>
-              <Typography variant="h4" sx={{ color: theme.palette.error.main, my: 2 }}>
-                R$ 3.421,00
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Este Mês
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent sx={{ position: 'relative' }}>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  width: 4,
-                  height: '100%',
-                  bgcolor: theme.palette.info.main,
-                  borderTopRightRadius: 16,
-                  borderBottomRightRadius: 16,
-                }}
+  if (!authService.isAuthenticated()) {
+    return null; // Previne renderização antes do redirecionamento
+  }
+
+  const systems = [
+    {
+      title: 'Finanças',
+      description: 'Gestão financeira completa',
+      icon: FinanceIcon,
+      route: '/finance',
+      color: '#2e7d32'
+    },
+    {
+      title: 'Chat',
+      description: 'Comunicação com clientes',
+      icon: ChatIcon,
+      route: '/chat',
+      isDisabled: false,
+      color: '#1976d2'
+    },
+    {
+      title: 'CRM',
+      description: 'Relacionamento com clientes',
+      icon: CRMIcon,
+      route: '/crm',
+      isDisabled: true,
+      color: '#757575'
+    },
+    {
+      title: 'Ordem de Serviço',
+      description: 'Controle de serviços',
+      icon: ServiceOrderIcon,
+      route: '/service-order',
+      isDisabled: true,
+      color: '#757575'
+    },
+    {
+      title: 'Tarefas',
+      description: 'Gerenciamento de tarefas',
+      icon: TaskIcon,
+      route: '/tasks',
+      isDisabled: true,
+      color: '#757575'
+    }
+  ];
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="h6">
+            Seja bem-vindo(a), {currentUser?.username || 'Usuário'}!
+          </Typography>
+        </Alert>
+      </Box>
+
+      <Box 
+        sx={{ 
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          py: 4
+        }}
+      >
+        <Box sx={{ mb: 6, textAlign: 'center' }}>
+          <Typography 
+            variant="h3" 
+            sx={{ 
+              color: 'primary.main', 
+              fontWeight: 'bold', 
+              mb: 4 
+            }}
+          >
+            Sistemas
+          </Typography>
+        </Box>
+
+        <Grid container spacing={3}>
+          {systems.map((system, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <SystemCard
+                title={system.title}
+                description={system.description}
+                icon={system.icon}
+                route={system.route}
+                isDisabled={system.isDisabled}
+                color={system.color}
               />
-              <Typography variant="h6" gutterBottom fontWeight="600">
-                Economia
-              </Typography>
-              <Typography variant="h4" sx={{ color: theme.palette.info.main, my: 2 }}>
-                R$ 2.257,00
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Este Mês
-              </Typography>
-            </CardContent>
-          </Card>
+            </Grid>
+          ))}
         </Grid>
-      </Grid>
-    </Box>
+      </Box>
+    </Container>
   );
 };
 

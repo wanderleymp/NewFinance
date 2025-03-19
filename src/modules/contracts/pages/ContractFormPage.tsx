@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { contractService } from '../services/ContractService';
 import ContractServices from '../components/ContractServices';
 import { ContractService } from '../types/contractService';
+import { SearchPersonAutocomplete } from '@/components/SearchPersonAutocomplete';
 
 interface ContractFormData {
   contract_name: string;
@@ -82,10 +83,16 @@ const initialFormData: ContractFormData = {
 const ContractFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = window.location.pathname;
+  const isRecurring = location.includes('contracts-recurring');
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<ContractFormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof ContractFormData, string>>>({});
+  
+  // Log para debug
+  console.log('Tipo de contrato:', isRecurring ? 'Recorrente' : 'Regular');
+  console.log('ID do contrato:', id);
 
   useEffect(() => {
     const loadContract = async () => {
@@ -93,7 +100,16 @@ const ContractFormPage: React.FC = () => {
 
       try {
         setLoading(true);
-        const response = await contractService.getContractById(Number(id));
+        let response;
+        
+        // Usa o método apropriado dependendo do tipo de contrato
+        if (isRecurring) {
+          console.log('Carregando contrato recorrente com ID:', id);
+          response = await contractService.getRecurringContractById(id);
+        } else {
+          console.log('Carregando contrato regular com ID:', id);
+          response = await contractService.getContractById(Number(id));
+        }
         
         if (response) {
           console.log('Resposta do contrato:', response);
@@ -126,7 +142,7 @@ const ContractFormPage: React.FC = () => {
     };
 
     loadContract();
-  }, [id, enqueueSnackbar]);
+  }, [id, enqueueSnackbar, isRecurring]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof ContractFormData, string>> = {};
@@ -171,10 +187,21 @@ const ContractFormPage: React.FC = () => {
         items: formData.services, 
       };
       
-      await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
-      
-      enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
-      navigate('/contracts');
+      if (isRecurring) {
+        // Para contratos recorrentes
+        if (id) {
+          await contractService.updateRecurring(id, contractData);
+        } else {
+          await contractService.createRecurring(contractData);
+        }
+        enqueueSnackbar('Contrato recorrente salvo com sucesso!', { variant: 'success' });
+        navigate('/contracts-recurring');
+      } else {
+        // Para contratos regulares
+        await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
+        enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
+        navigate('/contracts');
+      }
     } catch (error) {
       console.error('Erro ao salvar contrato:', error);
       enqueueSnackbar('Erro ao salvar contrato', { variant: 'error' });
@@ -234,6 +261,14 @@ const ContractFormPage: React.FC = () => {
     });
   };
 
+  const handlePersonSelect = (person: any | null) => {
+    setFormData(prev => ({
+      ...prev,
+      representative_person_id: person?.id || null,
+      full_name: person?.name || ''
+    }));
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -261,7 +296,7 @@ const ContractFormPage: React.FC = () => {
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Nome do Contrato"
@@ -273,15 +308,13 @@ const ContractFormPage: React.FC = () => {
                 />
               </Grid>
               
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Nome Completo"
-                  value={formData.full_name}
-                  onChange={handleInputChange('full_name')}
-                  error={!!errors.full_name}
-                  helperText={errors.full_name}
-                  required
+              <Grid item xs={12}>
+                <SearchPersonAutocomplete 
+                  onPersonSelect={handlePersonSelect}
+                  label="Representante do Contrato"
+                  placeholder="Busque o representante do contrato"
+                  name="representativeName"
+                  sx={{ width: '100%' }}
                 />
               </Grid>
 
@@ -433,16 +466,6 @@ const ContractFormPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="ID do Representante"
-                  type="number"
-                  value={formData.representative_person_id || ''}
-                  onChange={handleInputChange('representative_person_id')}
-                />
-              </Grid>
-
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -489,7 +512,7 @@ const ContractFormPage: React.FC = () => {
                 <Box display="flex" gap={2} justifyContent="flex-end" mt={3}>
                   <Button
                     variant="outlined"
-                    onClick={() => navigate('/contracts')}
+                    onClick={() => navigate(isRecurring ? '/contracts-recurring' : '/contracts')}
                     disabled={loading}
                   >
                     Cancelar

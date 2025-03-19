@@ -31,7 +31,11 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  TextField
+  TextField,
+  Card,
+  CardContent,
+  CardActionArea,
+  Avatar
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
@@ -73,8 +77,6 @@ import axios from 'axios';
 import { endOfDay, format, formatISO, parseISO, startOfDay, subDays, addDays, isValid, sub } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
-  Card, 
-  CardContent, 
   Stack, 
   ToggleButtonGroup, 
   ToggleButton, 
@@ -1299,22 +1301,9 @@ const Movements = () => {
     statusId: '',
     typeId: ''
   });
-  const [openNewMovementModal, setOpenNewMovementModal] = useState(false);
-
-  // Função para abrir o modal de novo movimento
-  const handleOpenNewMovementModal = () => {
-    setOpenNewMovementModal(true);
-  };
-
-  // Função para fechar o modal de novo movimento
-  const handleCloseNewMovementModal = () => {
-    setOpenNewMovementModal(false);
-  };
-
   // Função para criar novo movimento
-  const handleNewMovement = (type) => {
-    navigate(`/movements/new/${type}`);
-    handleCloseNewMovementModal();
+  const handleNewMovement = () => {
+    navigate('/finance/movements/new/express');
   };
 
   // Função para atualizar um movimento na lista
@@ -1454,7 +1443,7 @@ const Movements = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={handleOpenNewMovementModal}
+            onClick={handleNewMovement}
             startIcon={<AddIcon />}
           >
             Novo Movimento
@@ -1495,24 +1484,7 @@ const Movements = () => {
           onMovementUpdate={handleMovementUpdate}
         />
       )}
-      {/* Modal de Novo Movimento */}
-      <Dialog open={openNewMovementModal} onClose={handleCloseNewMovementModal}>
-        <DialogTitle>Selecione o Tipo de Movimento</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300, p: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() => handleNewMovement('express')}
-              startIcon={<FlashOnIcon />}
-            >
-              Movimento Express
-            </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseNewMovementModal}>Cancelar</Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 };

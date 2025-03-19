@@ -3,20 +3,60 @@ import { format } from 'date-fns';
 import { jwtDecode } from "jwt-decode";
 
 // Configuração base do Axios
+console.log('🔍 DEBUG - import.meta.env:', import.meta.env);
+console.log('🔍 DEBUG - VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('🔍 DEBUG - Todas variáveis Vite:', 
+  Object.keys(import.meta.env)
+    .filter(key => key.startsWith('VITE_'))
+    .map(key => `${key}: ${import.meta.env[key]}`)
+);
+
+// Verificar se estamos em ambiente de desenvolvimento
+const isDevelopment = import.meta.env.DEV;
+
+// Determinar a URL base da API
+// Em ambiente de desenvolvimento, SEMPRE usar o proxy do Vite para evitar erros de certificado SSL
+let baseURL = '/api';
+
+// Em produção, usar a URL real da API
+if (!isDevelopment) {
+  baseURL = import.meta.env.VITE_API_URL || 'https://dev.agilefinance.com.br';
+}
+
+console.log('🔒 Ambiente:', isDevelopment ? 'desenvolvimento' : 'produção');
+console.log('🔍 DEBUG - URL base definida para:', baseURL);
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  timeout: 15000, // 15 segundos
+  baseURL,
+  timeout: 15000,
   timeoutErrorMessage: 'Tempo de conexão excedido. Verifique sua conexão de rede.'
 });
 
 // Verificação detalhada da URL da API
 if (!api.defaults.baseURL) {
-  console.error('\n🚨 ERRO CRÍTICO: VITE_API_URL não está definida no arquivo .env\n');
-  throw new Error('VITE_API_URL não configurada');
+  console.error('\n🚨 ERRO CRÍTICO: URL base da API não está definida\n');
+  throw new Error('URL base da API não configurada');
 }
 
 console.log('\n🌐 Configurando URL base da API:', api.defaults.baseURL);
 console.log('Variáveis de ambiente:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
+
+// No navegador, não podemos modificar diretamente as configurações SSL,
+// mas podemos adicionar um interceptor para ignorar erros específicos de certificado
+if (isDevelopment) {
+  api.interceptors.request.use(config => {
+    // Removido o parâmetro ignoreSSL que estava causando erro 400 Bad Request
+    // O proxy já está configurado para ignorar erros de certificado no vite.config.js
+    // config.params = { ...config.params, ignoreSSL: true };
+    
+    // Adicionar header para identificar requisições de desenvolvimento
+    config.headers = {
+      ...config.headers,
+      'X-Development-Mode': 'true'
+    };
+    return config;
+  });
+}
 
 // Adicionar interceptor de requisição para incluir token
 api.interceptors.request.use(
@@ -51,102 +91,6 @@ export const networkService = {
   async checkHealth() {
     console.warn('Verificação de saúde desabilitada temporariamente');
     return true;
-  }
-};
-
-export const authService = {
-  async login(username, password) {
-    try {
-      const response = await api.post('/auth/login', { username, password });
-      
-      const { accessToken, refreshToken, user } = response.data;
-      
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      return response.data;
-    } catch (error) {
-      console.error('Erro no login:', error);
-      throw error;
-    }
-  },
-  
-  isAuthenticated() {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return false;
-
-      const decoded = jwtDecode(token);
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      return decoded.exp > currentTime;
-    } catch (error) {
-      console.error('Erro ao verificar autenticação:', error);
-      return false;
-    }
-  },
-
-  getCurrentUser() {
-    try {
-      const userString = localStorage.getItem('user');
-      const token = localStorage.getItem('accessToken');
-
-      console.log('🕵️ DEBUG getCurrentUser:', {
-        userString,
-        tokenExists: !!token
-      });
-
-      if (!userString) {
-        console.error('❌ Usuário não encontrado no localStorage');
-        return null;
-      }
-
-      const user = JSON.parse(userString);
-      
-      // Tentar extrair user_id do token se não estiver no usuário
-      if (!user.id && token) {
-        try {
-          const decodedToken = jwtDecode(token);
-          user.id = decodedToken.user_id || decodedToken.sub;
-        } catch (tokenError) {
-          console.error('Erro ao decodificar token:', tokenError);
-        }
-      }
-
-      // Mapear usuário para estrutura padrão
-      const mappedUser = {
-        id: user.user_id || user.id || user.sub,
-        username: user.username,
-        profile_id: user.profile_id || null,
-        enable_2fa: user.enable_2fa || false
-      };
-
-      console.log('🔍 Usuário mapeado:', mappedUser);
-
-      return mappedUser;
-    } catch (error) {
-      console.error('Erro ao recuperar usuário atual:', error);
-      return null;
-    }
-  },
-
-  logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  },
-
-  // Método para verificar autenticação
-  getTokenInfo() {
-    try {
-      const token = localStorage.getItem('accessToken');
-      return token ? jwtDecode(token) : null;
-    } catch (error) {
-      console.error('Erro ao decodificar token:', error);
-      return null;
-    }
   }
 };
 
@@ -309,9 +253,10 @@ export const movementsService = {
   },
 
   create(data) {
-    // Obter o usuário atual de forma mais robusta
-    const currentUser = authService.getCurrentUser();
-    const userId = currentUser?.id;
+    // Obter o usuário atual do localStorage
+    const userString = localStorage.getItem('user');
+    const currentUser = userString ? JSON.parse(userString) : null;
+    const userId = currentUser?.user_id;
 
     console.log('🔍 Payload de Movimento Recebido:', JSON.stringify(data, null, 2));
 
@@ -755,35 +700,6 @@ export const itemsService = {
   }
 };
 
-// Serviço de Contatos
-export const contactsService = {
-  list: (params) => api.get('/contacts', { params }).then(response => response.data),
-  create: (data) => api.post('/contacts', data).then(response => response.data),
-  get: (id) => api.get(`/contacts/${id}`).then(response => response.data),
-  update: (id, data) => api.put(`/contacts/${id}`, data).then(response => response.data),
-  delete: (id) => api.delete(`/contacts/${id}`).then(response => response.data),
-  listByPerson: (personId, params) => api.get(`/persons/${personId}/contacts`, { params }).then(response => response.data),
-  addToPerson: (personId, data) => api.post(`/persons/${personId}/contacts`, data).then(response => response.data),
-  search: (params) => api.get('/contacts/search', { params }).then(response => response.data),
-};
-
-// Contacts Service
-export const searchContacts = async (query) => {
-  try {
-    const response = await api.get('/contacts', {
-      params: {
-        search: query,
-        limit: 10
-      }
-    });
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error searching contacts:', error);
-    return [];
-  }
-};
-
-// Serviço de Usuários
 export const usersService = {
   list: (params) => api.get('/users', { params }).then(response => response.data),
   create: (data) => api.post('/users', data).then(response => response.data),
@@ -792,7 +708,6 @@ export const usersService = {
   delete: (id) => api.delete(`/users/${id}`).then(response => response.data),
 };
 
-// Saúde do sistema
 export const healthService = {
   clearCache() {
     // Implementação existente
@@ -905,11 +820,39 @@ export const updateInstallmentDueDate = async (
 export const paymentMethodService = {
   async getAll(params = {}) {
     console.log(`[GET] /payment-method: Params:`, params);
-    console.log(`[GET] /payment-method: Params (detailed):`, JSON.stringify(params, null, 2));
     
-    const response = await api.get('/payment-method', { params });
-    
-    return response.data;
+    try {
+      const response = await api.get('/payment-method', { params });
+      console.log(`[GET] /payment-method: Resposta:`, response.data);
+      
+      // Padroniza o formato de resposta para lidar com diferentes formatos
+      let items = [];
+      
+      if (Array.isArray(response.data)) {
+        // Se a resposta for um array direto
+        items = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Se a resposta for no formato { data: [...], meta: {...} }
+        items = response.data.data;
+      } else if (response.data.items && Array.isArray(response.data.items)) {
+        // Se a resposta for no formato { items: [...], meta: {...} }
+        items = response.data.items;
+      } else {
+        console.warn('Formato de resposta desconhecido:', response.data);
+        items = [];
+      }
+      
+      // Mapeia os itens para o formato esperado pelo frontend
+      const formattedMethods = items.map(method => ({
+        id: method.payment_method_id || method.id,
+        name: method.method_name || method.name || 'Sem nome'
+      }));
+      
+      return { data: formattedMethods };
+    } catch (error) {
+      console.error('Erro ao buscar formas de pagamento:', error);
+      return { data: [] };
+    }
   },
 
   async get(id) {
@@ -950,6 +893,45 @@ export const paymentMethodService = {
     const response = await api.patch(`/payment-method/${id}/toggle-active`);
     
     return response.data;
+  }
+};
+
+export const nfseService = {
+  async list(params = {}) {
+    try {
+      console.log('🔍 Iniciando busca de NFSes com parâmetros:', params);
+      const response = await api.get('/nfse', { 
+        params: {
+          ...params,
+          page: params.page || 1,
+          limit: params.limit || 10
+        }
+      });
+      console.log('🎉 NFSes encontradas:', response.data);
+      return {
+        items: response.data.items || [],
+        meta: {
+          totalItems: response.data.meta?.totalItems || 0,
+          currentPage: response.data.meta?.currentPage || 1,
+          totalPages: response.data.meta?.totalPages || 1,
+          itemsPerPage: response.data.meta?.itemsPerPage || 10
+        }
+      };
+    } catch (error) {
+      console.error('❌ Erro ao listar NFSes:', error);
+      throw error;
+    }
+  },
+
+  async get(id) {
+    try {
+      const response = await api.get(`/nfse/${id}`);
+      console.log('🔍 NFSe recuperada:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Erro ao recuperar NFSe ${id}:`, error);
+      throw error;
+    }
   }
 };
 

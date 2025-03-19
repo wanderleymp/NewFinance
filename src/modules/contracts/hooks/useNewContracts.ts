@@ -45,6 +45,8 @@ export function useNewContracts(): UseContractsReturn {
 
         const response = await contractService.getContracts(page, limit, search);
 
+        console.log('🚨 DEBUG - Resposta do getContracts:', response);
+
         // Validação da resposta
         if (!response) {
           console.error('🚨 Resposta da API é undefined');
@@ -76,6 +78,8 @@ export function useNewContracts(): UseContractsReturn {
           modelMovementId: item.modelMovementId || 0
         })) || [];
 
+        console.log('🚨 DEBUG - Contratos mapeados:', mappedContracts);
+
         // Atualização do estado
         setContracts(mappedContracts);
         setPagination({
@@ -102,8 +106,13 @@ export function useNewContracts(): UseContractsReturn {
   return {
     contracts: data?.contracts || [],
     isLoading,
-    error: error as Error | null,
-    pagination,
+    error,
+    pagination: {
+      page: data?.currentPage || pagination.page,
+      limit: pagination.limit,
+      totalPages: data?.totalPages || pagination.totalPages,
+      total: data?.total || pagination.total
+    },
     setPage,
     setLimit,
     setSearch

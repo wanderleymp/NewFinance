@@ -51,14 +51,18 @@ import {
   BarChart as BarChartIcon,
   Person as PersonIcon,
   Security as SecurityIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { healthService, authService } from '../services/api';
+import { healthService } from '../services/api';
+import { authService } from '../services/authService';
 import Logo from './Logo';
 import { AppVersion } from './AppVersion'; // Adicionar import
 import NotificationsMenu from './NotificationsMenu';
 import UserMenu from './UserMenu';
+import HomePage from '../pages/HomePage'; // Corrigir importação da HomePage para o caminho correto
+import Home from '../pages/Home'; // Adicionar import
 
 const drawerWidth = 240;
 
@@ -83,14 +87,13 @@ const closedMixin = (theme) => ({
   },
 });
 
-const Dashboard = ({ children }) => {
+const Dashboard = ({ children, darkMode, setDarkMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
   const currentUser = authService.getCurrentUser();
 
   const [openDrawer, setOpenDrawer] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [userData, setUserData] = useState(null);
   const [theme, setTheme] = useState(createTheme());
 
@@ -128,9 +131,15 @@ const Dashboard = ({ children }) => {
 
   const menuItems = useMemo(() => [
     {
+      id: 'systems',
+      title: 'Sistemas',
+      path: '/systems',
+      icon: <HomeIcon />,
+    },
+    {
       id: 'dashboard',
       title: 'Dashboard',
-      path: '/',
+      path: '/finance',
       icon: <DashboardIcon />,
     },
     {
@@ -141,20 +150,26 @@ const Dashboard = ({ children }) => {
         {
           id: 'movements',
           title: 'Movimentações',
-          path: '/movements',
+          path: '/finance/movements',
           icon: <PaymentIcon />,
         },
         {
           id: 'installments',
           title: 'Contas a Receber',
-          path: '/installments',
+          path: '/finance/installments',
           icon: <ReceiptIcon />,
         },
         {
           id: 'payment-methods',
           title: 'Métodos de Pagamento',
-          path: '/payment-methods',
+          path: '/finance/payment-methods',
           icon: <CreditCardIcon />,
+        },
+        {
+          id: 'nfse',
+          title: 'NFSe',
+          path: '/finance/nfse', 
+          icon: <ReceiptIcon />,
         },
       ],
     },
@@ -166,23 +181,24 @@ const Dashboard = ({ children }) => {
         {
           id: 'contract-list',
           title: 'Lista de Contratos',
-          path: '/contracts',
+          path: '/finance/contracts',
           icon: <ListAltIcon />,
         },
         {
           id: 'contract-dashboard',
           title: 'Dashboard de Contratos',
-          path: '/contracts/dashboard',
+          path: '/finance/contracts/dashboard',
           icon: <DashboardIcon />,
         },
         {
           id: 'contract-billing',
           title: 'Faturamento de Contratos',
-          path: '/contracts/billing',
+          path: '/finance/contracts/billing',
           icon: <ReceiptIcon />,
         }
       ]
     },
+
     {
       id: 'register',
       title: 'Cadastros',
@@ -191,13 +207,13 @@ const Dashboard = ({ children }) => {
         {
           id: 'persons',
           title: 'Pessoas',
-          path: '/persons',
+          path: '/finance/persons',
           icon: <PeopleIcon />,
         },
         {
           id: 'contacts',
           title: 'Contatos',
-          path: '/contacts',
+          path: '/finance/contacts',
           icon: <ContactsIcon />,
         },
         {
@@ -353,14 +369,7 @@ const Dashboard = ({ children }) => {
 
     // Verificar status do sistema
     const checkSystemHealth = async () => {
-      try {
-        // Temporariamente comentado para evitar erros
-        // await healthService.check();
-        console.warn('Verificação de saúde do sistema temporariamente desabilitada');
-      } catch (error) {
-        console.error('Erro de saúde do sistema:', error);
-        enqueueSnackbar('Problemas com o sistema detectados', { variant: 'warning' });
-      }
+      console.warn('Verificação de saúde do sistema temporariamente desabilitada');
     };
 
     checkSystemHealth();
@@ -449,6 +458,17 @@ const Dashboard = ({ children }) => {
     setMenuAnchorEl(null);
   };
 
+  const renderContent = () => {
+    switch (location.pathname) {
+      case '/dashboard/finance':
+        return <Home />;
+      case '/dashboard/home-page':
+        return <HomePage />;
+      default:
+        return <Outlet context={context} />;
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -490,6 +510,14 @@ const Dashboard = ({ children }) => {
           
           {/* Componentes de cabeçalho */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/chat')}
+              sx={{ mr: 1 }}
+              title="Chat"
+            >
+              <ChatIcon />
+            </IconButton>
             <NotificationsMenu notifications={notifications} />
             <UserMenu 
               userData={userData} 
@@ -536,16 +564,14 @@ const Dashboard = ({ children }) => {
         sx={{ 
           flexGrow: 1, 
           p: 3, 
-          width: `calc(100% - ${openDrawer ? drawerWidth : 73}px)`,
-          transition: theme.transitions.create('width', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          minHeight: '100vh',
+          backgroundColor: (theme) => theme.palette.background.default
         }}
       >
         <Toolbar />
-        {/* Renderização do children ou Outlet */}
-        {children || <Outlet context={context} />}
+        {renderContent()}
+        {console.log('Dashboard - Renderizando rota:', location.pathname)}
       </Box>
     </Box>
   );

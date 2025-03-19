@@ -18,9 +18,10 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 
 import { lightTheme, darkTheme } from './theme/theme';
-import { authService } from './services/api';
+import { authService } from './services/authService';
 import api from './services/api';
 import { QueryProvider } from './providers/QueryProvider';
+import socketIoService from './services/socketIoService';
 
 // Páginas
 import Login from './pages/Login';
@@ -48,9 +49,10 @@ import ContractFormPage from './modules/contracts/pages/ContractFormPage';
 
 // Componentes
 import AIChat from './components/AIChat';
-import { AIAssistant } from './components/AIAssistant';
+import AIAssistant from './components/AIAssistant';
 import { AppVersion } from './components/AppVersion';
 import ConnectionErrorPage from './components/ConnectionErrorPage';
+import TestSSLConnection from './examples/TestSSLConnection';
 
 // Importação do componente PaymentMethods
 import PaymentMethods from './pages/PaymentMethods';
@@ -58,6 +60,13 @@ import PaymentMethodForm from './pages/PaymentMethodForm';
 
 // Importação do componente TaskMonitoring
 import TaskMonitoring from './pages/TaskMonitoring';
+import ChatList from './pages/ChatList';
+
+// Importação do componente FinanceDashboard
+import FinanceDashboard from './pages/FinanceDashboard';
+
+// Importação do componente NFSe
+import NewNfseList from './modules/nfse/NewNfseList';
 
 // Rotas Protegidas
 const PrivateRoute = () => {
@@ -69,6 +78,15 @@ const PrivateRoute = () => {
     ? <Outlet /> 
     : <Navigate to="/login" replace />;
 };
+
+const ROUTES_WITHOUT_AI_ASSISTANT = [
+  '/chat',
+  '/chats',
+  '/chat/',
+  '/chats/',
+  '/chat/contacts',
+  '/chat/settings'
+];
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -97,6 +115,23 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const isAuth = authService.isAuthenticated();
+    console.log('Renderizando App - Autenticado:', isAuth);
+    
+    // Inicializar Socket.IO se o usuário estiver autenticado
+    if (isAuth) {
+      socketIoService.connect().catch(error => {
+        console.error('Erro ao conectar Socket.IO:', error);
+      });
+    }
+    
+    // Limpar conexão Socket.IO ao desmontar
+    return () => {
+      socketIoService.disconnect();
+    };
+  }, []);
+
   const handleReconnect = () => {
     setConnectionError(false);
     window.location.reload();
@@ -121,50 +156,64 @@ function App() {
         >
           <BrowserRouter>
             <Routes>
+              {/* Rota pública - Login */}
               <Route path="/login" element={<Login />} />
+
+              {/* Página inicial - Totalmente independente */}
+              <Route path="/" element={<Home />} />
+              <Route path="/home" element={<Home />} />
+
+              {/* Rota de teste SSL - Pública */}
+              <Route path="/test-ssl" element={<TestSSLConnection />} />
+
+              {/* Chat - Sistema Independente */}
+              <Route element={<PrivateRoute />}>
+                <Route path="/chat" element={<ChatList />} />
+              </Route>
+
+              {/* Sistema Financeiro - Com Dashboard */}
               <Route element={<PrivateRoute />}>
                 <Route element={<Dashboard darkMode={darkMode} setDarkMode={setDarkMode} />}>
-                  <Route path="/" element={<Navigate to="/home" replace />} />
-                  <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/movements" element={<Movements />} />
-                  <Route path="/movements/new-express" element={<NewMovementExpress />} />
-                  <Route path="/movements/new/express" element={<NewMovementExpress />} />
-                  <Route path="/receivables" element={<Receivables />} />
-                  <Route path="/contacts" element={<Contacts />} />
+                  <Route index path="/finance" element={<Navigate to="/finance/dashboard" replace />} />
+                  <Route path="/finance/nfse" element={<NewNfseList />} />
+                  <Route path="/finance/dashboard" element={<FinanceDashboard />} />
+                  <Route path="/finance/movements" element={<Movements />} />
+                  <Route path="/finance/movements/new-express" element={<NewMovementExpress />} />
+                  <Route path="/finance/movements/new/express" element={<NewMovementExpress />} />
+                  <Route path="/finance/receivables" element={<Receivables />} />
+                  <Route path="/finance/contacts" element={<Contacts />} />
                   
                   {/* Rotas de Pessoas */}
-                  <Route path="/persons" element={<Persons />} />
-                  <Route path="/persons/new" element={<PersonForm />} />
-                  <Route path="/persons/:id/edit" element={<PersonForm />} />
-                  <Route path="/persons/import-cnpj" element={<ImportCNPJ />} />
+                  <Route path="/finance/persons" element={<Persons />} />
+                  <Route path="/finance/persons/new" element={<PersonForm />} />
+                  <Route path="/finance/persons/:id/edit" element={<PersonForm />} />
+                  <Route path="/finance/persons/import-cnpj" element={<ImportCNPJ />} />
                   
-                  <Route path="/payment-methods" element={<PaymentMethods />} />
-                  <Route path="/payment-methods/new" element={<PaymentMethodForm />} />
-                  <Route path="/payment-methods/:id/edit" element={<PaymentMethodForm />} />
-                  <Route path="/tasks" element={<TaskMonitoring />} />
-                  <Route path="/installments" element={<Installments />} />
+                  <Route path="/finance/payment-methods" element={<PaymentMethods />} />
+                  <Route path="/finance/payment-methods/new" element={<PaymentMethodForm />} />
+                  <Route path="/finance/payment-methods/:id/edit" element={<PaymentMethodForm />} />
+                  <Route path="/finance/tasks" element={<TaskMonitoring />} />
+                  <Route path="/finance/installments" element={<Installments />} />
+                  <Route path="/finance/chat" element={<ChatList />} />
                   
                   {/* Rotas de Contratos */}
-                  <Route path="/contracts" element={<ContractsPage />} />
-                  <Route path="/contracts/dashboard" element={<Home />} />
-                  <Route path="/contracts/form/:id" element={<ContractFormPage />} />
-                  <Route path="/contracts/form" element={<ContractFormPage />} />
-                  <Route path="/contracts/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts/:contractId/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts" element={<ContractsPage />} />
+                  <Route path="/finance/contracts/form/:id" element={<ContractFormPage />} />
+                  <Route path="/finance/contracts/form" element={<ContractFormPage />} />
+                  <Route path="/finance/contracts/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
                   
-                  {/* Rotas de Contratos Recorrentes */}
-                  <Route path="/contracts-recurring" element={<ContractsPage />} />
-                  <Route path="/contracts-recurring/dashboard" element={<Home />} />
-                  <Route path="/contracts-recurring/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
-                  <Route path="/contracts-recurring/:contractId/billing/:billingId/:paymentId/:receiptId" element={<ContractBillingPage />} />
-                  <Route path="*" element={<AIAssistant />} />
+                  <Route path="/finance/contracts-recurring" element={<ContractsPage />} />
+                  <Route path="/finance/contracts-recurring/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />
+                  <Route path="/finance/contracts-recurring/:contractId/billing/:billingId/:paymentId" element={<ContractBillingPage />} />
                 </Route>
               </Route>
+
+              {/* Rota padrão - Redireciona para a página inicial */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <ToastContainer 
               position="top-right"
@@ -178,6 +227,15 @@ function App() {
               pauseOnHover
             />
             <AppVersion />
+            {authService.isAuthenticated() && (
+              <AIAssistant 
+                disableFloatingChat={ROUTES_WITHOUT_AI_ASSISTANT.some(route => 
+                  window.location.pathname === route || 
+                  window.location.pathname.startsWith(route + '/')
+                )}
+                currentRoute={window.location.pathname}
+              />
+            )}
           </BrowserRouter>
         </SnackbarProvider>
       </ThemeProvider>

@@ -15,6 +15,7 @@ import {
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
 import { mockData } from '../services/mockData';
+import { SearchPersonAutocomplete } from '../../../../components/SearchPersonAutocomplete';
 
 interface ContractFormProps {
   contract?: Contract;
@@ -29,7 +30,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
   onCancel, 
   isEditing = false 
 }) => {
-  const { control, handleSubmit, formState: { errors } } = useForm({
+  const { control, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: contract?.name || '',
       initialValue: contract?.initialValue || 0,
@@ -42,6 +43,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         : '',
       personId: contract?.personId || '',
       representativePersonId: contract?.representativePersonId || '',
+      representativeName: contract?.representativeName || '',
       recurrencePeriod: contract?.recurrencePeriod || 'monthly',
       billingReference: contract?.billingReference || 'current'
     }
@@ -49,6 +51,11 @@ const ContractForm: React.FC<ContractFormProps> = ({
 
   const handleFormSubmit = (data: any) => {
     onSubmit(data);
+  };
+
+  const handlePersonSelect = (person: any | null) => {
+    setValue('representativePersonId', person?.id || '');
+    setValue('representativeName', person?.name || '');
   };
 
   return (
@@ -176,17 +183,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Controller
-              name="representativePersonId"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="ID do Representante"
-                  variant="outlined"
-                />
-              )}
+            <SearchPersonAutocomplete 
+              onPersonSelect={handlePersonSelect}
+              label="Representante do Contrato"
+              placeholder="Busque o representante do contrato"
             />
           </Grid>
 
@@ -222,29 +222,26 @@ const ContractForm: React.FC<ContractFormProps> = ({
               )}
             />
           </Grid>
-        </Grid>
 
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-start', 
-          gap: 2, 
-          mt: 4 
-        }}>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary"
-          >
-            {isEditing ? 'Atualizar Contrato' : 'Criar Contrato'}
-          </Button>
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            onClick={onCancel}
-          >
-            Cancelar
-          </Button>
-        </Box>
+          <Grid item xs={12}>
+            <Box display="flex" justifyContent="space-between">
+              <Button 
+                variant="outlined" 
+                color="secondary" 
+                onClick={onCancel}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                variant="contained" 
+                color="primary"
+              >
+                {isEditing ? 'Atualizar' : 'Criar'}
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
       </form>
     </Container>
   );

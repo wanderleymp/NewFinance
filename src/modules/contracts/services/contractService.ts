@@ -1,7 +1,8 @@
 import api from '../../../services/api';
-import mockContractsData from './mockContracts.json' assert { type: 'json' };
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
+import { contractsApi } from './api'; // Adicionando importação do contractsApi
+import mockContractsData from './mockContracts.json' assert { type: 'json' };
 
 type ContractDataSource = 'api' | 'mock';
 
@@ -51,73 +52,37 @@ export const contractService = {
     try {
       console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
       
-      // Constrói os parâmetros da query
-      const queryParams: Record<string, any> = {
-        page,
-        limit
-      };
-
-      // Adiciona parâmetro de busca apenas se não estiver vazio
-      if (search && search.trim() !== '') {
-        queryParams.search = search.trim();
-      }
-
-      console.log('🔍 ContractService - Parâmetros da requisição:', queryParams);
-
-      const response = await api.get('/contracts-recurring', { 
-        params: queryParams
-      });
-
-      console.log('🔍 ContractService - Resposta bruta:', response.data);
-
-      // Validação da resposta
-      if (!response.data) {
-        return {
-          contracts: [],
-          total: 0,
-          totalPages: 0,
-          currentPage: page
-        };
-      }
-
-      // Mapeia cada item da resposta para o formato Contract
-      const mappedContracts = (response.data.items || []).map((item: any) => ({
-        id: item.contract_id,
-        name: item.contract_name || '',
-        value: Number(item.contract_value || 0),
-        status: item.status?.toLowerCase() || 'inactive',
-        groupName: item.group_name || '',
-        fullName: item.full_name || item.contract_name || '',
-        recurrencePeriod: item.recurrence_period?.toLowerCase() === 'monthly' ? 'monthly' : 'yearly',
-        dueDay: parseInt(item.due_day || '0', 10),
-        daysBefore: parseInt(item.days_before_due || '0', 10),
-        lastBillingDate: item.last_billing_date ? new Date(item.last_billing_date) : null,
-        nextBillingDate: item.next_billing_date ? new Date(item.next_billing_date) : null,
-        billingReference: item.billing_reference || '',
-        contractGroupId: item.contract_group_id || 0,
-        modelMovementId: item.model_movement_id || 0,
-        startDate: item.start_date ? new Date(item.start_date) : null,
-        endDate: item.end_date ? new Date(item.end_date) : null
-      }));
+      const response = await contractsApi.listRecurring(page, limit, search);
+      console.log('🔍 ContractService - Resposta da API:', response);
 
       return {
-        contracts: mappedContracts,
-        total: response.data.meta?.totalItems || 0,
-        totalPages: response.data.meta?.totalPages || 0,
-        currentPage: response.data.meta?.currentPage || page
+        contracts: response.data,
+        total: response.total,
+        totalPages: response.totalPages,
+        currentPage: response.page
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar contratos:', error);
+      console.error('🚨 ContractService - Erro ao buscar contratos:', error);
       throw error;
     }
   },
 
   async getContractById(id: number): Promise<Contract> {
     try {
+      const response = await api.get(`/contracts/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar contrato regular:', error);
+      throw error;
+    }
+  },
+
+  async getRecurringContractById(id: string): Promise<Contract> {
+    try {
       const response = await api.get(`/contracts-recurring/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Erro ao buscar contrato:', error);
+      console.error('Erro ao buscar contrato recorrente:', error);
       throw error;
     }
   },
@@ -331,15 +296,107 @@ export const contractService = {
     }
   },
 
-  async searchMovementItems(params: { query: string; type: string }): Promise<any> {
+  async searchMovementItems(params: { query?: string; type?: string }): Promise<any> {
     try {
-      const response = await api.get('/movement-items/search', {
-        params
+      console.log('Buscando itens com query:', params.query);
+      const response = await api.get('/items', {
+        params: {
+          ...(params.query ? { search: params.query } : {}),
+          limit: 10,
+          page: 1,
+          type: params.type || 'service'
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
+        }
       });
-      return response.data;
+      console.log('Resposta da API de itens:', response.data);
+      const items = (response.data.data || []).map(item => ({
+        ...item,
+        id: item.item_id,
+        price: parseFloat(item.price)
+      }));
+      console.log('Items processados:', items);
+      return {
+        items,
+        pagination: response.data.pagination
+      };
     } catch (error) {
-      console.error('Erro ao buscar itens de movimento:', error);
-      throw error;
+      console.error('Erro ao buscar itens:', error.response || error);
+      // Se o erro for 500, retornar lista vazia em vez de propagar o erro
+      if (error.response?.status === 500) {
+        return { items: [], pagination: { total: 0, page: 1, limit: 10 } };
+      }
+      throw {
+        message: error.response?.data?.message || 'Erro ao buscar itens',
+        originalError: error
+      };
+    }
+  },
+
+  async createExtraService(payload: {
+    contractId: number;
+    serviceId: number;
+    itemDescription: string;
+    itemValue: number;
+    serviceDate: string;
+    movementId?: number | null;
+  }): Promise<any> {
+    try {
+      console.log('Payload enviado:', JSON.stringify(payload, null, 2));
+      const response = await api.post('/contract-extra-services/', payload);
+      return response.data;
+    } catch (error: any) {
+      // Log detalhado do erro
+      console.error('Erro detalhado ao adicionar serviço extra:', {
+        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
+        errorMessage: error.message,
+        status: error.response?.status,
+        payload: JSON.stringify(payload)
+      });
+
+      // Capturar mensagem de erro específica do servidor
+      const errorMessage = 
+        (error.response?.data?.details && error.response.data.details[0]) || 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        error.message || 
+        'Erro desconhecido ao adicionar serviço extra';
+      
+      // Lançar erro com mensagem específica
+      throw new Error(errorMessage);
+    }
+  },
+
+  async terminateRecurring(id: string, data: { endDate: string; reason: string }): Promise<any> {
+    try {
+      console.log('Encerrando contrato recorrente:', { id, data });
+      
+      // Chamada para a API para encerrar o contrato
+      const response = await api.post(`/contracts-recurring/${id}/terminate`, data);
+      
+      console.log('Contrato encerrado com sucesso:', response.data);
+      return response.data;
+    } catch (error: any) {
+      // Log detalhado do erro
+      console.error('Erro ao encerrar contrato recorrente:', {
+        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
+        errorMessage: error.message,
+        status: error.response?.status,
+        contractId: id,
+        payload: JSON.stringify(data)
+      });
+
+      // Capturar mensagem de erro específica do servidor
+      const errorMessage = 
+        (error.response?.data?.details && error.response.data.details[0]) || 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        error.message || 
+        'Erro desconhecido ao encerrar contrato';
+      
+      // Lançar erro com mensagem específica
+      throw new Error(errorMessage);
     }
   }
 };

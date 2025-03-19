@@ -30,8 +30,9 @@ import { format } from 'date-fns';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { personsService, itemsService, movementsService, paymentMethodService } from '../services/api';
 import { useSnackbar } from 'notistack';
+import { authService } from '../services/authService';
 
-const newMovementExpress = () => {
+const NewMovementExpress = () => {
   console.log('🚨 COMPONENTE newMovementExpress CARREGADO');
   const navigate = useNavigate();
   const location = useLocation();
@@ -147,26 +148,54 @@ const newMovementExpress = () => {
   useEffect(() => {
     const fetchPaymentMethods = async () => {
       try {
+        console.log('Iniciando busca de métodos de pagamento...');
         const response = await paymentMethodService.getAll({ 
           page: 1, 
           limit: 100, 
           active: true 
         });
         
-        const formattedMethods = response.data.map(method => ({
-          id: method.payment_method_id,
-          name: method.method_name
-        }));
+        console.log('Resposta original dos métodos de pagamento:', response);
         
-        setPaymentMethodOptions(formattedMethods);
+        // Verificar se temos dados válidos na resposta
+        if (!response) {
+          console.error('Resposta da API de métodos de pagamento inválida:', response);
+          return;
+        }
+        
+        // A resposta já vem formatada do serviço paymentMethodService
+        const methodsData = response.data || [];
+        
+        console.log('Dados dos métodos de pagamento extraídos:', methodsData);
+        
+        // Verificar se cada método tem id e name
+        methodsData.forEach((method, index) => {
+          if (!method.id) {
+            console.warn(`Método de pagamento na posição ${index} não tem ID:`, method);
+          }
+          if (!method.name) {
+            console.warn(`Método de pagamento na posição ${index} não tem nome:`, method);
+          }
+        });
+        
+        setPaymentMethodOptions(methodsData);
+        
+        // Se temos métodos, definir o primeiro como padrão se nenhum estiver selecionado
+        if (methodsData.length > 0 && !formData.paymentMethod) {
+          const defaultMethod = methodsData.find(m => m.name.toLowerCase().includes('pix')) || methodsData[0];
+          setFormDataCallback(prev => ({
+            ...prev,
+            paymentMethod: defaultMethod
+          }));
+        }
       } catch (error) {
         console.error('Erro ao buscar formas de pagamento:', error);
-        // toast.error('Erro ao carregar formas de pagamento');
+        enqueueSnackbar('Erro ao carregar formas de pagamento', { variant: 'error' });
       }
     };
 
     fetchPaymentMethods();
-  }, []);
+  }, [enqueueSnackbar, formData.paymentMethod, setFormDataCallback]);
 
   // Função para buscar pessoas
   const searchPersons = useCallback(
@@ -290,6 +319,9 @@ const newMovementExpress = () => {
       const response = await movementsService.create(payload);
       
       enqueueSnackbar('Movimento criado com sucesso!', { variant: 'success' });
+      
+      // Navegar para a página de movimentos
+      navigate('/finance/movements');
       
       // Limpar formulário
       setFormData({
@@ -543,7 +575,10 @@ const newMovementExpress = () => {
                   value={formData.paymentMethod}
                   onChange={handleChange('paymentMethod')}
                   options={paymentMethodOptions}
-                  getOptionLabel={(option) => option.name || 'Sem nome'}
+                  getOptionLabel={(option) => {
+                    if (!option) return '';
+                    return option.name || '';
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -558,11 +593,15 @@ const newMovementExpress = () => {
                       }}
                     />
                   )}
-                  renderOption={(props, option) => (
-                    <li {...props} key={`payment-method-${option.id}`}>
-                      {option.name}
-                    </li>
-                  )}
+                  renderOption={(props, option) => {
+                    // Garantir que cada item tenha uma chave única
+                    const uniqueKey = `payment-method-${option.id}`;
+                    return (
+                      <li {...props} key={uniqueKey}>
+                        {option.name}
+                      </li>
+                    );
+                  }}
                   noOptionsText="Nenhuma opção encontrada"
                   clearOnBlur
                   handleHomeEndKeys
@@ -604,7 +643,7 @@ const newMovementExpress = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
               <Button
                 variant="outlined"
-                onClick={() => navigate('/movements')}
+                onClick={() => navigate('/finance/movements')}
                 size="large"
               >
                 Cancelar
@@ -650,4 +689,4 @@ const newMovementExpress = () => {
   );
 };
 
-export default newMovementExpress;
+export default NewMovementExpress;

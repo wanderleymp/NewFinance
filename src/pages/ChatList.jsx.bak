@@ -1,0 +1,314 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  Avatar,
+  IconButton,
+  InputBase,
+  Badge,
+  Tooltip,
+  Chip,
+  Divider,
+  useTheme,
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  MoreVert as MoreVertIcon,
+  Circle as CircleIcon,
+  Star as StarIcon,
+  Archive as ArchiveIcon,
+  Send as SendIcon,
+  Mic as MicIcon,
+  Stop as StopIcon,
+  AttachFile as AttachFileIcon,
+  Image as ImageIcon,
+  Download,
+  PlayArrow,
+  Pause,
+} from '@mui/icons-material';
+import { styled, alpha } from '@mui/material/styles';
+
+// Componentes estilizados
+const Search = styled('div')(({ theme }) => ({
+  position: 'relative',
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: alpha(theme.palette.common.white, 0.15),
+  '&:hover': {
+    backgroundColor: alpha(theme.palette.common.white, 0.25),
+  },
+  marginRight: theme.spacing(2),
+  marginLeft: 0,
+  width: '100%',
+  [theme.breakpoints.up('sm')]: {
+    width: 'auto',
+  },
+}));
+
+const SearchIconWrapper = styled('div')(({ theme }) => ({
+  padding: theme.spacing(0, 2),
+  height: '100%',
+  position: 'absolute',
+  pointerEvents: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}));
+
+const StyledInputBase = styled(InputBase)(({ theme }) => ({
+  color: 'inherit',
+  width: '100%',
+  '& .MuiInputBase-input': {
+    padding: theme.spacing(1, 1, 1, 0),
+    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+    width: '100%',
+  },
+}));
+
+const ChatItem = styled(Paper, {
+  shouldForwardProp: (prop) => prop !== 'selected',
+})(({ theme, selected }) => ({
+  padding: theme.spacing(2),
+  marginBottom: theme.spacing(1),
+  display: 'flex',
+  alignItems: 'center',
+  cursor: 'pointer',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateX(8px)',
+    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+  },
+}));
+
+import ChatLayout from '../layouts/ChatLayout';
+import ChatMessage from '../components/chat/ChatMessage';
+import ChatInput from '../components/chat/ChatInput';
+
+const ChatList = () => {
+  const theme = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    // Limpar mensagens ao trocar de chat
+    if (selectedChat) {
+      setMessages([]); // Em produção, aqui você buscaria as mensagens do chat selecionado
+    }
+  }, [selectedChat]);
+
+  // Dados mockados para exemplo
+  const chats = [
+    {
+      id: 1,
+      name: 'Suporte Técnico',
+      avatar: '🛠️',
+      lastMessage: 'Claro, posso ajudar com a configuração do sistema.',
+      time: '10:30',
+      unread: 3,
+      online: true,
+      pinned: true,
+    },
+    {
+      id: 2,
+      name: 'Financeiro',
+      avatar: '💰',
+      lastMessage: 'O relatório mensal está disponível para revisão.',
+      time: '09:45',
+      unread: 0,
+      online: true,
+      pinned: true,
+    },
+    {
+      id: 3,
+      name: 'Marketing',
+      avatar: '📢',
+      lastMessage: 'Nova campanha iniciada com sucesso!',
+      time: 'Ontem',
+      unread: 1,
+      online: false,
+    },
+    {
+      id: 4,
+      name: 'Desenvolvimento',
+      avatar: '💻',
+      lastMessage: 'Sprint review agendada para amanhã.',
+      time: 'Ontem',
+      unread: 0,
+      online: true,
+    },
+  ];
+
+  return (
+    <ChatLayout>
+      <Box
+        sx={{
+          height: '100vh',
+          display: 'flex',
+          bgcolor: 'background.default',
+          p: 2,
+          gap: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Sidebar com lista de chats */}
+        <Box
+          sx={{
+            width: 320,
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            overflow: 'hidden',
+            boxShadow: 1,
+          }}
+        >
+        {/* Header */}
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            backgroundColor: theme.palette.background.paper,
+          }}
+        >
+
+          <Search>
+            <SearchIconWrapper>
+              <SearchIcon />
+            </SearchIconWrapper>
+            <StyledInputBase
+              placeholder="Pesquisar conversa..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Search>
+          <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+            <Chip
+              icon={<StarIcon />}
+              label="Favoritos"
+              size="small"
+              variant="outlined"
+              onClick={() => setSelectedChat(null)}
+              sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) } }}
+            />
+            <Chip
+              icon={<ArchiveIcon />}
+              label="Arquivados"
+              size="small"
+              variant="outlined"
+              onClick={() => setSelectedChat(null)}
+              sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) } }}
+            />
+          </Box>
+        </Box>
+
+        {/* Lista de chats */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+          {chats.map((chat) => (
+            <ChatItem
+              key={chat.id}
+              elevation={0}
+              onClick={() => setSelectedChat(chat.id)}
+              sx={{
+                bgcolor: selectedChat === chat.id ? alpha(theme.palette.primary.main, 0.08) : 'background.paper',
+              }}
+            >
+              <Box sx={{ position: 'relative' }}>
+                <Avatar sx={{ width: 50, height: 50, fontSize: '1.5rem' }}>
+                  {chat.avatar}
+                </Avatar>
+                {chat.online && (
+                  <CircleIcon
+                    sx={{
+                      position: 'absolute',
+                      right: -2,
+                      bottom: -2,
+                      color: '#44b700',
+                      width: 14,
+                      height: 14,
+                    }}
+                  />
+                )}
+              </Box>
+              <Box sx={{ ml: 2, flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: chat.unread ? 600 : 400 }}>
+                    {chat.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {chat.time}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '200px',
+                      fontWeight: chat.unread ? 500 : 400,
+                    }}
+                  >
+                    {chat.lastMessage}
+                  </Typography>
+                  {chat.unread > 0 && (
+                    <Badge
+                      badgeContent={chat.unread}
+                      color="primary"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          right: -3,
+                          top: 13,
+                          border: `2px solid ${theme.palette.background.paper}`,
+                          padding: '0 4px',
+                        },
+                      }}
+                    />
+                  )}
+                </Box>
+              </Box>
+              {chat.pinned && (
+                <Tooltip title="Fixado" placement="left">
+                  <StarIcon sx={{ ml: 1, color: theme.palette.warning.main, width: 20 }} />
+                </Tooltip>
+              )}
+            </ChatItem>
+          ))}
+        </Box>
+      </Box>
+
+      {/* Área principal - Placeholder para o chat selecionado */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Typography variant="h6" color="text.secondary">
+          Selecione uma conversa para começar
+        </Typography>
+      </Box>
+    </Box>
+    </ChatLayout>
+  );
+};
+
+export default ChatList;

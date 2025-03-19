@@ -16,7 +16,7 @@ import {
   Container,
 } from '@mui/material';
 import { Visibility, VisibilityOff, AccountCircle, Lock, TrendingUp } from '@mui/icons-material';
-import { authService } from '../services/api';
+import { authService } from '../services/authService';
 import Logo from '../components/Logo';
 import AnimatedBackground from '../components/AnimatedBackground';
 import FinanceIcons from '../components/FinanceIcons';
@@ -50,7 +50,9 @@ const Login = () => {
       
       console.log('Usuário logado:', userData);
       
-      navigate('/dashboard');
+      console.log('Redirecionando para página inicial após login');
+      
+      navigate('/');
     } catch (error) {
       console.error('Erro no login:', error);
       

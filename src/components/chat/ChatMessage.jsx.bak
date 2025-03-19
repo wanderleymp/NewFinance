@@ -1,0 +1,278 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Paper,
+  Link,
+  Tooltip,
+} from '@mui/material';
+import {
+  PlayArrow,
+  Pause,
+  Download,
+  Image as ImageIcon,
+  PictureAsPdf,
+  InsertDriveFile,
+} from '@mui/icons-material';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const ChatMessage = ({ message, isOwn, onReply, onForward, onDelete, onStar }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [isStarred, setIsStarred] = useState(message.starred || false);
+  const audioRef = useRef(null);
+  const messageRef = useRef(null);
+
+  const getFileIcon = (fileType) => {
+    switch (fileType) {
+      case 'image':
+        return <ImageIcon />;
+      case 'pdf':
+        return <PictureAsPdf />;
+      default:
+        return <InsertDriveFile />;
+    }
+  };
+
+  const handlePlayAudio = async () => {
+    if (audioRef.current) {
+      try {
+        if (isPlaying) {
+          await audioRef.current.pause();
+        } else {
+          await audioRef.current.play();
+        }
+        setIsPlaying(!isPlaying);
+      } catch (error) {
+        console.error('Erro ao reproduzir áudio:', error);
+      }
+    }
+  };
+
+  const renderContent = () => {
+    switch (message.type) {
+      case 'text':
+        return (
+          <Typography variant="body1">{message.content}</Typography>
+        );
+      
+      case 'audio':
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton size="small" onClick={handlePlayAudio}>
+              {isPlaying ? <Pause /> : <PlayArrow />}
+            </IconButton>
+            <audio
+              ref={audioRef}
+              src={message.content}
+              onEnded={() => setIsPlaying(false)}
+              style={{ display: 'none' }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {message.duration}
+            </Typography>
+          </Box>
+        );
+      
+      case 'file':
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {getFileIcon(message.fileType)}
+            <Box sx={{ flexGrow: 1 }}>
+              <Link
+                href={message.content}
+                download
+                underline="hover"
+                sx={{ display: 'block' }}
+              >
+                {message.fileName}
+              </Link>
+              <Typography variant="caption" color="text.secondary">
+                {message.fileSize}
+              </Typography>
+            </Box>
+            <Tooltip title="Download">
+              <IconButton size="small" component="a" href={message.content} download>
+                <Download />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      
+      case 'image':
+        return (
+          <Box
+            component="img"
+            src={message.content}
+            alt={message.fileName || 'Imagem'}
+            sx={{
+              maxWidth: '100%',
+              maxHeight: 200,
+              borderRadius: 1,
+              cursor: 'pointer',
+            }}
+            onClick={() => window.open(message.content, '_blank')}
+          />
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  const handleMenuClick = (event) => {
+    setMenuAnchor(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleCopyText = () => {
+    if (message.type === 'text') {
+      navigator.clipboard.writeText(message.content);
+    }
+    handleMenuClose();
+  };
+
+  const handleReply = () => {
+    if (onReply) onReply(message);
+    handleMenuClose();
+  };
+
+  const handleForward = () => {
+    if (onForward) onForward(message);
+    handleMenuClose();
+  };
+
+  const handleDelete = () => {
+    if (onDelete) onDelete(message);
+    handleMenuClose();
+  };
+
+  const handleStar = () => {
+    setIsStarred(!isStarred);
+    if (onStar) onStar(message);
+    handleMenuClose();
+  };
+
+  return (
+    <Box
+      ref={messageRef}
+      sx={{
+        display: 'flex',
+        justifyContent: isOwn ? 'flex-end' : 'flex-start',
+        mb: 1,
+        position: 'relative',
+        '&:hover .message-actions': {
+          opacity: 1,
+        },
+      }}
+    >
+      <Paper
+        elevation={1}
+        sx={{
+          p: 1,
+          maxWidth: '70%',
+          bgcolor: isOwn ? 'primary.light' : 'background.paper',
+          borderRadius: 2,
+          position: 'relative',
+        }}
+      >
+        {/* Ações da mensagem */}
+        <Box
+          className="message-actions"
+          sx={{
+            position: 'absolute',
+            top: -30,
+            right: isOwn ? 0 : 'auto',
+            left: isOwn ? 'auto' : 0,
+            display: 'flex',
+            gap: 0.5,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            boxShadow: 1,
+            opacity: 0,
+            transition: 'opacity 0.2s',
+            zIndex: 1,
+          }}
+        >
+          <IconButton size="small" onClick={handleReply}>
+            <ReplyIcon fontSize="small" />
+          </IconButton>
+          {message.type === 'text' && (
+            <IconButton size="small" onClick={handleCopyText}>
+              <CopyIcon fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton size="small" onClick={handleStar}>
+            <StarIcon fontSize="small" color={isStarred ? 'warning' : 'inherit'} />
+          </IconButton>
+          <IconButton size="small" onClick={handleMenuClick}>
+            <MoreIcon fontSize="small" />
+          </IconButton>
+        </Box>
+        {renderContent()}
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            textAlign: 'right',
+            mt: 0.5,
+            color: isOwn ? 'primary.contrastText' : 'text.secondary',
+          }}
+        >
+          {format(new Date(message.timestamp), 'HH:mm', { locale: ptBR })}
+        </Typography>
+      </Paper>
+
+      {/* Menu de opções */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleReply}>
+          <ReplyIcon sx={{ mr: 1 }} /> Responder
+        </MenuItem>
+        {message.type === 'text' && (
+          <MenuItem onClick={handleCopyText}>
+            <CopyIcon sx={{ mr: 1 }} /> Copiar
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleForward}>
+          <ForwardIcon sx={{ mr: 1 }} /> Encaminhar
+        </MenuItem>
+        <MenuItem onClick={handleStar}>
+          <StarIcon sx={{ mr: 1 }} color={isStarred ? 'warning' : 'inherit'} />
+          {isStarred ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+        </MenuItem>
+        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} /> Apagar
+        </MenuItem>
+      </Menu>
+
+      {/* Dialog para visualização de imagem */}
+      {message.type === 'image' && (
+        <Dialog
+          open={showImageDialog}
+          onClose={() => setShowImageDialog(false)}
+          maxWidth="lg"
+        >
+          <DialogContent sx={{ p: 0 }}>
+            <img
+              src={message.content}
+              alt="Imagem"
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </Box>
+  );
+};
+
+export default ChatMessage;

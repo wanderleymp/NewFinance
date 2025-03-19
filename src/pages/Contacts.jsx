@@ -28,7 +28,7 @@ import {
   ViewModule as ViewModuleIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { contactsService } from '../services/api';
+import { contactsService } from '../services/contactsService';
 import DataTable from '../components/DataTable';
 import CardView from '../components/CardView';
 
@@ -46,10 +46,15 @@ const ContactTypeIcon = ({ type }) => {
 };
 
 export default function Contacts() {
+  const [searchParams, setSearchParams] = useState({
+    search: '',
+    page: 1,
+    limit: 20,
+    includeNoChat: true,
+    type: '',
+    orderBy: 'name'
+  });
   const [contacts, setContacts] = useState({ items: [], meta: {} });
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -64,25 +69,33 @@ export default function Contacts() {
   const loadContacts = async () => {
     setLoading(true);
     try {
-      const params = {
-        page: page + 1,
-        limit: 10,
-        search: search || undefined,
-        type: typeFilter || undefined,
-      };
-      const data = await contactsService.list(params);
+      const data = await contactsService.searchAllContacts(searchParams);
       setContacts(data);
     } catch (error) {
-      console.error('Error loading contacts:', error);
+      console.error('Erro ao carregar contatos:', error);
       enqueueSnackbar('Erro ao carregar contatos', { variant: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  React.useEffect(() => {
-    loadContacts();
-  }, [page, search, typeFilter]);
+  // Atualiza a busca quando os parâmetros mudam
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadContacts();
+    }, 500); // Debounce de 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchParams]);
+
+  // Handler para mudanças nos campos de busca
+  const handleSearchChange = (field, value) => {
+    setSearchParams(prev => ({
+      ...prev,
+      [field]: value,
+      page: field === 'search' ? 1 : prev.page // Reset página ao buscar
+    }));
+  };
 
   const handleOpenDialog = (contact = null) => {
     if (contact) {
@@ -254,10 +267,10 @@ export default function Contacts() {
           <DataTable
             rows={contacts.items}
             columns={columns}
-            pageSize={10}
-            rowCount={contacts.meta.totalItems}
-            page={page}
-            onPageChange={(newPage) => setPage(newPage)}
+            pageSize={searchParams.limit}
+            rowCount={contacts.meta.total}
+            page={searchParams.page - 1}
+            onPageChange={(newPage) => handleSearchChange('page', newPage + 1)}
             loading={loading}
           />
         ) : (
@@ -265,9 +278,9 @@ export default function Contacts() {
             items={contacts.items}
             onEdit={handleOpenDialog}
             onDelete={handleDelete}
-            page={page}
-            totalPages={Math.ceil((contacts.meta.totalItems || 0) / 10)}
-            onPageChange={setPage}
+            page={searchParams.page - 1}
+            totalPages={Math.ceil((contacts.meta.total || 0) / searchParams.limit)}
+            onPageChange={(newPage) => handleSearchChange('page', newPage + 1)}
             renderContent={renderContactCard}
             loading={loading}
           />
