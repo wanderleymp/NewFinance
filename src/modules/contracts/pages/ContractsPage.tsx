@@ -222,7 +222,7 @@ const ContractsPage: React.FC = () => {
           <Grid item xs={12} sm={6} md={4} key={contract.id}>
             <ContractCard
               contract={contract}
-              onEdit={() => handleEditContract(contract.id)}
+              onEdit={handleEditContract}
               onServices={() => {
                 setSelectedContractForServices(contract);
                 setOpenServiceModal(true);
