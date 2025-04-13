@@ -22,7 +22,7 @@ interface ContractAdjustmentsTabProps {
 export function ContractAdjustmentsTab({ contract }: ContractAdjustmentsTabProps) {
   const { data: contractAdjustments = [] } = useQuery({
     queryKey: ['contract-adjustments', contract.id],
-    queryFn: () => mockData.getContractAdjustments(contract.id)
+    queryFn: () => mockData.getContractAdjustments(String(contract.id)) // Convertendo para string para compatibilidade
   });
 
   return (

@@ -75,6 +75,7 @@ export interface ContractServiceFormData {
   id?: number;
   movement_item_id?: number;
   name: string;
+  description?: string; // Adicionado campo description que estava faltando
   quantity: string;
   unit_value: string;
   total_value: string;

@@ -20,6 +20,7 @@ interface ContractFiltersProps {
     totalPending: number;
     averagePayment: number;
   };
+  onNewContract?: () => void; // Adicionando propriedade opcional para compatibilidade
 }
 
 export function ContractFilters({ onFilterChange, metrics }: ContractFiltersProps) {

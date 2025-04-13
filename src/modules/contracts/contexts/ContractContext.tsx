@@ -6,6 +6,7 @@ import React, {
   useCallback 
 } from 'react';
 import { Contract, ContractResponse } from '../types/contract';
+import { ContractFormData } from '../types/contractForm';
 import { NewContractService } from '../services/newContractService';
 import { 
   ContractValidator, 
@@ -20,8 +21,8 @@ interface ContractContextType {
   page: number;
   totalPages: number;
   fetchContracts: (page?: number, limit?: number) => Promise<void>;
-  createContract: (contractData: Partial<Contract>) => Promise<Contract>;
-  updateContract: (id: string, contractData: Partial<Contract>) => Promise<Contract>;
+  createContract: (contractData: Partial<Contract> | ContractFormData) => Promise<Contract>;
+  updateContract: (id: string, contractData: Partial<Contract> | ContractFormData) => Promise<Contract>;
   deleteContract: (id: string) => Promise<void>;
   changePage: (newPage: number) => void;
   clearError: () => void;
@@ -47,7 +48,25 @@ export const ContractProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       const response: ContractResponse = await contractService.listRecurring(currentPage, limit);
       
-      setContracts(response.data);
+      // Mapeia os itens retornados pela API para o tipo Contract
+      const contractsData: Contract[] = response.items.map(item => {
+        // Garante que recurrence_period seja 'monthly' ou 'yearly'
+        const recurrencePeriod = item.recurrence_period === 'yearly' ? 'yearly' : 'monthly';
+        
+        return {
+          ...item,
+          id: item.contract_id,
+          name: item.contract_name,
+          value: item.contract_value,
+          startDate: item.start_date,
+          endDate: item.end_date,
+          billings: [],
+          last_adjustment: null,
+          recurrence_period: recurrencePeriod
+        };
+      });
+      
+      setContracts(contractsData);
       setPage(currentPage);
       setTotalPages(response.meta.totalPages);
     } catch (err) {

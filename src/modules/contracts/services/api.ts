@@ -140,7 +140,9 @@ export const contractsApi = {
 
       // Tratamento de datas
       const parseDate = (dateString: string | null) => {
-        return dateString ? new Date(dateString) : null;
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? null : date;
       };
 
       const contract: Contract = {

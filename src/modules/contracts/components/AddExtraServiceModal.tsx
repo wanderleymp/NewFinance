@@ -36,6 +36,7 @@ interface AddExtraServiceModalProps {
 
 interface ServiceItem extends MovementItem {
   selected?: boolean;
+  price?: number; // Adicionando a propriedade price que está sendo usada no código
 }
 
 export function AddExtraServiceModal({

@@ -18,10 +18,10 @@ import { contractService } from '../services/contractService'; // Import the con
 
 interface ContractTableProps {
   contracts: Contract[];
-  onManageServices: (contract: Contract) => void;
+  onManageServices?: (contract: Contract) => void;
   onEdit: (contract: Contract) => void;
-  onDelete: (contract: Contract) => void;
-  onView: (contract: Contract) => void;
+  onDelete?: (contract: Contract) => void;
+  onView?: (contract: Contract) => void;
 }
 
 export function ContractTable({ 
@@ -40,7 +40,7 @@ export function ContractTable({
 
   const handleBillContract = async (contract: Contract) => {
     try {
-      await contractService.generateBilling(contract.id);
+      await contractService.generateBilling(String(contract.id));
       toast.success('Faturamento realizado com sucesso!');
       setIsConfirmationOpen(false);
       setSelectedContract(null);
@@ -62,10 +62,12 @@ export function ContractTable({
     }
   };
 
-  const formatDate = (date: Date | null | undefined) => {
+  const formatDate = (date: Date | string | null | undefined) => {
     try {
       if (!date) return 'N/A';
-      return format(date, 'dd/MM/yyyy');
+      // Converter string para Date se necessário
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return format(dateObj, 'dd/MM/yyyy');
     } catch (error) {
       console.error('Erro ao formatar data:', error);
       return 'N/A';
@@ -170,13 +172,13 @@ export function ContractTable({
                   setIsConfirmationOpen(true);
                 }
               }}
-              title="Gerar Fatura"
+              aria-label="Gerar Fatura"
             />
             <div className="h-4 w-px bg-gray-200 mx-1" />
             <button
               onClick={() => onView(row.original)}
               className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-              title="Visualizar"
+              aria-label="Visualizar"
             >
               <Eye className="w-4 h-4" />
             </button>
@@ -281,7 +283,7 @@ export function ContractTable({
 
       {selectedContract && (
         <BillingConfirmationModal
-          isOpen={isConfirmationOpen}
+          open={isConfirmationOpen}
           onClose={() => {
             setIsConfirmationOpen(false);
             setSelectedContract(null);

@@ -17,10 +17,10 @@ import {
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { format } from 'date-fns';
-import { contractService } from '../services/ContractService';
+import { contractService } from '../services/contractService';
 import ContractServices from '../components/ContractServices';
 import { ContractService } from '../types/contractService';
-import { SearchPersonAutocomplete } from '@/components/SearchPersonAutocomplete';
+import { SearchPersonAutocomplete } from '../../../components/SearchPersonAutocomplete';
 
 interface ContractFormData {
   contract_name: string;
@@ -105,7 +105,7 @@ const ContractFormPage: React.FC = () => {
         // Usa o método apropriado dependendo do tipo de contrato
         if (isRecurring) {
           console.log('Carregando contrato recorrente com ID:', id);
-          response = await contractService.getRecurringContractById(id);
+          response = await contractService.getRecurringContractById(String(id));
         } else {
           console.log('Carregando contrato regular com ID:', id);
           response = await contractService.getContractById(Number(id));
@@ -198,7 +198,7 @@ const ContractFormPage: React.FC = () => {
         navigate('/contracts-recurring');
       } else {
         // Para contratos regulares
-        await contractService.createOrUpdateContract(id ? Number(id) : undefined, contractData);
+        await contractService.createOrUpdateContract(contractData, id ? Number(id) : undefined);
         enqueueSnackbar('Contrato salvo com sucesso!', { variant: 'success' });
         navigate('/contracts');
       }
@@ -313,8 +313,6 @@ const ContractFormPage: React.FC = () => {
                   onPersonSelect={handlePersonSelect}
                   label="Representante do Contrato"
                   placeholder="Busque o representante do contrato"
-                  name="representativeName"
-                  sx={{ width: '100%' }}
                 />
               </Grid>
 

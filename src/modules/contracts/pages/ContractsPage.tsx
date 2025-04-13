@@ -44,7 +44,7 @@ import { ContractCard } from '../components/ContractCard';
 import { ServiceModal } from '../components/ServiceModal';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { contractService } from '../services/ContractService';
+import { contractService } from '../services/contractService';
 import { Contract } from '../types/contract';
 
 const ContractsPage: React.FC = () => {
@@ -121,13 +121,21 @@ const ContractsPage: React.FC = () => {
   const handleNewContract = () => {
     // Verifica se está na página de contratos recorrentes
     const isRecurring = window.location.pathname.includes('contracts-recurring');
-    navigate(isRecurring ? '/contracts-recurring/form' : '/contracts/form');
+    navigate(isRecurring ? '/finance/contracts-recurring/form' : '/finance/contracts/form');
   };
 
   const handleEditContract = (contractId: number) => {
     // Verifica se está na página de contratos recorrentes
     const isRecurring = window.location.pathname.includes('contracts-recurring');
-    navigate(isRecurring ? `/contracts-recurring/form/${contractId}` : `/contracts/form/${contractId}`);
+    
+    // Converte o ID para string antes do redirecionamento
+    const idString = String(contractId);
+    
+    // Navega para a rota correta
+    navigate(isRecurring 
+      ? `/finance/contracts-recurring/form/${idString}` 
+      : `/finance/contracts/form/${idString}`
+    );
   };
 
   // Renderização do conteúdo
@@ -186,7 +194,10 @@ const ContractsPage: React.FC = () => {
                   {new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
                     currency: 'BRL'
-                  }).format(contract.value)}
+                  }).format(typeof contract.value === 'number' ? 
+                    contract.value : 
+                    parseFloat(String(contract.value || '0'))
+                  )}
                 </TableCell>
                 <TableCell>
                   <Chip

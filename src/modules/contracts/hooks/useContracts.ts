@@ -29,7 +29,7 @@ export function useContracts(initialPage = 1, limit = 10): UseContractsReturn {
       const { 
         contracts: fetchedContracts, 
         total, 
-        page: currentPage, 
+        currentPage, 
         totalPages: totalPagesCount 
       } = await contractService.getContracts(requestedPage, limit);
 
@@ -46,7 +46,7 @@ export function useContracts(initialPage = 1, limit = 10): UseContractsReturn {
 
   const createContract = useCallback(async (contract: Omit<Contract, 'id'>) => {
     try {
-      const newContract = await contractService.createContract(contract);
+      const newContract = await contractService.createOrUpdateContract(contract);
       await fetchContracts(); // Recarregar lista
       return newContract;
     } catch (err) {
@@ -57,7 +57,7 @@ export function useContracts(initialPage = 1, limit = 10): UseContractsReturn {
 
   const updateContract = useCallback(async (id: string, contract: Partial<Contract>) => {
     try {
-      const updatedContract = await contractService.updateContract(id, contract);
+      const updatedContract = await contractService.createOrUpdateContract(contract, typeof id === 'string' ? parseInt(id, 10) : id);
       await fetchContracts(); // Recarregar lista
       return updatedContract;
     } catch (err) {
@@ -68,7 +68,7 @@ export function useContracts(initialPage = 1, limit = 10): UseContractsReturn {
 
   const deleteContract = useCallback(async (id: string) => {
     try {
-      await contractService.deleteContract(id);
+      await contractService.deleteContract(typeof id === 'string' ? parseInt(id, 10) : id);
       await fetchContracts(); // Recarregar lista
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Erro ao excluir contrato'));

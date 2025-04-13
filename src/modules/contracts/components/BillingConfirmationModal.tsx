@@ -26,9 +26,10 @@ interface BillingConfirmationModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  contractName: string;
+  contractName?: string;
   contractNumber?: string;
   billingValue?: number;
+  contract?: any; // Adicionando propriedade contract para compatibilidade
   contractStartDate?: Date;
   contractEndDate?: Date;
   clientName?: string;

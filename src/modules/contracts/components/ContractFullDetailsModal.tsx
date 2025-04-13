@@ -80,10 +80,10 @@ export function ContractFullDetailsModal({
           adjustments,
           history
         ] = await Promise.all([
-          contractsApi.getBilling(contract.id),
-          contractsApi.getExtraServices(contract.id),
-          contractsApi.getAdjustments(contract.id),
-          contractsApi.getHistory(contract.id)
+          contractsApi.getBilling(String(contract.id)),
+          contractsApi.getExtraServices(String(contract.id)),
+          contractsApi.getAdjustments(String(contract.id)),
+          contractsApi.getHistory(String(contract.id))
         ]);
 
         return {
@@ -148,7 +148,7 @@ export function ContractFullDetailsModal({
             {new Intl.NumberFormat('pt-BR', { 
               style: 'currency', 
               currency: 'BRL' 
-            }).format(contract.value)}
+            }).format(typeof contract.value === 'string' ? parseFloat(contract.value) : contract.value)}
           </Typography>
         </Paper>
       </Grid>

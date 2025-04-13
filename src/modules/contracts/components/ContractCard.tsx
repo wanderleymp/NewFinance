@@ -39,11 +39,12 @@ import { useNavigate } from 'react-router-dom';
 
 interface ContractCardProps {
   contract?: Contract;
-  onEdit?: (contractId?: number) => void;
+  onEdit?: (contractId?: number | string) => void;
   onDelete?: () => void;
   onView?: () => void;
-  onManageServices?: (contractId: number) => void;
+  onManageServices?: (contractId: number | string) => void;
   onRefresh?: () => void;
+  onServices?: () => void; // Adicionada propriedade para compatibilidade com ContractsPage
 }
 
 export const ContractCard: React.FC<ContractCardProps> = ({
@@ -70,6 +71,11 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     setAnchorEl(null);
   };
 
+  const handleEditContract = (contractId: number) => {
+    // Passando o ID como string para garantir compatibilidade
+    onEdit(String(contractId));
+  };
+
   const formatCurrency = (value?: number) => {
     if (value == null) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { 
@@ -87,9 +93,11 @@ export const ContractCard: React.FC<ContractCardProps> = ({
     }
   };
 
-  const formatRecurrencePeriod = (period?: 'monthly' | 'yearly') => {
+  const formatRecurrencePeriod = (period?: string | 'monthly' | 'yearly') => {
     if (!period) return 'Não definido';
-    switch(period.toLowerCase()) {
+    // Convertendo para lowercase para garantir a comparação correta
+    const periodLower = period.toLowerCase();
+    switch(periodLower) {
       case 'monthly': return 'Mensal';
       case 'yearly': return 'Anual';
       default: return 'Não definido';
@@ -402,7 +410,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="Editar Contrato">
-              <IconButton onClick={() => onEdit(contract?.id)} size="small">
+              <IconButton onClick={() => handleEditContract(contractId)} size="small">
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -474,7 +482,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           <MenuItem 
             onClick={() => {
               handleMenuClose();
-              onEdit(contract);
+              handleEditContract(contractId);
             }}
           >
             <ListItemIcon>
@@ -524,10 +532,15 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 
       {contract && (
         <BillingConfirmationModal
-          isOpen={isConfirmationOpen}
+          open={isConfirmationOpen}
           onClose={() => setIsConfirmationOpen(false)}
           onConfirm={handleBillContract}
-          contract={contract}
+          contractName={contract.name || ''}
+          contractNumber={String(contract.id)}
+          billingValue={typeof contract.value === 'number' ? contract.value : parseFloat(String(contract.value) || '0')}
+          contractStartDate={contract.startDate ? new Date(contract.startDate) : new Date()}
+          contractEndDate={contract.endDate ? new Date(contract.endDate) : new Date()}
+          clientName={contract.fullName || ''}
         />
       )}
 

@@ -20,15 +20,20 @@ import { Contract } from '../types/contract';
 export function NewContractList() {
   const { 
     contracts, 
-    loading, 
+    isLoading: loading, 
     error, 
-    page, 
-    totalPages, 
-    createContract, 
-    updateContract, 
-    deleteContract, 
-    changePage 
+    pagination,
+    setPage
   } = useNewContracts();
+  
+  // Extraindo valores da paginação
+  const { page, totalPages } = pagination;
+  
+  // Funções que serão implementadas posteriormente
+  const createContract = (data: any) => Promise.resolve({} as Contract);
+  const updateContract = (id: string, data: any) => Promise.resolve({} as Contract);
+  const deleteContract = (id: string | number) => Promise.resolve();
+  const changePage = (newPage: number) => setPage(newPage);
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -47,7 +52,7 @@ export function NewContractList() {
   const handleUpdateContract = async () => {
     if (selectedContract) {
       try {
-        await updateContract(selectedContract.id, contractForm);
+        await updateContract(String(selectedContract.id), contractForm);
         setSelectedContract(null);
         setContractForm({});
       } catch (err) {
@@ -65,7 +70,7 @@ export function NewContractList() {
   };
 
   if (loading) return <div>Carregando...</div>;
-  if (error) return <div>Erro: {error}</div>;
+  if (error) return <div>Erro: {error.message}</div>;
 
   return (
     <div>
@@ -105,7 +110,7 @@ export function NewContractList() {
                   </Button>
                   <Button 
                     color="secondary" 
-                    onClick={() => handleDeleteContract(contract.id)}
+                    onClick={() => handleDeleteContract(String(contract.id))}
                   >
                     Excluir
                   </Button>

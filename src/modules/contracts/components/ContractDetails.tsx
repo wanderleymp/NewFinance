@@ -249,7 +249,7 @@ export function ContractDetails({
 
       {isServiceModalOpen && (
         <ServiceModal 
-          open={isServiceModalOpen}
+          isOpen={isServiceModalOpen}
           onClose={() => setIsServiceModalOpen(false)}
           contract={contract}
         />
@@ -257,7 +257,7 @@ export function ContractDetails({
 
       {isModificationModalOpen && (
         <ModificationModal 
-          open={isModificationModalOpen}
+          isOpen={isModificationModalOpen}
           onClose={() => setIsModificationModalOpen(false)}
           contract={contract}
         />
@@ -272,7 +272,7 @@ export function ContractDetails({
           }}
           onConfirm={handleBillContract}
           contractName={contract.contract_name}
-          billingValue={contract.contract_value}
+          billingValue={parseFloat(contract.contract_value) || 0}
         />
       )}
     </Box>

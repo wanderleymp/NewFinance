@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
-import { SearchPersonAutocomplete } from '../../../../components/SearchPersonAutocomplete';
+import { SearchPersonAutocomplete } from '../../../components/SearchPersonAutocomplete';
 
 interface ContractFormModalProps {
   open: boolean;
@@ -25,13 +25,22 @@ const ContractFormModal: React.FC<ContractFormModalProps> = ({
   onSubmit, 
   initialData 
 }) => {
-  const [formData, setFormData] = useState<ContractFormData>({
+  const [formData, setFormData] = useState({
     name: initialData?.contract_name || '',
+    contract_name: initialData?.contract_name || '',
+    contract_value: initialData?.contract_value || '0',
     currentValue: initialData?.contract_value ? parseFloat(initialData.contract_value) : 0,
     status: initialData?.status || 'ativo',
     group: initialData?.group_name || '',
+    group_name: initialData?.group_name || '',
+    start_date: initialData?.start_date || '',
     startDate: initialData?.start_date || '',
+    end_date: initialData?.end_date || '',
     endDate: initialData?.end_date || '',
+    recurrence_period: initialData?.recurrence_period || 'monthly',
+    due_day: initialData?.due_day || 10,
+    days_before_due: initialData?.days_before_due || 5,
+    billing_reference: initialData?.billing_reference || '',
     representativePersonId: initialData?.representative_person_id || null,
     representativeName: initialData?.full_name || '',
   });

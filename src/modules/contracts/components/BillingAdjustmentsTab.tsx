@@ -22,7 +22,7 @@ interface BillingAdjustmentsTabProps {
 export function BillingAdjustmentsTab({ contract }: BillingAdjustmentsTabProps) {
   const { data: billingAdjustments = [] } = useQuery({
     queryKey: ['billing-adjustments', contract.id],
-    queryFn: () => mockData.getBillingAdjustments(contract.id)
+    queryFn: () => mockData.getBillingAdjustments(String(contract.id)) // Convertendo para string para compatibilidade
   });
 
   return (

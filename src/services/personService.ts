@@ -1,7 +1,10 @@
 import axios from 'axios';
 import api from './api';
 
-const API_URL = import.meta.env.VITE_API_URL;
+// Corrigindo o acesso à variável de ambiente
+const API_URL = typeof import.meta !== 'undefined' && 'env' in import.meta 
+  ? (import.meta.env as any).VITE_API_URL 
+  : process.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export const personService = {
   async search(query: string, page = 1, limit = 10) {

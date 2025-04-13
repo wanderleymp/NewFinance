@@ -29,7 +29,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import { useSnackbar } from 'notistack';
 import { ContractService, ContractServiceFormData } from '../types/contractService';
-import { contractService } from '../services/ContractService';
+import { contractService } from '../services/contractService';
 import { Contract } from '../types/contract';
 
 interface ContractServicesProps {
@@ -54,7 +54,7 @@ const initialServiceForm: ContractServiceFormData = {
   unit_value: '',
   quantity: '',
   total_value: '',
-  movement_item_id: '',
+  movement_item_id: 0, // Corrigido para number
 };
 
 export const ContractServices: React.FC<ContractServicesProps> = ({
@@ -230,7 +230,11 @@ export const ContractServices: React.FC<ContractServicesProps> = ({
 
       // Calcula o valor total automaticamente
       if (field === 'unit_value' || field === 'quantity') {
-        updated.total_value = (updated.unit_value || 0) * (updated.quantity || 0);
+        // Convertendo para number antes de fazer a operação aritmética
+        const unitValue = typeof updated.unit_value === 'string' ? parseFloat(updated.unit_value || '0') : (updated.unit_value || 0);
+        const quantity = typeof updated.quantity === 'string' ? parseFloat(updated.quantity || '0') : (updated.quantity || 0);
+        // Convertendo o resultado da operação aritmética para string, já que total_value é do tipo string
+        updated.total_value = String(unitValue * quantity);
       }
 
       return updated;
@@ -278,10 +282,10 @@ export const ContractServices: React.FC<ContractServicesProps> = ({
   const handleSelectService = (service: MovementItem) => {
     setNewService({
       name: service.name,
-      unit_value: service.value,
-      quantity: 1,
-      total_value: service.value,
-      movement_item_id: service.movement_item_id
+      unit_value: String(service.value || 0), // Convertido para string conforme esperado pelo tipo
+      quantity: '1', // Convertido para string conforme esperado pelo tipo
+      total_value: String(service.value || 0), // Convertido para string conforme esperado pelo tipo
+      movement_item_id: service.movement_item_id || 0
     });
     setSearchResults([]); // Limpa os resultados após selecionar
   };

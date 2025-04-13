@@ -21,7 +21,9 @@ const ContractList: React.FC = () => {
     page, 
     totalPages, 
     changePage, 
-    deleteContract 
+    deleteContract,
+    createContract,
+    updateContract
   } = useContractContext();
 
   const [selectedContract, setSelectedContract] = useState<Contract | undefined>(undefined);
@@ -32,9 +34,11 @@ const ContractList: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleDeleteContract = async (id: string) => {
+  const handleDeleteContract = async (id: string | number) => {
+    // Convertendo para string para garantir compatibilidade
+    const contractId = String(id);
     if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
-      await deleteContract(id);
+      await deleteContract(contractId);
     }
   };
 
@@ -115,7 +119,7 @@ const ContractList: React.FC = () => {
               try {
                 if (selectedContract) {
                   // Atualização
-                  await updateContract(selectedContract.id, data);
+                  await updateContract(String(selectedContract.id), data);
                 } else {
                   // Criação
                   await createContract(data);

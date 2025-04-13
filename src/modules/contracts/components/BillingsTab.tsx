@@ -27,7 +27,7 @@ interface BillingsTabProps {
 export function BillingsTab({ contract }: BillingsTabProps) {
   const { data: billings = [] } = useQuery({
     queryKey: ['billings', contract.id],
-    queryFn: () => mockData.getBillings(contract.id)
+    queryFn: () => mockData.getBillings(String(contract.id)) // Convertendo para string para compatibilidade
   });
 
   return (

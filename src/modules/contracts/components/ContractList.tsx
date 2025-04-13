@@ -215,7 +215,7 @@ export function ContractList() {
         </div>
       ) : (
         <ContractTable
-          contracts={contracts}
+          contracts={contracts as any}
           onEdit={handleEdit}
         />
       )}

@@ -15,7 +15,7 @@ import {
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
 import { mockData } from '../services/mockData';
-import { SearchPersonAutocomplete } from '../../../../components/SearchPersonAutocomplete';
+import { SearchPersonAutocomplete } from '../../../components/SearchPersonAutocomplete';
 
 interface ContractFormProps {
   contract?: Contract;
@@ -43,7 +43,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
         : '',
       personId: contract?.personId || '',
       representativePersonId: contract?.representativePersonId || '',
-      representativeName: contract?.representativeName || '',
+      representativeName: (contract as any)?.representativeName || '',
       recurrencePeriod: contract?.recurrencePeriod || 'monthly',
       billingReference: contract?.billingReference || 'current'
     }
@@ -54,8 +54,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
   };
 
   const handlePersonSelect = (person: any | null) => {
-    setValue('representativePersonId', person?.id || '');
-    setValue('representativeName', person?.name || '');
+    setValue('representativePersonId' as any, person?.id || '');
+    setValue('representativeName' as any, person?.name || '');
   };
 
   return (

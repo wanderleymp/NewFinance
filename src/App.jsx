@@ -205,6 +205,8 @@ function App() {
                   <Route path="/finance/contracts/:contractId/billing/:billingId" element={<ContractBillingPage />} />
                   
                   <Route path="/finance/contracts-recurring" element={<ContractsPage />} />
+                  <Route path="/finance/contracts-recurring/form" element={<ContractFormPage />} />
+                  <Route path="/finance/contracts-recurring/form/:id" element={<ContractFormPage />} />
                   <Route path="/finance/contracts-recurring/billing" element={<ContractBillingPage />} />
                   <Route path="/finance/contracts-recurring/:contractId/billing" element={<ContractBillingPage />} />
                   <Route path="/finance/contracts-recurring/:contractId/billing/:billingId" element={<ContractBillingPage />} />

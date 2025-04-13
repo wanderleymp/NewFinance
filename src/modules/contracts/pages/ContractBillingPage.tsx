@@ -31,7 +31,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import SearchIcon from '@mui/icons-material/Search';
 
-import { contractService } from '../services/ContractService';
+import { contractService } from '../services/contractService';
 import Loading from '../../../components/Loading';
 import debounce from 'lodash/debounce';
 
