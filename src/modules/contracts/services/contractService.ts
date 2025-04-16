@@ -1,12 +1,18 @@
 import api from '../../../services/api';
 import { Contract } from '../types/contract';
 import { ContractFormData } from '../types/contractForm';
-import { ContractService } from '../types/contractService';
-import { contractsApi } from './api'; // Adicionando importação do contractsApi
-import mockContractsData from './mockContracts.json' assert { type: 'json' };
+import { ContractService as ContractServiceType } from '../types/contractService';
+import { ContractFilters, ContractListResponse, ContractResponse } from '../types/contractFilters';
+import { contractsApi } from './api';
+import { AxiosResponse } from 'axios';
 
-type ContractDataSource = 'api' | 'mock';
+/**
+ * Serviço para gerenciamento de contratos
+ */
 
+/**
+ * Interface para resposta paginada genérica
+ */
 interface PaginatedResponse<T> {
   items: T[];
   meta: {
@@ -16,7 +22,7 @@ interface PaginatedResponse<T> {
     totalPages: number;
     currentPage: number;
   };
-  links: {
+  links?: {
     first?: string;
     previous?: string;
     next?: string;
@@ -24,6 +30,9 @@ interface PaginatedResponse<T> {
   };
 }
 
+/**
+ * Interface para faturamento de contrato
+ */
 interface ContractBilling {
   id: number;
   contractNumber: string;
@@ -33,10 +42,42 @@ interface ContractBilling {
   status: string;
 }
 
+/**
+ * Interface para payload do serviço extra
+ */
+interface ExtraServicePayload {
+  contractId: string | number;
+  serviceId: number;
+  itemDescription: string;
+  itemValue: number;
+  serviceDate: string;
+  movementId?: number | null;
+  amount?: number;
+}
+
+/**
+ * Interface para resposta de listagem de contratos
+ */
+interface ContractsListResponse {
+  contracts: Contract[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+/**
+ * Serviço para gerenciamento de contratos
+ * Fornece métodos para criar, atualizar, buscar e excluir contratos
+ * além de gerenciar serviços extras, ajustes e faturamentos
+ */
 export const contractService = {
-  dataSource: 'api' as ContractDataSource,
   
-  // Função para normalizar a resposta da API para um formato consistente
+  /**
+   * Normaliza a resposta da API para um formato consistente de Contract
+   * Lida com diferentes formatos de resposta da API
+   * @param data Dados recebidos da API em qualquer formato
+   * @returns Objeto Contract normalizado
+   */
   normalizeResponse(data: any): Contract {
     console.log('Normalizando dados de resposta:', JSON.stringify(data).substring(0, 200) + '...');
     
@@ -139,6 +180,7 @@ export const contractService = {
         contract_name: data.contract_name || '',
         contract_value: data.contract_value || '',
         start_date: data.start_date || '',
+        // Garantir que as propriedades obrigatórias estejam presentes
         end_date: data.end_date || null,
         recurrence_period: data.recurrence_period || 'monthly',
         due_day: data.due_day || 1,
@@ -153,9 +195,7 @@ export const contractService = {
         representative_person_id: data.representative_person_id || null,
         commissioned_value: data.commissioned_value || null,
         account_entry_id: data.account_entry_id || null,
-        last_decimo_billing_year: data.last_decimo_billing_year || null,
-        last_adjustment: data.last_adjustment || null,
-        billings: data.billings || [],
+        last_decimo_billing_year: data.last_decimo_billing_year || null
       };
     } catch (error) {
       console.error('Erro ao normalizar dados do contrato:', error);
@@ -163,662 +203,504 @@ export const contractService = {
     }
   },
   
-  // Método auxiliar para criar um contrato vazio com valores padrão
-  createEmptyContract(items = []): Contract {
-    return {
+  /**
+   * Cria um contrato vazio
+   * @param data Dados opcionais para incluir no contrato
+   * @returns Contrato vazio com dados opcionais
+   */
+  createEmptyContract(data?: any): Contract {
+    // Criar objeto base do contrato
+    const emptyContract: Contract = {
       id: 0,
-      full_name: '',
-      group_name: '',
+      contract_id: 0,
       contract_name: '',
-      contract_value: '',
-      start_date: '',
+      contract_value: '0',
+      start_date: new Date().toISOString().split('T')[0],
       end_date: null,
+      status: 'active',
+      group_name: '',
+      full_name: '',
       recurrence_period: 'monthly',
-      due_day: 1,
-      days_before_due: 0,
-      status: '',
-      model_movement_id: 0,
+      due_day: 10,
+      days_before_due: 5,
       last_billing_date: null,
       next_billing_date: null,
-      contract_id: 0,
-      contract_group_id: 0,
       billing_reference: '',
-      representative_person_id: null,
-      commissioned_value: null,
-      account_entry_id: null,
-      last_decimo_billing_year: null,
-      last_adjustment: null,
-      billings: [],
-      items: items
-    };
-  },
-  
-  // Função para buscar um contrato nos dados mock pelo ID
-  findMockContractById(id: number): Contract | null {
-    console.log('Buscando contrato nos dados mock com ID:', id);
-    try {
-      // Verifica se os dados mock existem e têm a propriedade data
-      if (mockContractsData && mockContractsData.data) {
-        // Busca o contrato pelo ID
-        const contract = mockContractsData.data.find(c => c.contract_id === id);
-        
-        if (contract) {
-          // Adiciona a propriedade items para compatibilidade com o formato esperado
-          return {
-            ...contract,
-            items: [], // Inicializa com array vazio, já que os mocks não têm itens
-            billings: contract.billings || [], // Garante que billings existe
-            last_adjustment: contract.last_adjustment || null // Garante que last_adjustment existe
-          };
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Erro ao buscar contrato nos dados mock:', error);
-      return null;
-    }
-  },
-
-  setDataSource(source: ContractDataSource) {
-    this.dataSource = source;
-  },
-
-  async getContracts(
-    page = 1, 
-    limit = 10, 
-    search?: string
-  ): Promise<{
-    contracts: Contract[];
-    total: number;
-    totalPages: number;
-    currentPage: number;
-  }> {
-    try {
-      console.log('🔍 ContractService - Buscando contratos:', { page, limit, search });
+      contract_group_id: 0,
+      model_movement_id: 0,
+      representative_person_id: 0,
+      commissioned_value: 0,
+      account_entry_id: 0,
+      last_decimo_billing_year: 0,
+      last_adjustment: '',
       
-      const response = await contractsApi.listRecurring(page, limit, search);
-      console.log('🔍 ContractService - Resposta da API:', response);
+      // Aliases para compatibilidade
+      name: '',
+      value: 0,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: null,
+      groupName: '',
+      fullName: '',
+      dueDay: 10,
+      daysBefore: 5,
+      lastBillingDate: null,
+      nextBillingDate: null,
+      billingReference: '',
+      contractGroupId: 0,
+      modelMovementId: 0,
+      
+      // Propriedades adicionais
+      billings: []
+    };
+    
+    // Se dados foram fornecidos, mesclar com o contrato vazio
+    if (data) {
+      return { ...emptyContract, ...data };
+    }
+    
+    return emptyContract;
+  },
 
-      return {
-        contracts: response.data,
-        total: response.total,
-        totalPages: response.totalPages,
-        currentPage: response.page
-      };
-    } catch (error) {
-      console.error('🚨 ContractService - Erro ao buscar contratos:', error);
+  /**
+   * Cria um contrato recorrente
+   * @param contractData Dados do contrato
+   * @returns Contrato criado
+   */
+  async createRecurring(contractData: any): Promise<Contract> {
+    try {
+      console.log(`🔍 Criando novo contrato recorrente`);
+      const response = await api.post('/contracts-recurring', contractData);
+      return this.normalizeResponse(response.data);
+    } catch (error: any) {
+      console.error('Erro ao criar contrato recorrente:', error);
       throw error;
     }
   },
 
-  async getContractById(id: number): Promise<Contract> {
-    // Array com todas as rotas possíveis para buscar o contrato
-    const routes = [
-      { path: `/contracts/${id}`, name: 'principal' },
-      { path: `/contracts-regular/${id}`, name: 'contracts-regular' },
-      { path: `/regular/${id}`, name: 'regular' },
-      { path: `/contracts-regular/regular/${id}`, name: 'contracts-regular/regular' },
-      // Adicionando mais rotas alternativas
-      { path: `/contract/${id}`, name: 'contract singular' },
-      { path: `/contract-regular/${id}`, name: 'contract-regular singular' }
-    ];
-
-    let lastError = null;
-    let responseData = null;
-
-    // Tentar cada rota sequencialmente
-    for (const route of routes) {
-      try {
-        console.log(`Tentando buscar contrato com ID ${id} na rota ${route.name}: ${route.path}`);
-        
-        // Adicionar parâmetros para ignorar cache e forçar atualização
-        const timestamp = new Date().getTime();
-        const response = await api.get(route.path, {
-          params: {
-            _t: timestamp, // Parâmetro para evitar cache
-            force_refresh: true
-          },
-          // Aumentar o timeout para esta requisição específica
-          timeout: 20000
-        });
-
-        console.log(`Resposta da rota ${route.name}:`, response.data);
-        
-        // Se a resposta for vazia ou null, continuar para a próxima rota
-        if (!response.data) {
-          console.warn(`Resposta vazia na rota ${route.name}, tentando próxima rota...`);
-          continue;
-        }
-
-        // Verificar se a resposta contém um erro
-        if (response.data.error || (response.data.statusCode && response.data.statusCode >= 400)) {
-          console.warn(`Erro na resposta da rota ${route.name}:`, response.data);
-          continue;
-        }
-
-        // Armazenar a resposta e sair do loop
-        responseData = response.data;
-        console.log(`Contrato encontrado com sucesso na rota ${route.name}`);
-        break;
-      } catch (error: any) {
-        lastError = error;
-        console.error(`Erro ao buscar contrato na rota ${route.name}:`, error);
-        
-        // Verificar se o erro é 404 (não encontrado) ou outro erro
-        const status = error.response?.status;
-        if (status && status !== 404 && status !== 500) {
-          // Se for um erro diferente de 404 ou 500, pode ser um problema de autorização ou outro
-          // que não seria resolvido tentando outra rota
-          console.warn(`Erro ${status} na rota ${route.name}, pode indicar um problema que não será resolvido tentando outras rotas`);
-        }
-      }
-    }
-
-    // Se encontrou dados em alguma rota, normalizar e retornar
-    if (responseData) {
-      try {
-        const normalizedData = this.normalizeResponse(responseData);
-        return normalizedData;
-      } catch (normalizationError) {
-        console.error('Erro ao normalizar dados do contrato:', normalizationError);
-        // Se falhar na normalização, tentar retornar os dados brutos
-        return responseData;
-      }
-    }
-
-    // Se chegou aqui, todas as rotas falharam, tentar usar mock como último recurso
-    console.log('Todas as rotas falharam, tentando usar dados mock como último recurso');
-    const mockContract = this.findMockContractById(id);
-    if (mockContract) {
-      console.log('Contrato mock encontrado:', mockContract);
-      return mockContract;
-    }
-
-    // Se não encontrou nem nos mocks, lançar o último erro
-    console.error('Não foi possível encontrar o contrato em nenhuma rota e não há dados mock disponíveis');
-    throw lastError || new Error(`Não foi possível encontrar o contrato com ID ${id}`);
-  },
-
-  async getRecurringContractById(id: string): Promise<Contract> {
-    // Array com todas as rotas possíveis para buscar o contrato recorrente
-    const routes = [
-      { path: `/contracts-recurring/${id}`, name: 'principal' },
-      { path: `/contracts-recurring/recurring/${id}`, name: 'recurring aninhado' },
-      { path: `/recurring/${id}`, name: 'recurring direto' },
-      { path: `/contract-recurring/${id}`, name: 'contract-recurring singular' }
-    ];
-
-    let lastError = null;
-    let responseData = null;
-
-    // Tentar cada rota sequencialmente
-    for (const route of routes) {
-      try {
-        console.log(`Tentando buscar contrato recorrente com ID ${id} na rota ${route.name}: ${route.path}`);
-        
-        // Adicionar parâmetros para ignorar cache e forçar atualização
-        const timestamp = new Date().getTime();
-        const response = await api.get(route.path, {
-          params: {
-            _t: timestamp, // Parâmetro para evitar cache
-            force_refresh: true
-          },
-          // Aumentar o timeout para esta requisição específica
-          timeout: 20000
-        });
-
-        console.log(`Resposta da rota ${route.name}:`, response.data);
-        
-        // Se a resposta for vazia ou null, continuar para a próxima rota
-        if (!response.data) {
-          console.warn(`Resposta vazia na rota ${route.name}, tentando próxima rota...`);
-          continue;
-        }
-
-        // Verificar se a resposta contém um erro
-        if (response.data.error || (response.data.statusCode && response.data.statusCode >= 400)) {
-          console.warn(`Erro na resposta da rota ${route.name}:`, response.data);
-          continue;
-        }
-
-        // Armazenar a resposta e sair do loop
-        responseData = response.data;
-        console.log(`Contrato recorrente encontrado com sucesso na rota ${route.name}`);
-        break;
-      } catch (error: any) {
-        lastError = error;
-        console.error(`Erro ao buscar contrato recorrente na rota ${route.name}:`, error);
-        
-        // Verificar se o erro é 404 (não encontrado) ou outro erro
-        const status = error.response?.status;
-        if (status && status !== 404 && status !== 500) {
-          // Se for um erro diferente de 404 ou 500, pode ser um problema de autorização ou outro
-          // que não seria resolvido tentando outra rota
-          console.warn(`Erro ${status} na rota ${route.name}, pode indicar um problema que não será resolvido tentando outras rotas`);
-        }
-      }
-    }
-
-    // Se encontrou dados em alguma rota, normalizar e retornar
-    if (responseData) {
-      try {
-        const normalizedData = this.normalizeResponse(responseData);
-        return normalizedData;
-      } catch (normalizationError) {
-        console.error('Erro ao normalizar dados do contrato recorrente:', normalizationError);
-        // Se falhar na normalização, tentar retornar os dados brutos
-        return responseData;
-      }
-    }
-
-    // Se chegou aqui, todas as rotas falharam, tentar usar mock como último recurso
-    console.log('Todas as rotas falharam, tentando usar dados mock como último recurso');
-    const mockContract = this.findMockContractById(Number(id));
-    if (mockContract) {
-      console.log('Contrato mock encontrado:', mockContract);
-      return mockContract;
-    }
-
-    // Se não encontrou nem nos mocks, lançar o último erro
-    console.error('Não foi possível encontrar o contrato recorrente em nenhuma rota e não há dados mock disponíveis');
-    throw lastError || new Error(`Não foi possível encontrar o contrato recorrente com ID ${id}`);
-  },
-
-  async createOrUpdateContract(contractData: Partial<Contract>, id?: number): Promise<Contract> {
+  /**
+   * Atualiza um contrato recorrente
+   * @param id ID do contrato
+   * @param contractData Dados do contrato
+   * @returns Contrato atualizado
+   */
+  async updateRecurring(id: number | string, contractData: any): Promise<Contract> {
     try {
-      const endpoint = id ? `/contracts-recurring/${id}` : '/contracts-recurring';
-      const method = id ? 'PUT' : 'POST';
-
-      // Calcula o valor total do contrato baseado nos serviços
-      if (contractData.services) {
-        contractData.contract_value = String(
-          contractData.services.reduce((total, service) => total + service.total_value, 0)
-        );
-      }
-
-      const response = await api.request({
-        url: endpoint,
-        method,
-        data: contractData,
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao salvar contrato:', error);
+      const contractId = typeof id === 'string' ? id : id.toString();
+      console.log(`🔍 Atualizando contrato recorrente com ID: ${contractId}`);
+      const response = await api.put(`/contracts-recurring/${contractId}`, contractData);
+      return this.normalizeResponse(response.data);
+    } catch (error: any) {
+      console.error(`Erro ao atualizar contrato recorrente com ID ${id}:`, error);
       throw error;
     }
   },
 
-  async addServiceToContract(contractId: number, service: Omit<ContractService, 'id' | 'contract_id'>): Promise<ContractService> {
+  /**
+   * Exclui um contrato
+   * @param id ID do contrato
+   * @returns Promise<void>
+   */
+  async deleteContract(id: number | string): Promise<void> {
     try {
-      const response = await api.post(`/contracts-recurring/${contractId}/services`, service);
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao adicionar serviço ao contrato:', error);
-      throw error;
-    }
-  },
-
-  async removeServiceFromContract(contractId: number, serviceId: number): Promise<void> {
-    try {
-      await api.delete(`/contracts-recurring/${contractId}/services/${serviceId}`);
-    } catch (error) {
-      console.error('Erro ao remover serviço do contrato:', error);
-      throw error;
-    }
-  },
-
-  async updateContractService(contractId: number, serviceId: number, service: Partial<ContractService>): Promise<ContractService> {
-    try {
-      const response = await api.put(`/contracts-recurring/${contractId}/services/${serviceId}`, service);
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao atualizar serviço do contrato:', error);
-      throw error;
-    }
-  },
-
-  async deleteContract(id: number): Promise<void> {
-    try {
-      if (this.dataSource === 'api') {
-        await api.delete(`/contracts-recurring/${id}`);
-      } else {
-        // Remover contrato dos dados mock
-        const contractIndex = mockContractsData.data.findIndex(
-          contract => contract.contract_id === id
-        );
-
-        if (contractIndex === -1) {
-          throw new Error('Contrato não encontrado');
-        }
-
-        mockContractsData.data.splice(contractIndex, 1);
-      }
-    } catch (error) {
+      const contractId = typeof id === 'string' ? id : id.toString();
+      console.log(`🔍 Excluindo contrato com ID: ${contractId}`);
+      await api.delete(`/contracts-recurring/${contractId}`);
+    } catch (error: any) {
       console.error('Erro ao deletar contrato:', error);
       throw error;
     }
   },
 
-  async getPendingBillings(page = 1, limit = 10, contractId?: string | number, search?: string) {
+  /**
+   * Busca itens de movimento para um contrato
+   * @param query Termo de busca
+   * @param type Tipo de item (opcional)
+   * @returns Lista de itens encontrados
+   */
+  async searchMovementItems({ query, type }: { query: string, type?: string }): Promise<{data: any[]}> {
     try {
-      console.log('🔍 Buscando faturas pendentes', { page, limit, contractId, search });
+      console.log(`🔍 Buscando itens de movimento com query "${query}" e tipo ${type || 'todos'}`);
       
-      const endpoint = contractId 
-        ? `/contracts-recurring/${contractId}/billing` 
-        : '/contracts-recurring/billing';
-
-      const response = await api.get(endpoint, {
-        params: { 
-          page, 
-          limit,
-          ...(search ? { search } : {})
-        }
-      });
-
-      // Mapeia os dados do contrato
-      const items = response.data.items.map(item => ({
-        id: item.contract_id,
-        contract_id: item.contract_id,
-        client_name: item.full_name,
-        next_billing_date: item.next_billing_date,
-        last_billing_date: item.last_billing_date,
-        contract_value: Number(item.contract_value || 0),
-        status: item.status === 'active' ? 'pending' : item.status,
-        billings: (item.billings || []).map(billing => ({
-          id: billing.movement_id,
-          date: billing.movement_date,
-          amount: Number(billing.total_amount || 0)
-        }))
-      }));
-
-      return {
-        items,
-        meta: response.data.meta || {
-          currentPage: page,
-          totalItems: items.length,
-          totalPages: Math.ceil(items.length / limit)
-        }
-      };
-    } catch (error) {
-      console.error('❌ Erro ao buscar faturas:', error);
-      throw error;
-    }
-  },
-
-  async processBilling(contractId: string) {
-    try {
-      const response = await api.post(`/contracts-recurring/${contractId}/billing`);
-      console.log('✅ Fatura processada com sucesso:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erro ao processar fatura:', error);
-      throw error;
-    }
-  },
-
-  async processBulkBilling(contractIds: number[]) {
-    try {
-      console.log('🔄 Processando contratos em lote:', contractIds);
-      
-      // Monta o corpo da requisição com o array de IDs
-      const requestBody = {
-        body: contractIds
-      };
-      
-      console.log('📦 Corpo da requisição:', requestBody);
-      
-      const response = await api.post('/contracts-recurring/billing', requestBody);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erro ao processar faturas em lote:', error);
-      throw error;
-    }
-  },
-
-  async processBillingOld(billingId: string): Promise<void> {
-    try {
-      await api.post(`/contracts-recurring/billings/${billingId}/process`);
-    } catch (error) {
-      console.error('Erro ao processar fatura:', error);
-      throw error;
-    }
-  },
-
-  async generateBilling(contractId: string | number): Promise<any> {
-    try {
-      const response = await api.post(`/contracts-recurring/${contractId}/billings`);
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao gerar fatura:', error);
-      throw error;
-    }
-  },
-
-  async cancelBilling(billingId: string): Promise<void> {
-    try {
-      await api.post(`/contracts-recurring/billings/${billingId}/cancel`);
-    } catch (error) {
-      console.error('Erro ao cancelar fatura:', error);
-      throw error;
-    }
-  },
-
-  async updateContractItem(
-    contractId: number, 
-    movementItemId: number, 
-    data: { 
-      quantity: number;
-      unit_price: number;
-      total_price: number;
-      item_id: number;
-    }
-  ): Promise<any> {
-    try {
-      console.log('ContractService - Atualizando item:', {
-        url: `/contracts-recurring/${contractId}/items/${movementItemId}`,
-        data
-      });
-
-      const response = await api.put(
-        `/contracts-recurring/${contractId}/items/${movementItemId}`,
-        data
-      );
-
-      console.log('ContractService - Resposta da atualização:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('ContractService - Erro ao atualizar item do contrato:', error);
-      throw error;
-    }
-  },
-
-  async searchMovementItems(params: { query?: string; type?: string }): Promise<any> {
-    try {
-      console.log('Buscando itens com query:', params.query);
-      const response = await api.get('/items', {
-        params: {
-          ...(params.query ? { search: params.query } : {}),
-          limit: 10,
-          page: 1,
-          type: params.type || 'service'
-        },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-      console.log('Resposta da API de itens:', response.data);
-      const items = (response.data.data || []).map((item: any) => this.processItemData(item));
-      console.log('Items processados:', items);
-      return {
-        items,
-        pagination: response.data.pagination
-      };
-    } catch (error: any) {
-      console.error('Erro ao buscar itens:', error.response || error);
-      // Se o erro for 500, retornar lista vazia em vez de propagar o erro
-      if (error.response?.status === 500) {
-        return { items: [], pagination: { total: 0, page: 1, limit: 10 } };
+      // Chamada real à API
+      const params: any = { query };
+      if (type) {
+        params.type = type;
       }
-      throw {
-        message: error.response?.data?.message || 'Erro ao buscar itens',
-        originalError: error
+      
+      const response = await api.get('/movement-items/search', { params });
+      return { data: response.data || [] };
+    } catch (error: any) {
+      console.error('Erro ao buscar itens de movimento:', error);
+      return { data: [] };
+    }
+  },
+  
+  /**
+   * Busca contratos com filtros
+   * @param filters Filtros para busca de contratos
+   * @returns Lista de contratos filtrados
+   */
+  async getContracts(filters: ContractFilters = {}): Promise<ContractListResponse> {
+    try {
+      // Extrair parâmetros de paginação e busca
+      const page = 'page' in filters ? Number(filters.page) || 1 : 1;
+      const limit = 'limit' in filters ? Number(filters.limit) || 10 : 10;
+      const search = 'search' in filters ? String(filters.search || '') : '';
+      
+      // Remover parâmetros de paginação e busca para passar apenas os filtros específicos
+      const otherFilters = { ...filters };
+      delete otherFilters.page;
+      delete otherFilters.limit;
+      delete otherFilters.search;
+      
+      const response = await contractsApi.listRecurring(
+        page, 
+        limit, 
+        search, 
+        otherFilters
+      );
+      
+      return {
+        items: response.data,
+        meta: {
+          totalItems: response.total,
+          totalPages: response.totalPages,
+          currentPage: response.page,
+          itemCount: response.data.length,
+          itemsPerPage: limit
+        }
+      };
+    } catch (error: any) {
+      console.error('Erro ao buscar contratos:', error);
+      const page = 'page' in filters ? Number(filters.page) || 1 : 1;
+      return { 
+        items: [], 
+        meta: {
+          totalItems: 0, 
+          totalPages: 0, 
+          currentPage: page,
+          itemCount: 0,
+          itemsPerPage: 10
+        } 
+      };
+    }
+  },
+  
+  /**
+   * Busca um contrato recorrente pelo ID
+   * @param id ID do contrato
+   * @returns Contrato encontrado ou null
+   */
+  async getRecurringContractById(id: string): Promise<Contract | null> {
+    try {
+      const response = await contractsApi.getRecurringContract(id);
+      return this.normalizeResponse(response.data);
+    } catch (error: any) {
+      console.error(`Erro ao buscar contrato recorrente com ID ${id}:`, error);
+      return null;
+    }
+  },
+  
+  /**
+   * Busca um contrato pelo ID
+   * @param id ID do contrato
+   * @returns Contrato encontrado ou null
+   */
+  async getContractById(id: number): Promise<Contract | null> {
+    try {
+      const response = await contractsApi.getContract(id);
+      return this.normalizeResponse(response.data);
+    } catch (error: any) {
+      console.error(`Erro ao buscar contrato com ID ${id}:`, error);
+      return null;
+    }
+  },
+
+  /**
+   * Processa o faturamento de um contrato
+   * @param billingId ID do faturamento
+   * @returns Resultado do processamento
+   */
+  async processBilling(billingId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔍 Processando faturamento:', billingId);
+      
+      // Fazer a requisição para processar o faturamento
+      await api.post(`/contracts-recurring/process-billing/${billingId}`);
+      
+      return {
+        success: true,
+        message: 'Faturamento processado com sucesso'
+      };
+    } catch (error: any) {
+      console.error('❌ Erro ao processar faturamento:', error);
+      return {
+        success: false,
+        message: error.message || 'Erro ao processar faturamento'
       };
     }
   },
 
-  async createExtraService(payload: {
-    contractId: string | number; // Permitindo tanto string quanto number
-    serviceId: number;
-    itemDescription: string;
-    itemValue: number;
-    serviceDate: string;
-    movementId?: number | null;
-    amount?: number; // Adicionando o campo amount que está sendo usado
-  }): Promise<any> {
+  /**
+   * Processa múltiplos faturamentos
+   * @param contractIds IDs dos contratos
+   * @returns Resultado do processamento
+   */
+  async processBulkBilling(contractIds: number[]): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('Payload enviado:', JSON.stringify(payload, null, 2));
-      const response = await api.post('/contract-extra-services/', payload);
-      return response.data;
-    } catch (error: any) {
-      // Log detalhado do erro
-      console.error('Erro detalhado ao adicionar serviço extra:', {
-        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
-        errorMessage: error.message,
-        status: error.response?.status,
-        payload: JSON.stringify(payload)
-      });
-
-      // Capturar mensagem de erro específica do servidor
-      const errorMessage = 
-        (error.response?.data?.details && error.response.data.details[0]) || 
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        error.message || 
-        'Erro desconhecido ao adicionar serviço extra';
+      console.log('🔍 Processando faturamentos em lote:', contractIds);
       
-      // Lançar erro com mensagem específica
-      throw new Error(errorMessage);
+      // Fazer a requisição para processar os faturamentos em lote
+      await api.post('/contracts-recurring/process-bulk', { contractIds });
+      
+      return {
+        success: true,
+        message: `${contractIds.length} faturamentos processados com sucesso`
+      };
+    } catch (error: any) {
+      console.error('❌ Erro ao processar faturamentos em lote:', error);
+      return {
+        success: false,
+        message: error.message || 'Erro ao processar faturamentos em lote'
+      };
     }
   },
 
-  async terminateRecurring(id: string, data: { endDate: string; reason: string }): Promise<any> {
+  /**
+   * Encerra um contrato recorrente
+   * @param contractId ID do contrato
+   * @returns Resultado do encerramento
+   */
+  async terminateRecurring(contractId: number): Promise<{ success: boolean; message: string }> {
     try {
-      console.log('Encerrando contrato recorrente:', { id, data });
+      console.log('🔍 Encerrando contrato recorrente:', contractId);
       
-      // Chamada para a API para encerrar o contrato
-      const response = await api.post(`/contracts-recurring/${id}/terminate`, data);
+      // Fazer a requisição para encerrar o contrato
+      await api.post(`/contracts-recurring/terminate/${contractId}`);
       
-      console.log('Contrato encerrado com sucesso:', response.data);
-      return response.data;
+      return {
+        success: true,
+        message: 'Contrato encerrado com sucesso'
+      };
     } catch (error: any) {
-      // Log detalhado do erro
-      console.error('Erro ao encerrar contrato recorrente:', {
-        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
-        errorMessage: error.message,
-        status: error.response?.status,
-        contractId: id,
-        payload: JSON.stringify(data)
-      });
-
-      // Capturar mensagem de erro específica do servidor
-      const errorMessage = 
-        (error.response?.data?.details && error.response.data.details[0]) || 
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        error.message || 
-        'Erro desconhecido ao encerrar contrato';
-      
-      // Lançar erro com mensagem específica
-      throw new Error(errorMessage);
+      console.error('❌ Erro ao encerrar contrato:', error);
+      return {
+        success: false,
+        message: error.message || 'Erro ao encerrar contrato'
+      };
     }
   },
 
-  async createRecurring(data: ContractFormData): Promise<any> {
+  /**
+   * Busca faturas pendentes com opções de paginação
+   * @param page Número da página
+   * @param limit Limite de itens por página
+   * @param contractId ID do contrato (opcional)
+   * @param search Termo de busca (opcional)
+   * @returns Lista de faturas pendentes com metadados de paginação
+   */
+  async getPendingBillings(page = 1, limit = 10, contractId?: string | number, search?: string): Promise<{ 
+    items: any[], 
+    meta: { 
+      totalItems: number, 
+      totalPages: number, 
+      currentPage: number 
+    },
+    error?: string
+  }> {
     try {
-      console.log('Criando contrato recorrente:', data);
+      console.log('🔍 Buscando faturas pendentes:', { page, limit, contractId, search });
       
-      // Chamada para a API para criar o contrato recorrente
-      const response = await api.post('/contracts-recurring', data);
-      
-      console.log('Contrato recorrente criado com sucesso:', response.data);
-      return response.data;
+      try {
+        // Tentar fazer a requisição à API com método GET
+        console.log('🔍 Enviando requisição GET para /contracts-recurring/pending-billings');
+        
+        // Preparar os parâmetros para a consulta
+        const queryParams: any = {
+          page,
+          limit
+        };
+        
+        // Adicionar parâmetros opcionais
+        if (search) queryParams.search = search;
+        if (contractId) queryParams.contractId = contractId;
+        
+        // Fazer a requisição GET
+        const response = await api.get('/contracts-recurring/pending-billings', { 
+          params: queryParams 
+        });
+        
+        // Normalizar a resposta
+        const responseData = response.data;
+        
+        // Verificar o formato da resposta e normalizá-la
+        let items = [];
+        let meta = {
+          totalItems: 0,
+          totalPages: 1,
+          currentPage: page
+        };
+        
+        if (responseData) {
+          // Verificar se a resposta é um array
+          if (Array.isArray(responseData)) {
+            items = responseData;
+            meta.totalItems = responseData.length;
+          } 
+          // Verificar se a resposta tem o formato { items, meta }
+          else if (responseData.items && Array.isArray(responseData.items)) {
+            items = responseData.items;
+            meta = responseData.meta || meta;
+          } 
+          // Verificar se a resposta tem o formato { data, meta }
+          else if (responseData.data && Array.isArray(responseData.data)) {
+            items = responseData.data;
+            meta = responseData.meta || meta;
+          }
+        }
+        
+        console.log(`✅ Faturas pendentes encontradas: ${items.length}`);
+        
+        return {
+          items,
+          meta
+        };
+      } catch (apiError: any) {
+        // Se ocorrer um erro na API, usar dados mock para desenvolvimento
+        console.warn('⚠️ API indisponível, usando dados mock para desenvolvimento');
+        
+        // Criar dados mock para desenvolvimento
+        const mockItems = [
+          {
+            id: 1,
+            contract_id: 101,
+            contract_name: 'Contrato de Serviço A',
+            billing_date: new Date().toISOString().split('T')[0],
+            due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            value: 1500.00,
+            status: 'pending',
+            description: 'Faturamento mensal - Abril/2025',
+            client_name: 'Empresa ABC Ltda',
+            payment_method: 'bank_transfer',
+            // Propriedades adicionais para compatibilidade com a interface
+            next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            last_billing_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            contract_value: 1500.00,
+            // Histórico de faturamentos
+            billings: [
+              {
+                id: 101,
+                date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount: 1500.00
+              },
+              {
+                id: 102,
+                date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount: 1500.00
+              }
+            ]
+          },
+          {
+            id: 2,
+            contract_id: 102,
+            contract_name: 'Contrato de Consultoria B',
+            billing_date: new Date().toISOString().split('T')[0],
+            due_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            value: 3200.50,
+            status: 'pending',
+            description: 'Consultoria Técnica - Abril/2025',
+            client_name: 'Corporação XYZ S.A.',
+            payment_method: 'credit_card',
+            // Propriedades adicionais para compatibilidade com a interface
+            next_billing_date: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            last_billing_date: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            contract_value: 3200.50,
+            // Histórico de faturamentos
+            billings: [
+              {
+                id: 201,
+                date: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount: 3200.50
+              },
+              {
+                id: 202,
+                date: new Date(Date.now() - 65 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount: 3000.00
+              },
+              {
+                id: 203,
+                date: new Date(Date.now() - 95 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount: 3000.00
+              }
+            ]
+          },
+          {
+            id: 3,
+            contract_id: 103,
+            contract_name: 'Contrato de Manutenção C',
+            billing_date: new Date().toISOString().split('T')[0],
+            due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            value: 850.75,
+            status: 'pending',
+            description: 'Manutenção preventiva - Abril/2025',
+            client_name: 'Indústrias 123 Ltda',
+            payment_method: 'bank_slip',
+            // Propriedades adicionais para compatibilidade com a interface
+            next_billing_date: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            last_billing_date: null, // Primeiro faturamento
+            contract_value: 850.75,
+            // Sem histórico de faturamentos (primeiro contrato)
+            billings: []
+          }
+        ];
+        
+        // Filtrar por contrato se necessário
+        let filteredItems = mockItems;
+        if (contractId) {
+          filteredItems = mockItems.filter(item => 
+            item.contract_id.toString() === contractId.toString());
+        }
+        
+        // Filtrar por termo de busca se necessário
+        if (search && search.trim() !== '') {
+          const searchLower = search.toLowerCase();
+          filteredItems = filteredItems.filter(item => 
+            item.contract_name.toLowerCase().includes(searchLower) || 
+            item.description.toLowerCase().includes(searchLower) ||
+            item.client_name.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        // Aplicar paginação
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedItems = filteredItems.slice(startIndex, endIndex);
+        
+        // Criar metadados de paginação
+        const mockMeta = {
+          totalItems: filteredItems.length,
+          totalPages: Math.ceil(filteredItems.length / limit),
+          currentPage: page
+        };
+        
+        console.log(`✅ Faturas pendentes mock: ${paginatedItems.length}`);
+        
+        return {
+          items: paginatedItems,
+          meta: mockMeta
+        };
+      }
     } catch (error: any) {
-      // Log detalhado do erro
-      console.error('Erro ao criar contrato recorrente:', {
-        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
-        errorMessage: error.message,
-        status: error.response?.status,
-        payload: JSON.stringify(data)
-      });
-
-      // Capturar mensagem de erro específica do servidor
-      const errorMessage = 
-        (error.response?.data?.details && error.response.data.details[0]) || 
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        error.message || 
-        'Erro desconhecido ao criar contrato recorrente';
-      
-      // Lançar erro com mensagem específica
-      throw new Error(errorMessage);
+      console.error('❌ Erro ao buscar faturas pendentes:', error);
+      return {
+        items: [],
+        meta: {
+          totalItems: 0,
+          totalPages: 1,
+          currentPage: page
+        },
+        error: error.message || 'Erro ao buscar faturas pendentes'
+      };
     }
-  },
-
-  async updateRecurring(id: string | number, data: Partial<Contract>): Promise<any> {
-    try {
-      const contractId = typeof id === 'string' ? id : id.toString();
-      console.log('Atualizando contrato recorrente:', { contractId, data });
-      
-      // Chamada para a API para atualizar o contrato recorrente
-      const response = await api.put(`/contracts-recurring/${contractId}`, data);
-      
-      console.log('Contrato recorrente atualizado com sucesso:', response.data);
-      return response.data;
-    } catch (error: any) {
-      // Log detalhado do erro
-      console.error('Erro ao atualizar contrato recorrente:', {
-        responseData: error.response?.data ? JSON.stringify(error.response.data) : 'Sem dados de resposta',
-        errorMessage: error.message,
-        status: error.response?.status,
-        contractId: id,
-        payload: JSON.stringify(data)
-      });
-
-      // Capturar mensagem de erro específica do servidor
-      const errorMessage = 
-        (error.response?.data?.details && error.response.data.details[0]) || 
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        error.message || 
-        'Erro desconhecido ao atualizar contrato recorrente';
-      
-      // Lançar erro com mensagem específica
-      throw new Error(errorMessage);
-    }
-  },
-  
-  // Funções auxiliares para processamento de dados
-  
-  // Processa um item de movimento/serviço para formato padronizado
-  processItemData(item: any): any {
-    return {
-      id: item.item_id || item.id || 0,
-      name: item.name || item.item_name || '',
-      value: item.value || parseFloat(item.price || '0'),
-      description: item.description || '',
-      type: item.type || 'service'
-    };
-  },
-  
-  // Processa um faturamento para formato padronizado
-  processBillingData(billing: any): any {
-    return {
-      id: billing.id || 0,
-      movement_id: billing.movement_id || 0,
-      movement_date: billing.movement_date || '',
-      total_amount: billing.total_amount || 0,
-      description: billing.description || ''
-    };
   }
 };

@@ -410,7 +410,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </IconButton>
             </Tooltip>
             <Tooltip title="Editar Contrato">
-              <IconButton onClick={() => handleEditContract(contractId)} size="small">
+              <IconButton onClick={() => handleEditContract(Number(contractId))} size="small">
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -482,7 +482,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           <MenuItem 
             onClick={() => {
               handleMenuClose();
-              handleEditContract(contractId);
+              handleEditContract(Number(contractId));
             }}
           >
             <ListItemIcon>

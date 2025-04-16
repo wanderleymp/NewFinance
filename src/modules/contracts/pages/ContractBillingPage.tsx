@@ -38,10 +38,11 @@ import debounce from 'lodash/debounce';
 interface ContractBilling {
   id: number;
   contract_id: number;
-  client_name: string;
+  client_name?: string;
+  full_name?: string;
   next_billing_date: string;
-  last_billing_date: string;
-  contract_value: number;
+  last_billing_date: string | null;
+  contract_value: number | string;
   status: string;
   billings: {
     id: number;
@@ -254,11 +255,8 @@ export default function ContractBillingPage() {
     setTerminatingIds(prev => [...prev, contractId]);
 
     try {
-      const endDate = new Date().toISOString().split('T')[0]; // Data atual
-      const result = await contractService.terminateRecurring(contractId, {
-        endDate,
-        reason: 'Encerramento solicitado pelo usuário'
-      });
+      // Chamar o método terminateRecurring apenas com o ID do contrato
+      const result = await contractService.terminateRecurring(Number(contractId));
 
       // Atualiza a lista de contratos removendo o contrato encerrado
       setBillings(prev => prev.filter(billing => billing.contract_id !== selectedContractToTerminate.contract_id));
@@ -417,7 +415,7 @@ export default function ContractBillingPage() {
                     </IconButton>
                   </TableCell>
                   <TableCell>{billing.contract_id}</TableCell>
-                  <TableCell>{billing.client_name}</TableCell>
+                  <TableCell>{billing.full_name || billing.client_name || '-'}</TableCell>
                   <TableCell>{new Date(billing.next_billing_date).toLocaleDateString()}</TableCell>
                   <TableCell>
                     {billing.last_billing_date 
@@ -426,10 +424,16 @@ export default function ContractBillingPage() {
                     }
                   </TableCell>
                   <TableCell>
-                    {billing.contract_value.toLocaleString('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL'
-                    })}
+                    {typeof billing.contract_value === 'number'
+                      ? billing.contract_value.toLocaleString('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        })
+                      : parseFloat(String(billing.contract_value || 0)).toLocaleString('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        })
+                    }
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -484,20 +488,32 @@ export default function ContractBillingPage() {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {billing.billings.map((bill) => (
-                              <TableRow key={bill.id}>
-                                <TableCell>{bill.id}</TableCell>
-                                <TableCell>
-                                  {new Date(bill.date).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell>
-                                  {bill.amount.toLocaleString('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL'
-                                  })}
-                                </TableCell>
+                            {billing.billings && billing.billings.length > 0 ? (
+                              billing.billings.map((bill) => (
+                                <TableRow key={bill.id}>
+                                  <TableCell>{bill.id}</TableCell>
+                                  <TableCell>
+                                    {new Date(bill.date).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell>
+                                    {typeof bill.amount === 'number'
+                                      ? bill.amount.toLocaleString('pt-BR', {
+                                          style: 'currency',
+                                          currency: 'BRL'
+                                        })
+                                      : parseFloat(String(bill.amount || 0)).toLocaleString('pt-BR', {
+                                          style: 'currency',
+                                          currency: 'BRL'
+                                        })
+                                    }
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={3} align="center">Nenhum histórico disponível</TableCell>
                               </TableRow>
-                            ))}
+                            )}
                           </TableBody>
                         </Table>
                       </Box>

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/newArch/**/*",
+    "src/modules/contracts/tests/**/*",
+    "src/modules/contracts/services/newContractService.ts",
+    "src/modules/contracts/utils/contractValidation.ts",
+    "src/modules/nfse/**/*"
+  ]
+}

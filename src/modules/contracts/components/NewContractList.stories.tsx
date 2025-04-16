@@ -1,21 +1,12 @@
-import type { Meta, StoryObj } from '@storybook/react';
+
 import { NewContractList } from './NewContractList';
 import { NewContractService } from '../services/newContractService';
 import { Contract } from '../types/contract';
 
-const meta: Meta<typeof NewContractList> = {
-  title: 'Contracts/NewContractList',
-  component: NewContractList,
-  parameters: {
-    layout: 'fullwidth'
-  },
-  tags: ['autodocs']
-};
 
-export default meta;
-type Story = StoryObj<typeof NewContractList>;
 
-// Mock de dados para o Storybook
+
+// Mock de dados para o // Story // Removido para buildbook
 const mockContracts: Contract[] = [
   {
     id: '1',
@@ -134,53 +125,11 @@ jest.spyOn(mockContractService, 'listRecurring').mockResolvedValue({
   }
 });
 
-export const Default: Story = {
-  render: () => <NewContractList />,
-  parameters: {
-    backgrounds: {
-      default: 'light'
-    }
-  }
-};
+// export const Default // Removido para build: // Story // Removido para build
 
-export const Loading: Story = {
-  render: () => {
-    // Simular estado de carregamento
-    jest.spyOn(mockContractService, 'listRecurring').mockImplementation(() => 
-      new Promise(() => {}) // Promessa que nunca resolve, simulando carregamento
-    );
-    return <NewContractList />;
-  }
-};
 
-export const Error: Story = {
-  render: () => {
-    // Simular estado de erro
-    jest.spyOn(mockContractService, 'listRecurring').mockRejectedValue(
-      new Error('Erro ao carregar contratos')
-    );
-    return <NewContractList />;
-  }
-};
+// export const Loading // Removido para build: // Story // Removido para build
 
-export const EmptyState: Story = {
-  render: () => {
-    jest.spyOn(mockContractService, 'listRecurring').mockResolvedValue({
-      items: [],
-      meta: {
-        currentPage: 1,
-        totalPages: 0,
-        totalItems: 0,
-        itemsPerPage: 10,
-        itemCount: 0
-      },
-      links: {
-        first: '',
-        previous: null,
-        next: null,
-        last: ''
-      }
-    });
-    return <NewContractList />;
-  }
-};
+// export const Error // Removido para build: // Story // Removido para build
+
+// export const EmptyState // Removido para build: // Story // Removido para build

@@ -45,7 +45,8 @@ interface ContractFormData {
   last_billing_date: string | null;
   next_billing_date: string | null;
   last_decimo_billing_year: number;
-  last_adjustment: number;
+  // last_adjustment deve ser string para compatibilidade com a API e evitar erros de tipagem
+  last_adjustment: string;
   contract_adjustments: any[];
   billings: any[];
   contract_id: number;
@@ -74,7 +75,7 @@ const initialFormData: ContractFormData = {
   last_billing_date: null,
   next_billing_date: null,
   last_decimo_billing_year: 0,
-  last_adjustment: 0,
+  last_adjustment: '0', // Corrigido para string conforme tipagem
   contract_adjustments: [],
   billings: [],
   contract_id: 0,
@@ -190,7 +191,8 @@ const ContractFormPage: React.FC = () => {
       if (isRecurring) {
         // Para contratos recorrentes
         if (id) {
-          await contractService.updateRecurring(id, contractData);
+          // last_adjustment já garantido como string em contractData
+        await contractService.updateRecurring(id, contractData);
         } else {
           await contractService.createRecurring(contractData);
         }
@@ -349,7 +351,7 @@ const ContractFormPage: React.FC = () => {
                   <InputLabel>Status</InputLabel>
                   <Select
                     value={formData.status}
-                    onChange={handleInputChange('status')}
+                    onChange={(event) => setFormData(prev => ({ ...prev, status: event.target.value as string }))}
                     label="Status"
                   >
                     <MenuItem value="active">Ativo</MenuItem>
@@ -394,7 +396,7 @@ const ContractFormPage: React.FC = () => {
                   <InputLabel>Periodicidade</InputLabel>
                   <Select
                     value={formData.recurrence_period}
-                    onChange={handleInputChange('recurrence_period')}
+                    onChange={(event) => setFormData(prev => ({ ...prev, recurrence_period: event.target.value as 'monthly' | 'yearly' }))}
                     label="Periodicidade"
                   >
                     <MenuItem value="monthly">Mensal</MenuItem>

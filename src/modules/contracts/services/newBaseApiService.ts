@@ -46,15 +46,21 @@ export class NewBaseApiService {
   }
 
   protected async get<T>(endpoint: string, params?: any): Promise<T> {
-    return this.api.get<T>(`${this.baseUrl}/${endpoint}`, { params });
+    // Extrair os dados da resposta Axios para resolver o erro de tipagem
+    const response = await this.api.get<T>(`${this.baseUrl}/${endpoint}`, { params });
+    return response.data;
   }
 
   protected async post<T>(endpoint: string, data: any): Promise<T> {
-    return this.api.post<T>(`${this.baseUrl}/${endpoint}`, data);
+    // Extrair os dados da resposta Axios para resolver o erro de tipagem
+    const response = await this.api.post<T>(`${this.baseUrl}/${endpoint}`, data);
+    return response.data;
   }
 
   protected async put<T>(endpoint: string, data: any): Promise<T> {
-    return this.api.put<T>(`${this.baseUrl}/${endpoint}`, data);
+    // Extrair os dados da resposta Axios para resolver o erro de tipagem
+    const response = await this.api.put<T>(`${this.baseUrl}/${endpoint}`, data);
+    return response.data;
   }
 
   protected async delete(endpoint: string): Promise<void> {

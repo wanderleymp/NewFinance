@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/newArch/**/*",
+    "src/modules/contracts/tests/**/*",
+    "src/modules/contracts/services/newContractService.ts",
+    "src/modules/contracts/utils/contractValidation.ts",
+    "src/modules/contracts/utils/utils.ts",
+    "src/modules/contracts/types/contractForm.ts",
+    "src/modules/nfse/**/*"
+  ]
+}

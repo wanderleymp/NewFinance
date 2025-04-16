@@ -208,7 +208,7 @@ const ContractsPage: React.FC = () => {
                 <TableCell>
                   <IconButton
                     size="small"
-                    onClick={() => handleEditContract(contract.id)}
+                    onClick={() => handleEditContract(Number(contract.id))}
                   >
                     <EditIcon />
                   </IconButton>
