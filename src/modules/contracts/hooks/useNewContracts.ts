@@ -43,7 +43,8 @@ export function useNewContracts(): UseContractsReturn {
           fullQueryKey: ['contracts', page, limit, search]
         });
 
-        const response = await contractService.getContracts(page, limit, search);
+        // Atenção: getContracts espera um objeto de filtros, não parâmetros individuais
+    const response = await contractService.getContracts({ page, limit, search });
 
         console.log('🚨 DEBUG - Resposta do getContracts:', response);
 
@@ -59,7 +60,8 @@ export function useNewContracts(): UseContractsReturn {
         }
 
         // Mapeamento dos contratos com validação de campos e preenchimento das propriedades necessárias
-        const mappedContracts = response.contracts?.map(item => {
+        // Corrigido para usar response.items conforme padronização do serviço
+        const mappedContracts = (response.items || []).map(item => {
           // Função auxiliar para converter datas
           const formatDate = (date: Date | string | null) => {
             if (!date) return null;
@@ -119,17 +121,17 @@ export function useNewContracts(): UseContractsReturn {
         // Atualização do estado
         setContracts(mappedContracts);
         setPagination({
-          page: response.currentPage || page,
+          page: response.meta?.currentPage || page,
           limit,
-          totalPages: response.totalPages || 0,
-          total: response.total || 0
+          totalPages: response.meta?.totalPages || 0,
+          total: response.meta?.totalItems || 0
         });
 
         return {
           contracts: mappedContracts,
-          total: response.total || 0,
-          totalPages: response.totalPages || 0,
-          currentPage: response.currentPage || page
+          total: response.meta?.totalItems || 0,
+          totalPages: response.meta?.totalPages || 0,
+          currentPage: response.meta?.currentPage || page
         };
       } catch (error) {
         console.error('🚨 DEBUG - Erro completo na busca:', error);
@@ -140,8 +142,9 @@ export function useNewContracts(): UseContractsReturn {
     // Use staleTime ou placeholderData para comportamento similar
   });
 
+  // Garantia de compatibilidade: retorna sempre o array correto
   return {
-    contracts: data?.contracts || [],
+    contracts: data?.contracts || data?.items || [],
     isLoading,
     error,
     pagination: {
@@ -154,4 +157,5 @@ export function useNewContracts(): UseContractsReturn {
     setLimit,
     setSearch
   };
+
 }

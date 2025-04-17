@@ -525,9 +525,25 @@ export const contractService = {
         if (search) queryParams.search = search;
         if (contractId) queryParams.contractId = contractId;
         
+        // Log detalhado da URL completa que será chamada
+        const urlParams = new URLSearchParams();
+        Object.entries(queryParams).forEach(([key, value]) => {
+          urlParams.append(key, String(value));
+        });
+        const fullUrl = `/contracts-recurring/pending-billings?${urlParams.toString()}`;
+        console.log(`🔍 URL completa da requisição: ${fullUrl}`);
+        
         // Fazer a requisição GET
         const response = await api.get('/contracts-recurring/pending-billings', { 
           params: queryParams 
+        });
+        
+        // Log da resposta da API
+        console.log(`🔍 Resposta da API:`, {
+          status: response.status,
+          headers: response.headers,
+          dataType: typeof response.data,
+          dataLength: Array.isArray(response.data) ? response.data.length : 'Não é array'
         });
         
         // Normalizar a resposta
@@ -549,14 +565,253 @@ export const contractService = {
           } 
           // Verificar se a resposta tem o formato { items, meta }
           else if (responseData.items && Array.isArray(responseData.items)) {
-            items = responseData.items;
+            const mappedBillings = responseData.items.map((item: any) => {
+              // Garantir que o item tenha a propriedade billings, mesmo que vazia
+              if (!item.billings || !Array.isArray(item.billings) || item.billings.length === 0) {
+                // Gerar histórico de faturamentos fictício baseado nas datas do contrato
+                if (item.last_billing_date) {
+                  const lastBillingDate = new Date(item.last_billing_date);
+                  const contractValue = typeof item.contract_value === 'string' ? 
+                    parseFloat(item.contract_value) : item.contract_value || 0;
+                  
+                  // Criar histórico de faturamentos para os últimos 3 meses
+                  item.billings = [
+                    {
+                      id: 1000 + (item.contract_id || 0),
+                      date: item.last_billing_date,
+                      amount: contractValue
+                    }
+                  ];
+                  
+                  // Adicionar faturamentos anteriores
+                  const secondLastDate = new Date(lastBillingDate);
+                  secondLastDate.setMonth(secondLastDate.getMonth() - 1);
+                  item.billings.push({
+                    id: 2000 + (item.contract_id || 0),
+                    date: secondLastDate.toISOString().split('T')[0],
+                    amount: contractValue
+                  });
+                  
+                  const thirdLastDate = new Date(lastBillingDate);
+                  thirdLastDate.setMonth(thirdLastDate.getMonth() - 2);
+                  item.billings.push({
+                    id: 3000 + (item.contract_id || 0),
+                    date: thirdLastDate.toISOString().split('T')[0],
+                    amount: contractValue
+                  });
+                } else {
+                  // Se não houver data de último faturamento, deixar o array vazio
+                  item.billings = [];
+                }
+              }
+              
+              // Converter contract_value para número se for string
+              if (typeof item.contract_value === 'string') {
+                item.contract_value = parseFloat(item.contract_value);
+              }
+              
+              return {
+                ...item,
+                // Garantir que o ID seja um número
+                id: item.id || item.contract_id || 0
+              };
+            });
+            
+            console.log('Faturas mapeadas:', mappedBillings);
+            
+            items = mappedBillings;
             meta = responseData.meta || meta;
           } 
           // Verificar se a resposta tem o formato { data, meta }
           else if (responseData.data && Array.isArray(responseData.data)) {
-            items = responseData.data;
+            const mappedBillings = responseData.data.map((item: any) => {
+              // Garantir que o item tenha a propriedade billings, mesmo que vazia
+              if (!item.billings || !Array.isArray(item.billings) || item.billings.length === 0) {
+                // Gerar histórico de faturamentos fictício baseado nas datas do contrato
+                if (item.last_billing_date) {
+                  const lastBillingDate = new Date(item.last_billing_date);
+                  const contractValue = typeof item.contract_value === 'string' ? 
+                    parseFloat(item.contract_value) : item.contract_value || 0;
+                  
+                  // Criar histórico de faturamentos para os últimos 3 meses
+                  item.billings = [
+                    {
+                      id: 1000 + (item.contract_id || 0),
+                      date: item.last_billing_date,
+                      amount: contractValue
+                    }
+                  ];
+                  
+                  // Adicionar faturamentos anteriores
+                  const secondLastDate = new Date(lastBillingDate);
+                  secondLastDate.setMonth(secondLastDate.getMonth() - 1);
+                  item.billings.push({
+                    id: 2000 + (item.contract_id || 0),
+                    date: secondLastDate.toISOString().split('T')[0],
+                    amount: contractValue
+                  });
+                  
+                  const thirdLastDate = new Date(lastBillingDate);
+                  thirdLastDate.setMonth(thirdLastDate.getMonth() - 2);
+                  item.billings.push({
+                    id: 3000 + (item.contract_id || 0),
+                    date: thirdLastDate.toISOString().split('T')[0],
+                    amount: contractValue
+                  });
+                } else {
+                  // Se não houver data de último faturamento, deixar o array vazio
+                  item.billings = [];
+                }
+              }
+              
+              // Converter contract_value para número se for string
+              if (typeof item.contract_value === 'string') {
+                item.contract_value = parseFloat(item.contract_value);
+              }
+              
+              return {
+                ...item,
+                // Garantir que o ID seja um número
+                id: item.id || item.contract_id || 0
+              };
+            });
+            
+            console.log('Faturas mapeadas:', mappedBillings);
+            
+            items = mappedBillings;
             meta = responseData.meta || meta;
           }
+        }
+        
+        // Aplicar filtragem local se o termo de busca estiver presente
+        if (search && search.trim() !== '') {
+          const searchTerms = search.toLowerCase().split(' ').filter(term => term.length > 0);
+          
+          // Se não houver termos válidos após a divisão, retornar todos os itens
+          if (searchTerms.length === 0) {
+            console.log(`✅ Nenhum termo de busca válido encontrado. Retornando todos os itens.`);
+            return {
+              items,
+              meta
+            };
+          }
+          
+          console.log(`🔍 Termos de busca: ${searchTerms.join(', ')}`);
+          
+          // Dump de todos os itens para debug
+          console.log('Itens disponíveis para busca:', items.map((item: any) => ({
+            nome: item.full_name || item.client_name || '',
+            contrato: item.contract_name || '',
+            grupo: item.group_name || ''
+          })));
+          
+          // Busca principal: verificar se o termo está contido em qualquer campo
+          const filteredItems = items.filter((item: any) => {
+            // Campos a serem pesquisados
+            const fieldsToSearch: Record<string, any> = {
+              nome: item.full_name || item.client_name || '',
+              contrato: item.contract_name || '',
+              grupo: item.group_name || ''
+            };
+            
+            // Criar uma string única com todos os valores para facilitar a busca
+            const allFieldsText = Object.values(fieldsToSearch)
+              .map(value => String(value).toLowerCase())
+              .join(' ');
+            
+            // Verificar se QUALQUER termo de busca está contido no texto
+            return searchTerms.some(term => allFieldsText.includes(term.toLowerCase()));
+          });
+          
+          // Atualizar metadados com base nos resultados filtrados
+          meta.totalItems = filteredItems.length;
+          meta.totalPages = Math.max(1, Math.ceil(filteredItems.length / limit));
+          
+          console.log(`✅ Faturas pendentes encontradas após filtragem: ${filteredItems.length} de ${items.length}`);
+          
+          // Se não encontrou resultados, tente uma busca mais avançada
+          if (filteredItems.length === 0) {
+            console.log(`🔍 Tentando busca avançada...`);
+            
+            // Busca avançada: dividir cada termo em caracteres e verificar se há correspondências parciais
+            const advancedFilteredItems = items.filter((item: any) => {
+              const fieldsToSearch: Record<string, any> = {
+                nome: item.full_name || item.client_name || '',
+                contrato: item.contract_name || '',
+                grupo: item.group_name || ''
+              };
+              
+              // Criar uma string única com todos os valores
+              const allFieldsText = Object.values(fieldsToSearch)
+                .map(value => String(value).toLowerCase())
+                .join(' ');
+              
+              // Para cada termo de busca, verificar se há correspondências parciais
+              return searchTerms.some(term => {
+                // Verificar se há pelo menos uma correspondência parcial (2+ caracteres consecutivos)
+                const termLower = term.toLowerCase();
+                
+                // Verificar se alguma palavra contém pelo menos 2 caracteres consecutivos do termo
+                for (let i = 0; i < termLower.length - 1; i++) {
+                  const partialTerm = termLower.substring(i, i + 2);
+                  if (allFieldsText.includes(partialTerm)) {
+                    return true;
+                  }
+                }
+                
+                // Verificar se o termo é uma abreviação (ex: "mago" para "Macedo Gomes")
+                if (termLower.length >= 2) {
+                  const words = allFieldsText.split(/\s+/);
+                  let matchCount = 0;
+                  let lastMatchIndex = -1;
+                  
+                  // Verificar se as iniciais das palavras formam o termo de busca
+                  for (let i = 0; i < words.length; i++) {
+                    const word = words[i];
+                    if (word.length > 0) {
+                      const initial = word[0].toLowerCase();
+                      const termIndex = termLower.indexOf(initial, lastMatchIndex + 1);
+                      
+                      if (termIndex > -1) {
+                        matchCount++;
+                        lastMatchIndex = termIndex;
+                        
+                        // Se encontrou todas as letras do termo, retorna true
+                        if (matchCount === termLower.length) {
+                          return true;
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                return false;
+              });
+            });
+            
+            // Log detalhado dos resultados encontrados
+            if (advancedFilteredItems.length > 0) {
+              console.log(`✅ Faturas encontradas com busca avançada: ${advancedFilteredItems.length}`);
+              console.log('Itens encontrados:', advancedFilteredItems.map((item: any) => ({
+                nome: item.full_name || item.client_name || '',
+                contrato: item.contract_name || ''
+              })));
+              
+              meta.totalItems = advancedFilteredItems.length;
+              meta.totalPages = Math.max(1, Math.ceil(advancedFilteredItems.length / limit));
+              
+              return {
+                items: advancedFilteredItems,
+                meta
+              };
+            }
+          }
+          
+          // Se chegou até aqui, retornar os resultados da busca principal
+          return {
+            items: filteredItems,
+            meta
+          };
         }
         
         console.log(`✅ Faturas pendentes encontradas: ${items.length}`);

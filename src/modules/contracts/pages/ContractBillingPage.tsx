@@ -295,18 +295,9 @@ export default function ContractBillingPage() {
     );
   }
 
-  if (billings.length === 0) {
-    return (
-      <Box sx={{ width: '100%', padding: 2, textAlign: 'center' }}>
-        <Typography variant="h6">
-          Nenhuma fatura pendente encontrada
-        </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ p: 3 }}>
+  // Componente comum de busca e cabeçalho
+  const renderHeader = () => (
+    <>
       <Typography variant="h5" gutterBottom>
         Faturamento de Contratos
       </Typography>
@@ -328,6 +319,25 @@ export default function ContractBillingPage() {
           }}
         />
       </Box>
+    </>
+  );
+
+  if (billings.length === 0) {
+    return (
+      <Box sx={{ p: 3 }}>
+        {renderHeader()}
+        <Box sx={{ width: '100%', padding: 2, textAlign: 'center' }}>
+          <Typography variant="h6">
+            Nenhuma fatura pendente encontrada
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {renderHeader()}
 
       {/* Botão para processar selecionados */}
       {selectedContracts.length > 0 && (
@@ -488,7 +498,7 @@ export default function ContractBillingPage() {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {billing.billings && billing.billings.length > 0 ? (
+                            {billing.billings && Array.isArray(billing.billings) && billing.billings.length > 0 ? (
                               billing.billings.map((bill) => (
                                 <TableRow key={bill.id}>
                                   <TableCell>{bill.id}</TableCell>
