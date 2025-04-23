@@ -88,15 +88,22 @@ export const contractService = {
     }
     
     try {
-      // Se a resposta já estiver no formato esperado, retorna diretamente
-      if (data && !data.data && !data.items) {
-        // Garante que o objeto tem todas as propriedades necessárias
-        return {
-          ...data,
-          id: data.id || data.contract_id || 0,
-          billings: data.billings || [],
-          last_adjustment: data.last_adjustment || null
-        };
+      // Se a resposta já estiver no formato esperado (contrato individual), retorna diretamente
+      if (data && !data.data && !data.items && !Array.isArray(data)) {
+        // Se o objeto possui propriedades típicas de contrato, retorna ele mesmo
+        if ('contract_id' in data || 'contract_name' in data || 'full_name' in data) {
+          return {
+            ...data,
+            id: data.id || data.contract_id || 0,
+            billings: data.billings || [],
+            last_adjustment: data.last_adjustment || null,
+            // Inclui arrays de itens/serviços se existirem
+            items: data.items || [],
+            services: data.services || []
+          };
+        }
+        // Caso contrário, retorna objeto vazio
+        return this.createEmptyContract();
       }
       
       // Se a resposta estiver no formato { data: [...] }
@@ -117,22 +124,37 @@ export const contractService = {
         };
       }
       
-      // Se a resposta estiver no formato { items: [...] }
-      if (data && data.items) {
-        if (Array.isArray(data.items) && data.items.length > 0) {
+      // Se a resposta estiver no formato { items: [...] } e for um array de contratos
+      if (data && data.items && Array.isArray(data.items) && data.items.length > 0) {
+        // Verifica se o primeiro item do array tem propriedades de contrato
+        const first = data.items[0];
+        if ('contract_id' in first || 'contract_name' in first || 'full_name' in first) {
           return {
-            ...data.items[0],
-            id: data.items[0].id || data.items[0].contract_id || 0,
-            billings: data.items[0].billings || [],
-            last_adjustment: data.items[0].last_adjustment || null
+            ...first,
+            id: first.id || first.contract_id || 0,
+            billings: first.billings || [],
+            last_adjustment: first.last_adjustment || null,
+            items: first.items || [],
+            services: first.services || []
           };
         }
-        return {
-          ...data,
-          id: data.id || data.contract_id || 0,
-          billings: data.billings || [],
-          last_adjustment: data.last_adjustment || null
-        };
+        // Se não for contrato, retorna objeto vazio
+        return this.createEmptyContract();
+      }
+      // Se a resposta estiver no formato { items: {...} } (objeto único)
+      if (data && data.items && !Array.isArray(data.items)) {
+        // Verifica se o objeto tem propriedades de contrato
+        if ('contract_id' in data.items || 'contract_name' in data.items || 'full_name' in data.items) {
+          return {
+            ...data.items,
+            id: data.items.id || data.items.contract_id || 0,
+            billings: data.items.billings || [],
+            last_adjustment: data.items.last_adjustment || null,
+            items: data.items.items || [],
+            services: data.items.services || []
+          };
+        }
+        return this.createEmptyContract();
       }
       
       // Se a resposta for um array

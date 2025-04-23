@@ -236,7 +236,8 @@ export const contractsApi = {
   getContract: async (id: number | string) => {
     const contractId = typeof id === 'number' ? id.toString() : id;
     console.log(`🔍 Buscando contrato com ID: ${contractId}`);
-    const response = await api.get(`/contracts/${contractId}`);
+    // Alterado para usar o endpoint correto conforme backend
+  const response = await api.get(`/contracts-recurring/${contractId}`);
     return response;
   }
 };
