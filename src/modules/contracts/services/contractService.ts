@@ -447,8 +447,10 @@ export const contractService = {
     try {
       console.log('🔍 Processando faturamento:', billingId);
       
-      // Fazer a requisição para processar o faturamento
-      await api.post(`/contracts-recurring/process-billing/${billingId}`);
+      // Usando o endpoint correto conforme a implementação original
+      const response = await api.post(`/contracts-recurring/${billingId}/billing`);
+      
+      console.log('✅ Fatura processada com sucesso:', response.data);
       
       return {
         success: true,

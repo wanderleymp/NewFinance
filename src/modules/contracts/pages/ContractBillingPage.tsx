@@ -452,21 +452,19 @@ export default function ContractBillingPage() {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    {billing.status === 'pending' && (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={() => handleProcessBilling(String(billing.id))}
-                        disabled={processingIds.includes(String(billing.id))}
-                      >
-                        {processingIds.includes(String(billing.id)) ? (
-                          <CircularProgress size={20} />
-                        ) : (
-                          'Processar'
-                        )}
-                      </Button>
-                    )}
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => handleProcessBilling(String(billing.id))}
+                      disabled={processingIds.includes(String(billing.id))}
+                    >
+                      {processingIds.includes(String(billing.id)) ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        'Processar'
+                      )}
+                    </Button>
                     <Button
                       variant="contained"
                       color="error"
