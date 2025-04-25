@@ -523,7 +523,7 @@ export const contractService = {
    * @param search Termo de busca (opcional)
    * @returns Lista de faturas pendentes com metadados de paginação
    */
-  async getPendingBillings(page = 1, limit = 10, contractId?: string | number, search?: string): Promise<{ 
+  async getAllRecurringContracts(page = 1, limit = 10, contractId?: string | number, search?: string): Promise<{ 
     items: any[], 
     meta: { 
       totalItems: number, 
@@ -537,7 +537,7 @@ export const contractService = {
       
       try {
         // Tentar fazer a requisição à API com método GET
-        console.log('🔍 Enviando requisição GET para /contracts-recurring/pending-billings');
+        console.log('🔍 Enviando requisição GET para /contracts-recurring');
         
         // Preparar os parâmetros para a consulta
         const queryParams: any = {
@@ -554,11 +554,11 @@ export const contractService = {
         Object.entries(queryParams).forEach(([key, value]) => {
           urlParams.append(key, String(value));
         });
-        const fullUrl = `/contracts-recurring/pending-billings?${urlParams.toString()}`;
+        const fullUrl = `/contracts-recurring?${urlParams.toString()}`;
         console.log(`🔍 URL completa da requisição: ${fullUrl}`);
         
         // Fazer a requisição GET
-        const response = await api.get('/contracts-recurring/pending-billings', { 
+        const response = await api.get('/contracts-recurring', { 
           params: queryParams 
         });
         
@@ -751,7 +751,7 @@ export const contractService = {
           meta.totalItems = filteredItems.length;
           meta.totalPages = Math.max(1, Math.ceil(filteredItems.length / limit));
           
-          console.log(`✅ Faturas pendentes encontradas após filtragem: ${filteredItems.length} de ${items.length}`);
+          console.log(`✅ Contratos recorrentes encontradas após filtragem: ${filteredItems.length} de ${items.length}`);
           
           // Se não encontrou resultados, tente uma busca mais avançada
           if (filteredItems.length === 0) {
@@ -838,7 +838,7 @@ export const contractService = {
           };
         }
         
-        console.log(`✅ Faturas pendentes encontradas: ${items.length}`);
+        console.log(`✅ Contratos recorrentes encontradas: ${items.length}`);
         
         return {
           items,
@@ -962,7 +962,7 @@ export const contractService = {
           currentPage: page
         };
         
-        console.log(`✅ Faturas pendentes mock: ${paginatedItems.length}`);
+        console.log(`✅ Contratos recorrentes mock: ${paginatedItems.length}`);
         
         return {
           items: paginatedItems,

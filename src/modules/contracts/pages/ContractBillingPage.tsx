@@ -127,8 +127,8 @@ export default function ContractBillingPage() {
       });
 
       const response = contractId 
-        ? await contractService.getPendingBillings(page, pagination.limit, contractId, search)
-        : await contractService.getPendingBillings(page, pagination.limit, undefined, search);
+        ? await contractService.getAllRecurringContracts(page, pagination.limit, contractId, search)
+        : await contractService.getAllRecurringContracts(page, pagination.limit, undefined, search);
 
       // Log para debug
       console.log('📋 Estrutura detalhada da primeira fatura:', 
